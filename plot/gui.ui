@@ -1,0 +1,415 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>Dialog</class>
+ <widget class="QDialog" name="Dialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>597</width>
+    <height>424</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Dialog</string>
+  </property>
+  <widget class="QPushButton" name="pushButton">
+   <property name="geometry">
+    <rect>
+     <x>240</x>
+     <y>220</y>
+     <width>81</width>
+     <height>28</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>draw plots</string>
+   </property>
+  </widget>
+  <widget class="QWidget" name="formLayoutWidget">
+   <property name="geometry">
+    <rect>
+     <x>100</x>
+     <y>20</y>
+     <width>361</width>
+     <height>193</height>
+    </rect>
+   </property>
+   <layout class="QFormLayout" name="formLayout">
+    <property name="fieldGrowthPolicy">
+     <enum>QFormLayout::AllNonFixedFieldsGrow</enum>
+    </property>
+    <item row="1" column="0">
+     <widget class="QLabel" name="label">
+      <property name="text">
+       <string>parameter set: </string>
+      </property>
+     </widget>
+    </item>
+    <item row="1" column="1">
+     <widget class="QComboBox" name="comboBox">
+      <item>
+       <property name="text">
+        <string>1</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>2</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>3</string>
+       </property>
+      </item>
+     </widget>
+    </item>
+    <item row="2" column="0">
+     <widget class="QLabel" name="label_2">
+      <property name="text">
+       <string>tracer: </string>
+      </property>
+     </widget>
+    </item>
+    <item row="2" column="1">
+     <widget class="QComboBox" name="comboBox_2">
+      <item>
+       <property name="text">
+        <string>DOP</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>PO4</string>
+       </property>
+      </item>
+     </widget>
+    </item>
+    <item row="3" column="0">
+     <widget class="QLabel" name="label_3">
+      <property name="text">
+       <string>time: </string>
+      </property>
+     </widget>
+    </item>
+    <item row="3" column="1">
+     <widget class="QComboBox" name="comboBox_3">
+      <item>
+       <property name="text">
+        <string>annual</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>January</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>February</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>March</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>April</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>May</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>June</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>July</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>August</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>September</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>October</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>November</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>December</string>
+       </property>
+      </item>
+     </widget>
+    </item>
+    <item row="4" column="0">
+     <widget class="QLabel" name="label_4">
+      <property name="text">
+       <string>depth: </string>
+      </property>
+     </widget>
+    </item>
+    <item row="4" column="1">
+     <widget class="QComboBox" name="comboBox_4">
+      <item>
+       <property name="text">
+        <string>0m - 50m</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>50m - 120m</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>120m - 220m</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>220m - 360m</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>360m - 550m</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>550m - 790m</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>790m - 1080m</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>1080m - 1420m</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>1420m - 1810m</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>1810m - 2250m</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>2250m - 2740m</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>2740m - 3280m</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>3280m - 3870m</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>3870m - 4510m</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>4510m - 5200m</string>
+       </property>
+      </item>
+     </widget>
+    </item>
+    <item row="5" column="0">
+     <widget class="QLabel" name="label_5">
+      <property name="text">
+       <string>sensitivity: </string>
+      </property>
+     </widget>
+    </item>
+    <item row="5" column="1">
+     <widget class="QComboBox" name="comboBox_5">
+      <item>
+       <property name="text">
+        <string>all parameters</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>Lambda: remineralization rate DOP</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>Alpha: max production rate</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>Sigma: fraction of DOP</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>K_N: half saturation N</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>K_I: half saturation light</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>K_{H_2O}: attenuation water</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>b: sinking exponent</string>
+       </property>
+      </item>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+ </widget>
+ <tabstops>
+  <tabstop>pushButton</tabstop>
+ </tabstops>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>pushButton</sender>
+   <signal>clicked()</signal>
+   <receiver>Dialog</receiver>
+   <slot>draw_plot()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>240</x>
+     <y>220</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>156</x>
+     <y>283</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>comboBox</sender>
+   <signal>currentIndexChanged(int)</signal>
+   <receiver>Dialog</receiver>
+   <slot>set_parameter_set(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>248</x>
+     <y>36</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>481</x>
+     <y>27</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>comboBox_2</sender>
+   <signal>currentIndexChanged(int)</signal>
+   <receiver>Dialog</receiver>
+   <slot>set_tracer_index(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>426</x>
+     <y>73</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>485</x>
+     <y>70</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>comboBox_3</sender>
+   <signal>currentIndexChanged(int)</signal>
+   <receiver>Dialog</receiver>
+   <slot>set_time_index(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>433</x>
+     <y>106</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>484</x>
+     <y>106</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>comboBox_4</sender>
+   <signal>currentIndexChanged(int)</signal>
+   <receiver>Dialog</receiver>
+   <slot>set_depth_index(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>439</x>
+     <y>140</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>485</x>
+     <y>141</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>comboBox_5</sender>
+   <signal>currentIndexChanged(int)</signal>
+   <receiver>Dialog</receiver>
+   <slot>set_sensitivity_index(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>440</x>
+     <y>169</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>487</x>
+     <y>177</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+ <slots>
+  <slot>draw_plot()</slot>
+  <slot>set_parameter_set(int)</slot>
+  <slot>set_tracer_index(int)</slot>
+  <slot>set_time_index(int)</slot>
+  <slot>set_depth_index(int)</slot>
+  <slot>set_sensitivity_index(int)</slot>
+ </slots>
+</ui>
