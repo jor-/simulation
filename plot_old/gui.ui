@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>502</width>
-    <height>415</height>
+    <width>597</width>
+    <height>424</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -16,8 +16,8 @@
   <widget class="QPushButton" name="pushButton">
    <property name="geometry">
     <rect>
-     <x>210</x>
-     <y>380</y>
+     <x>240</x>
+     <y>220</y>
      <width>81</width>
      <height>28</height>
     </rect>
@@ -29,16 +29,42 @@
   <widget class="QWidget" name="formLayoutWidget">
    <property name="geometry">
     <rect>
-     <x>20</x>
+     <x>100</x>
      <y>20</y>
-     <width>460</width>
-     <height>181</height>
+     <width>361</width>
+     <height>193</height>
     </rect>
    </property>
    <layout class="QFormLayout" name="formLayout">
     <property name="fieldGrowthPolicy">
      <enum>QFormLayout::AllNonFixedFieldsGrow</enum>
     </property>
+    <item row="1" column="0">
+     <widget class="QLabel" name="label">
+      <property name="text">
+       <string>parameter set: </string>
+      </property>
+     </widget>
+    </item>
+    <item row="1" column="1">
+     <widget class="QComboBox" name="comboBox">
+      <item>
+       <property name="text">
+        <string>1</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>2</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>3</string>
+       </property>
+      </item>
+     </widget>
+    </item>
     <item row="2" column="0">
      <widget class="QLabel" name="label_2">
       <property name="text">
@@ -71,7 +97,7 @@
      <widget class="QComboBox" name="comboBox_3">
       <item>
        <property name="text">
-        <string>annual (averaged)</string>
+        <string>annual</string>
        </property>
       </item>
       <item>
@@ -217,7 +243,7 @@
       </item>
       <item>
        <property name="text">
-        <string>below 4510m</string>
+        <string>4510m - 5200m</string>
        </property>
       </item>
      </widget>
@@ -225,7 +251,7 @@
     <item row="5" column="0">
      <widget class="QLabel" name="label_5">
       <property name="text">
-       <string>plot: </string>
+       <string>sensitivity: </string>
       </property>
      </widget>
     </item>
@@ -233,218 +259,44 @@
      <widget class="QComboBox" name="comboBox_5">
       <item>
        <property name="text">
-        <string>model: output</string>
+        <string>all parameters</string>
        </property>
       </item>
       <item>
        <property name="text">
-        <string>model: accuracy</string>
+        <string>Lambda: remineralization rate DOP</string>
        </property>
       </item>
       <item>
        <property name="text">
-        <string>model: difference output and observations</string>
+        <string>Alpha: max production rate</string>
        </property>
       </item>
       <item>
        <property name="text">
-        <string>observations: mean</string>
+        <string>Sigma: fraction of DOP</string>
        </property>
       </item>
       <item>
        <property name="text">
-        <string>observations: number</string>
+        <string>K_N: half saturation N</string>
        </property>
       </item>
       <item>
        <property name="text">
-        <string>observations: variance of measurement errors</string>
+        <string>K_I: half saturation light</string>
        </property>
       </item>
       <item>
        <property name="text">
-        <string>sensitivity: all parameters</string>
+        <string>K_{H_2O}: attenuation water</string>
        </property>
       </item>
       <item>
        <property name="text">
-        <string>sensitivity: Lambda (remineralization rate DOP)</string>
+        <string>b: sinking exponent</string>
        </property>
       </item>
-      <item>
-       <property name="text">
-        <string>sensitivity: Alpha (max production rate)</string>
-       </property>
-      </item>
-      <item>
-       <property name="text">
-        <string>sensitivity: Sigma (fraction of DOP)</string>
-       </property>
-      </item>
-      <item>
-       <property name="text">
-        <string>sensitivity: K_N (half saturation N)</string>
-       </property>
-      </item>
-      <item>
-       <property name="text">
-        <string>sensitivity: K_I (half saturation light)</string>
-       </property>
-      </item>
-      <item>
-       <property name="text">
-        <string>sensitivity: K_{H_2O} (attenuation water)</string>
-       </property>
-      </item>
-      <item>
-       <property name="text">
-        <string>sensitivity: b (sinking exponent)</string>
-       </property>
-      </item>
-     </widget>
-    </item>
-    <item row="6" column="0">
-     <widget class="QLabel" name="label">
-      <property name="text">
-       <string>parameter set: </string>
-      </property>
-     </widget>
-    </item>
-    <item row="6" column="1">
-     <widget class="QComboBox" name="comboBox">
-      <item>
-       <property name="text">
-        <string>1</string>
-       </property>
-      </item>
-      <item>
-       <property name="text">
-        <string>2</string>
-       </property>
-      </item>
-      <item>
-       <property name="text">
-        <string>3</string>
-       </property>
-      </item>
-      <item>
-       <property name="text">
-        <string>4</string>
-       </property>
-      </item>
-     </widget>
-    </item>
-   </layout>
-  </widget>
-  <widget class="QWidget" name="formLayoutWidget_2">
-   <property name="geometry">
-    <rect>
-     <x>20</x>
-     <y>220</y>
-     <width>461</width>
-     <height>151</height>
-    </rect>
-   </property>
-   <layout class="QFormLayout" name="formLayout_2">
-    <property name="fieldGrowthPolicy">
-     <enum>QFormLayout::AllNonFixedFieldsGrow</enum>
-    </property>
-    <item row="0" column="0">
-     <widget class="QLabel" name="label_8">
-      <property name="text">
-       <string>Lambda: remineralization rate DOP = </string>
-      </property>
-     </widget>
-    </item>
-    <item row="1" column="0">
-     <widget class="QLabel" name="label_7">
-      <property name="text">
-       <string>Alpha: max production rate = </string>
-      </property>
-     </widget>
-    </item>
-    <item row="1" column="1">
-     <widget class="QLabel" name="parameter_label_2">
-      <property name="text">
-       <string>TextLabel</string>
-      </property>
-     </widget>
-    </item>
-    <item row="2" column="0">
-     <widget class="QLabel" name="label_6">
-      <property name="text">
-       <string>Sigma: fraction of DOP = </string>
-      </property>
-     </widget>
-    </item>
-    <item row="2" column="1">
-     <widget class="QLabel" name="parameter_label_3">
-      <property name="text">
-       <string>TextLabel</string>
-      </property>
-     </widget>
-    </item>
-    <item row="3" column="0">
-     <widget class="QLabel" name="label_10">
-      <property name="text">
-       <string>K_N: half saturation N = </string>
-      </property>
-     </widget>
-    </item>
-    <item row="3" column="1">
-     <widget class="QLabel" name="parameter_label_4">
-      <property name="text">
-       <string>TextLabel</string>
-      </property>
-     </widget>
-    </item>
-    <item row="4" column="0">
-     <widget class="QLabel" name="label_9">
-      <property name="text">
-       <string>K_I: half saturation light = </string>
-      </property>
-     </widget>
-    </item>
-    <item row="4" column="1">
-     <widget class="QLabel" name="parameter_label_5">
-      <property name="text">
-       <string>TextLabel</string>
-      </property>
-     </widget>
-    </item>
-    <item row="5" column="0">
-     <widget class="QLabel" name="label_12">
-      <property name="text">
-       <string>K_{H_2O}: attenuation water = </string>
-      </property>
-     </widget>
-    </item>
-    <item row="5" column="1">
-     <widget class="QLabel" name="parameter_label_6">
-      <property name="text">
-       <string>TextLabel</string>
-      </property>
-     </widget>
-    </item>
-    <item row="6" column="0">
-     <widget class="QLabel" name="label_11">
-      <property name="text">
-       <string>b: sinking exponent = </string>
-      </property>
-     </widget>
-    </item>
-    <item row="6" column="1">
-     <widget class="QLabel" name="parameter_label_7">
-      <property name="text">
-       <string>TextLabel</string>
-      </property>
-     </widget>
-    </item>
-    <item row="0" column="1">
-     <widget class="QLabel" name="parameter_label_1">
-      <property name="text">
-       <string>TextLabel</string>
-      </property>
      </widget>
     </item>
    </layout>
@@ -466,8 +318,8 @@
      <y>220</y>
     </hint>
     <hint type="destinationlabel">
-     <x>112</x>
-     <y>229</y>
+     <x>156</x>
+     <y>283</y>
     </hint>
    </hints>
   </connection>
@@ -478,11 +330,11 @@
    <slot>set_parameter_set(int)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>357</x>
-     <y>181</y>
+     <x>248</x>
+     <y>36</y>
     </hint>
     <hint type="destinationlabel">
-     <x>420</x>
+     <x>481</x>
      <y>27</y>
     </hint>
    </hints>
@@ -494,11 +346,11 @@
    <slot>set_tracer_index(int)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>399</x>
-     <y>59</y>
+     <x>426</x>
+     <y>73</y>
     </hint>
     <hint type="destinationlabel">
-     <x>420</x>
+     <x>485</x>
      <y>70</y>
     </hint>
    </hints>
@@ -510,11 +362,11 @@
    <slot>set_time_index(int)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>399</x>
-     <y>92</y>
+     <x>433</x>
+     <y>106</y>
     </hint>
     <hint type="destinationlabel">
-     <x>420</x>
+     <x>484</x>
      <y>106</y>
     </hint>
    </hints>
@@ -526,11 +378,11 @@
    <slot>set_depth_index(int)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>399</x>
-     <y>125</y>
+     <x>439</x>
+     <y>140</y>
     </hint>
     <hint type="destinationlabel">
-     <x>420</x>
+     <x>485</x>
      <y>141</y>
     </hint>
    </hints>
@@ -539,42 +391,25 @@
    <sender>comboBox_5</sender>
    <signal>currentIndexChanged(int)</signal>
    <receiver>Dialog</receiver>
-   <slot>set_plot_index(int)</slot>
+   <slot>set_sensitivity_index(int)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>399</x>
-     <y>158</y>
+     <x>440</x>
+     <y>169</y>
     </hint>
     <hint type="destinationlabel">
-     <x>420</x>
+     <x>487</x>
      <y>177</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>Dialog</sender>
-   <signal>parameter_str_changed(QString)</signal>
-   <receiver>parameter_label_1</receiver>
-   <slot>setText(QString)</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>420</x>
-     <y>417</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>399</x>
-     <y>227</y>
     </hint>
    </hints>
   </connection>
  </connections>
  <slots>
-  <signal>parameter_str_changed(QString)</signal>
   <slot>draw_plot()</slot>
   <slot>set_parameter_set(int)</slot>
   <slot>set_tracer_index(int)</slot>
   <slot>set_time_index(int)</slot>
   <slot>set_depth_index(int)</slot>
-  <slot>set_plot_index(int)</slot>
+  <slot>set_sensitivity_index(int)</slot>
  </slots>
 </ui>

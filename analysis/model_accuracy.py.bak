@@ -1,0 +1,54 @@
+import numpy as np
+
+import ndop.measurements.data
+from ndop.metos3d.model import Model
+
+from util.debug import Debug
+
+class Model_accuracy(Debug):
+    
+    def __init__(self, debug_level=0, required_debug_level=1):
+        from ndop.metos3d.constants import MODEL_PARAMETER_DIM
+        
+        Debug.__init__(self, debug_level, required_debug_level-1, 'ndop.optimization.model_accuracy: ')
+        
+        self.print_debug_inc('Initiating model accuracy object.')
+        
+        self.means = ndop.measurements.data.means(self.debug_level, self.required_debug_level + 1)
+        self.squares = ndop.measurements.data.squares(self.debug_level, self.required_debug_level + 1)
+        
+        nobs = ndop.measurements.data.nobs(self.debug_level, self.required_debug_level + 1)
+        varis = ndop.measurements.data.varis(self.debug_level, self.required_debug_level + 1)
+        p_dim = MODEL_PARAMETER_DIM
+        
+        axis_sum = tuple(range(1, len(nobs.shape)))
+        self.axis_sum = axis_sum
+        
+        self.factors = 1 / (np.nansum(nobs, axis=axis_sum) - MODEL_PARAMETER_DIM)
+        
+        self.averaged_variance = np.nansum(nobs * varis, axis=axis_sum) / np.nansum(nobs, axis=axis_sum)
+        
+        self.print_debug_dec('Model accuracy object initiated.')
+    
+    
+    
+    def averaged_variance_estimation(self, model_f):
+        model_f_squares = model_f ** 2
+        
+        means = self.means
+        squares = self.squares
+        factors = self.factors
+        axis_sum = self.axis_sum
+        
+        ave = factors * np.nansum(squares - 2 * means * model_f + model_f_squares, axis=axis_sum)
+        
+        return ave
+    
+    
+#     def averaged_variance(self):
+#         nobs = self.nobs
+#         varis = self.varis
+#         
+#         averaged_variance = np.nansum(nobs * varis, axis=nobs.shape[1:]) / np.nansum(nobs, axis=nobs.shape[1:])
+#         
+#         return ave

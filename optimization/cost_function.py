@@ -1,6 +1,6 @@
 import numpy as np
 
-import ndop.measurements.load_data
+import ndop.measurements.data
 from ndop.metos3d.model import Model
 from util.debug import Debug
 
@@ -17,11 +17,11 @@ class Cost_function(Debug):
         
         self.model = Model(self.debug_level, self.required_debug_level + 1)
         
-        self.means = ndop.measurements.load_data.means(self.debug_level, self.required_debug_level + 1)
-        self.squares = ndop.measurements.load_data.squares(self.debug_level, self.required_debug_level + 1)
+        self.means = ndop.measurements.data.means(self.debug_level, self.required_debug_level + 1)
+        self.mos = ndop.measurements.data.mos(self.debug_level, self.required_debug_level + 1)
         
-        nobs = ndop.measurements.load_data.nobs(self.debug_level, self.required_debug_level + 1)
-        varis = ndop.measurements.load_data.varis(self.debug_level, self.required_debug_level + 1)
+        nobs = ndop.measurements.data.nobs(self.debug_level, self.required_debug_level + 1)
+        varis = ndop.measurements.data.varis(self.debug_level, self.required_debug_level + 1)
         self.nobs_per_vari = nobs / varis
         self.factor = 1 / np.nansum(nobs)
         
@@ -39,14 +39,14 @@ class Cost_function(Debug):
             self.last_parameters = parameters
             self.last_model_f = model_f
         
-        model_f_squares = model_f ** 2
+        model_f_mos = model_f ** 2
         
         means = self.means
-        squares = self.squares
+        mos = self.mos
         nobs_per_vari = self.nobs_per_vari
         factor = self.factor
         
-        f = factor * np.nansum(nobs_per_vari * (squares - 2 * means * model_f + model_f_squares))
+        f = factor * np.nansum(nobs_per_vari * (mos - 2 * means * model_f + model_f_mos))
         
         return f
     

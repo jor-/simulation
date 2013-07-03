@@ -42,19 +42,16 @@ def init_masked_array(land_sea_mask, t_dim, dtype=np.float64):
     shape = (t_dim, x_dim, y_dim, z_dim,)
     array = np.zeros(shape, dtype=dtype)
     
-#     for i in range(z_dim):
-#         np.where(land_sea_mask == i)
-#         array[:, np.where(land_sea_mask == i), i:] = np.nan
     for x, y in np.ndindex(x_dim, y_dim):
         z_max = land_sea_mask[x, y]
         array[:, x, y, z_max:] = np.nan
 
-    
     return array
 
 
+
 def save_regrided(land_sea_mask, t_dim=12, debug_level = 0, required_debug_level = 1):
-    from ndop.measurements.constants import DOP_NOBS, DOP_VARIS, DOP_MEANS, DOP_SQUARES
+    from ndop.measurements.constants import DOP_NOBS, DOP_VARIS, DOP_MEANS, DOP_MOS
     
     print_debug('Calculating and saving dop measurement data.', debug_level, required_debug_level,  'ndop.measurements.regrid_data.save_regrided: ')
     
@@ -65,18 +62,9 @@ def save_regrided(land_sea_mask, t_dim=12, debug_level = 0, required_debug_level
     ## init values
     nobs = init_masked_array(land_sea_mask, t_dim)
     varis = np.array(nobs, copy=True)
-    means = np.array(nobs, copy=True)
-    squares = np.array(nobs, copy=True)
-#     z_dim = np.nanmax(land_sea_mask)
-#     shape = (t_dim,) + land_sea_mask.shape + (z_dim,)
-#     nobs = np.empty(shape, dtype=np.int)
-#     for i in range(t_dim):
-#         nobs[i, :] = land_sea_mask * 0
-#     varis = np.empty(shape, dtype=np.float64)
-#     for i in range(t_dim):
-#         varis[i, :] = land_sea_mask * 0
-#     means = np.array(varis, copy=True) 
-#     squares = np.array(varis, copy=True) 
+    
+    sum_of_values = np.empty(nobs.shape, dtype=np.float64) * np.nan
+    sum_of_squares = np.array(sum_of_values, copy=True)
     
     ## insert measurements
     for i in range(len(values)):
@@ -85,22 +73,34 @@ def save_regrided(land_sea_mask, t_dim=12, debug_level = 0, required_debug_level
         (t_index, x_index, y_index, z_index) = ndop.metos3d.data.get_index(t, x, y, z, t_dim, land_sea_mask, debug_level = 0, required_debug_level = 1)
         
         nobs[t_index, x_index, y_index, z_index] += 1
-        means[t_index, x_index, y_index, z_index] += dop
-        squares[t_index, x_index, y_index, z_index] += dop**2
+        
+        if np.isnan(sum_of_values[t_index, x_index, y_index, z_index]):
+            sum_of_values[t_index, x_index, y_index, z_index] = dop
+        else:
+            sum_of_values[t_index, x_index, y_index, z_index] += dop
+        
+        if np.isnan(sum_of_squares[t_index, x_index, y_index, z_index]):
+            sum_of_squares[t_index, x_index, y_index, z_index] = dop**2
+        else:
+            sum_of_squares[t_index, x_index, y_index, z_index] += dop**2
     
     ## average measurements
     where_measurements = np.where(nobs >= 1)
-    means[where_measurements] /= nobs[where_measurements]
-    squares[where_measurements] /= nobs[where_measurements]
+    
+    mean = np.array(sum_of_values, copy=True)
+    mean_of_square = np.array(sum_of_squares, copy=True)
+    
+    mean[where_measurements] /= nobs[where_measurements]
+    mean_of_square[where_measurements] /= nobs[where_measurements]
     
     ## calculate variance
     where_measurements_ge_3 = np.where(nobs >= 3)
-    squares3 = squares[where_measurements_ge_3]
-    means3 = means[where_measurements_ge_3]
-    nobs3 = nobs[where_measurements_ge_3]
+    nobs_3 = nobs[where_measurements_ge_3]
+    sum_of_values_3 = sum_of_values[where_measurements_ge_3]
+    sum_of_squares_3 = sum_of_squares[where_measurements_ge_3]
     
     #sd^2 = (SUM(x_i*x_i)-(SUM(x_i))^2/n)/(n-1)
-    varis[where_measurements_ge_3] = (squares3 - means3**2) * (nobs3 / (nobs3 - 1))
+    varis[where_measurements_ge_3] = (sum_of_squares_3 - sum_of_values_3 ** 2 / nobs_3) / (nobs_3 - 1)
     varis[np.where(varis < 0)] = 0
     vari_averaged = np.nansum(varis) / (varis > 0).sum()
     varis[np.where(varis == 0)] = vari_averaged
@@ -108,9 +108,6 @@ def save_regrided(land_sea_mask, t_dim=12, debug_level = 0, required_debug_level
     ## save values
     np.save(DOP_NOBS, nobs)
     np.save(DOP_VARIS, varis)
-    np.save(DOP_MEANS, means)
-    np.save(DOP_SQUARES, squares)
+    np.save(DOP_MEANS, mean)
+    np.save(DOP_MOS, mean_of_square)
 
-
-
-    

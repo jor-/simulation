@@ -69,7 +69,7 @@ class Model(Debug):
     
     def run_job(self, model_parameters, output_path=os.getcwd(), years=1, tolerance=0, time_step_size=1, write_trajectory=False, tracer_input_path=None, pause_time_seconds=10):
         
-        self.print_debug_inc('Running job.')
+        self.print_debug_inc(('Running job with years = ', years, ' tolerance = ', tolerance, ' time_step_size = ', time_step_size, ' tracer_input_path = ', tracer_input_path))
         
         ## check parameters
         self.check_if_parameters_in_bounds(model_parameters)
@@ -94,29 +94,144 @@ class Model(Debug):
     
     
     
-    def search_or_make_parameter_set_dir(self, search_path, parameters):
-        from ndop.metos3d.constants import MODEL_PARAMETERS_FILENAME, MODEL_PARAMETERS_SET_DIRECTORY, MODEL_PARAMETERS_FORMAT_STRING
+    def get_parameters_diff(self, parameters, parameter_set_dir):
+        from ndop.metos3d.constants import MODEL_PARAMETERS_FILENAME
         
+        parameters_file = os.path.join(parameter_set_dir, MODEL_PARAMETERS_FILENAME)
+        current_parameters = np.loadtxt(parameters_file)
+        
+        parameter_diff = np.linalg.norm(parameters - current_parameters)
+        
+        return parameter_diff
+    
+    
+    
+#     def get_parameter_set_dir(self, path):
+#         from ndop.metos3d.constants import MODEL_PARAMETERS_SET_DIRNAME
+#         
+#         parameter_set_dir = None
+#         while parameter_set_dir is None and len(path) > 0:
+#             (head, tail) = os.path.split(path)
+#             if util.pattern.is_matching(tail, MODEL_PARAMETERS_SET_DIRNAME):
+#                 parameter_set_dir = path
+#             else:
+#                 path = head
+#         
+#         return parameter_set_dir
+    
+    
+    def is_matching_parameter_set(self, parameters, parameter_set_dir):
+        from ndop.metos3d.constants import MODEL_PARAMETERS_MAX_DIFF
+        
+#         parameter_set_dir = self.get_parameter_set_dir(path)
+        parameters_diff = self.get_parameters_diff(parameters, parameter_set_dir)
+        is_matching = parameters_diff <= MODEL_PARAMETERS_MAX_DIFF
+        
+        return is_matching
+    
+#     def is_same_parameter_set(self, path1, path2):
+#         parameter_set_dir_1 = self.get_parameter_set_dir(path1)
+#         parameter_set_dir_2 = self.get_parameter_set_dir(path2)
+#         
+#         is_matching = parameter_set_dir_1 == parameter_set_dir_2
+#         
+#         return is_matching
+    
+    
+#     def search_nearest_parameter_set_dir(self, search_path, parameters):
+#         self.print_debug_inc(('Searching for directory for parameters as close as possible to "', parameters, '" in "', search_path, '".'))
+#         
+#         ## check input
+#         self.check_if_parameters_in_bounds(parameters)
+#         
+#         
+#         ## search for directories with matching parameters
+#         parameter_set_dir = None
+#         parameter_set_number = 0
+#         parameters_diff = float('inf')
+#         
+#         if os.path.exists(search_path):
+#             parameter_set_dirs = util.io.get_dirs(search_path)
+#             while parameters_diff > 0 and parameter_set_number < len(parameter_set_dirs):
+#                 current_parameter_set_dir = parameter_set_dirs[parameter_set_number]
+#                 try:
+#                     current_parameters_diff = self.get_parameters_diff(parameters, current_parameter_set_dir)
+#                 except IOError:
+#                     warnings.warn('Could not read the parameters file "' + current_parameters_file + '"!')
+#                     current_parameters_diff = float('inf')
+#                 
+#                 if current_parameters_diff < parameters_diff:
+#                     parameter_set_dir = current_parameter_set_dir
+#                     parameters_diff = current_parameters_diff
+#                 
+#                 parameter_set_number += 1
+#         
+#         if parameter_set_dir is not None:
+#             self.print_debug_dec(('Directory closest to parameters at "', parameter_set_dir, '" found.'))
+#         else:
+#             self.print_debug_dec('No directory closest to parameters found.')
+#         
+#         return parameter_set_dir
+    
+    
+    
+    def make_new_parameter_set_dir(self, path, parameters):
+        from ndop.metos3d.constants import MODEL_PARAMETERS_SET_DIRNAME, MODEL_PARAMETERS_FILENAME, MODEL_PARAMETERS_FORMAT_STRING
+        
+        self.print_debug_inc(('Creating new parameter set directory in "', path, '".'))
+        
+#         parameter_set_dirs = util.io.get_dirs(path)
+#         next_parameter_set_number = len(parameter_set_dirs)
+#         
+#         parameter_set_dirname = util.pattern.replace_int_pattern(MODEL_PARAMETERS_SET_DIRNAME, next_parameter_set_number)
+#         parameter_set_dir = os.path.join(path, parameter_set_dirname)
+#         os.makedirs(parameter_set_dir)
+
+        parameter_set_number = 0
+        parameter_set_dir = None
+        while parameter_set_dir is None:
+            parameter_set_dirname = util.pattern.replace_int_pattern(MODEL_PARAMETERS_SET_DIRNAME, parameter_set_number)
+            parameter_set_dir_candidate = os.path.join(path, parameter_set_dirname)
+            if os.path.isdir(parameter_set_dir_candidate):
+                parameter_set_number +=  1
+            else:
+                os.makedirs(parameter_set_dir_candidate)
+                parameter_set_dir = parameter_set_dir_candidate
+        
+        parameters_file = os.path.join(parameter_set_dir, MODEL_PARAMETERS_FILENAME)
+        np.savetxt(parameters_file, parameters, fmt=MODEL_PARAMETERS_FORMAT_STRING)
+        os.chmod(parameters_file, stat.S_IRUSR)
+        self.print_debug_dec(('New parameter set directory "', parameter_set_dir, '" created.'))
+        
+        return parameter_set_dir
+        
+        
+    def search_or_make_parameter_set_dir(self, search_path, parameters):
         self.print_debug_inc(('Searching for directory for parameters "', parameters, '" in "', search_path, '".'))
         
         ## check input
         self.check_if_parameters_in_bounds(parameters)
-        
         
         ## search for directories with matching parameters
         parameter_set_dir = None
         parameter_set_number = 0
         
         if os.path.exists(search_path):
+# #             closest_parameter_set_dir = self.search_nearest_parameter_set_dir(search_path, parameters)
+# #             if self.is_matching_parameter_set(parameters, closest_parameter_set_dir):
+# #                 parameter_set_dir = closest_parameter_set_dir
+# # #             closest_parameters = np.loadtxt(current_parameters_file)
+# # #             if all(closest_parameters == parameters):
+# # #                 parameter_set_dir = closest_parameter_set_dir
             parameter_set_dirs = util.io.get_dirs(search_path)
             while parameter_set_dir is None and parameter_set_number < len(parameter_set_dirs):
                 current_parameter_set_dir = parameter_set_dirs[parameter_set_number]
-                current_parameters_file = os.path.join(current_parameter_set_dir, MODEL_PARAMETERS_FILENAME)
+#                 current_parameters_file = os.path.join(current_parameter_set_dir, MODEL_PARAMETERS_FILENAME)
                 try:
-                    current_parameters = np.loadtxt(current_parameters_file)
-                    if all(current_parameters == parameters):
+#                     current_parameters = np.loadtxt(current_parameters_file)
+                    if self.is_matching_parameter_set(parameters, current_parameter_set_dir):
+                    #if all(current_parameters == parameters):
                         parameter_set_dir = current_parameter_set_dir
-                        self.print_debug(('Matching directory for parameters at "', current_parameter_set_dir, '" found.'))
                 except IOError:
                     warnings.warn('Could not read the parameters file "' + current_parameters_file + '"!')
                 
@@ -127,27 +242,29 @@ class Model(Debug):
         
         
         ## make new model_output if the parameters are not matching
-        if parameter_set_dir is None:
-            self.print_debug(('No matching directory for parameters found.'))
-            parameter_set_dirname = util.pattern.replace_int_pattern(MODEL_PARAMETERS_SET_DIRECTORY, parameter_set_number)
-            parameter_set_dir = os.path.join(search_path, parameter_set_dirname)
-            os.makedirs(parameter_set_dir)
+        if parameter_set_dir is not None:
+            self.print_debug_dec(('Matching directory for parameters at "', current_parameter_set_dir, '" found.'))
+        else:
+            parameter_set_dir = self.make_new_parameter_set_dir(search_path, parameters)
+#             self.print_debug(('No matching directory for parameters found.'))
+#             parameter_set_dirname = util.pattern.replace_int_pattern(MODEL_PARAMETERS_SET_DIRNAME, parameter_set_number)
+#             parameter_set_dir = os.path.join(search_path, parameter_set_dirname)
+#             os.makedirs(parameter_set_dir)
+#             
+#             parameters_file = os.path.join(parameter_set_dir, MODEL_PARAMETERS_FILENAME)
+#             np.savetxt(parameters_file, parameters, fmt=MODEL_PARAMETERS_FORMAT_STRING)
+#             os.chmod(parameters_file, stat.S_IRUSR)
+#             self.print_debug(('Directory "', parameter_set_dir, '" for parameters created.'))
             
-            parameters_file = os.path.join(parameter_set_dir, MODEL_PARAMETERS_FILENAME)
-            np.savetxt(parameters_file, parameters, fmt=MODEL_PARAMETERS_FORMAT_STRING)
-            os.chmod(parameters_file, stat.S_IRUSR)
-            self.print_debug(('Directory "', parameter_set_dir, '" for parameters created.'))
-            
-        self.required_debug_level_dec()
+            self.print_debug_dec(('Directory for parameters "', parameters, '" created in "', parameter_set_dir, '".'))
         
         return parameter_set_dir
     
     
-    
     def get_run_dirs(self, search_path):
-        from ndop.metos3d.constants import MODEL_RUN_DIRECTORY
+        from ndop.metos3d.constants import MODEL_RUN_DIRNAME
         
-        run_dir_condition = lambda file: os.path.isdir(file) and util.pattern.is_matching(os.path.basename(file), MODEL_RUN_DIRECTORY)
+        run_dir_condition = lambda file: os.path.isdir(file) and util.pattern.is_matching(os.path.basename(file), MODEL_RUN_DIRNAME)
         try:
             run_dirs = util.io.filter_files(search_path, run_dir_condition)
         except IOError as exception:
@@ -159,7 +276,7 @@ class Model(Debug):
     
     
     def search_last_run_dir(self, search_path):
-        from ndop.metos3d.constants import MODEL_RUN_DIRECTORY
+        from ndop.metos3d.constants import MODEL_RUN_DIRNAME
         
         self.print_debug_inc(('Searching for last run in "', search_path, '".'))
         
@@ -197,20 +314,27 @@ class Model(Debug):
     
     
     
-    def get_run_options(self, run_path):
-        from ndop.metos3d.constants import MODEL_RUN_OPTIONS_FILENAME
-        
-        options_file = os.path.join(run_path, MODEL_RUN_OPTIONS_FILENAME)
-        options = np.loadtxt(options_file)
-        
-        return options
+#     def get_run_options(self, run_path):
+#         from ndop.metos3d.constants import MODEL_RUN_OPTIONS_FILENAME
+#         
+#         options_file = os.path.join(run_path, MODEL_RUN_OPTIONS_FILENAME)
+#         options = np.loadtxt(options_file)
+#         
+#         return options
     
     
     
-    def is_run_matching_options(self, run_path, years, tolerance, time_step_size):
-        if run_path is not None:
-            (run_years, run_tolerance, run_time_step_size) = self.get_run_options(run_path)
-            is_matching = years <= run_years and tolerance >= run_tolerance and time_step_size >= run_time_step_size
+    def is_run_matching_options(self, run_dir, years, tolerance, time_step_size):
+        if run_dir is not None:
+#             (run_years, run_tolerance, run_time_step_size) = self.get_run_options(run_path
+#             is_matching = years <= run_years and tolerance >= run_tolerance and time_step_size >= run_time_step_size
+
+            run_years = self.get_total_years(run_dir)
+            run_tolerance = self.get_real_tolerance(run_dir)
+            run_time_step_size = self.get_time_step_size(run_dir)
+            
+            
+            is_matching = time_step_size >= run_time_step_size and (years <= run_years or tolerance >= run_tolerance)
         else:
             is_matching = False
         
@@ -219,12 +343,12 @@ class Model(Debug):
     
     
     def previous_run_dir(self, run_dir):
-        from ndop.metos3d.constants import MODEL_RUN_DIRECTORY
+        from ndop.metos3d.constants import MODEL_RUN_DIRNAME
         
         (spinup_dir, run_dirname) = os.path.split(run_dir)
-        run_index = int(re.findall('\d', run_dirname)[0])
+        run_index = int(re.findall('\d+', run_dirname)[0])
         if run_index > 0:
-            previous_run_dirname = util.pattern.replace_int_pattern(MODEL_RUN_DIRECTORY, run_index - 1)
+            previous_run_dirname = util.pattern.replace_int_pattern(MODEL_RUN_DIRNAME, run_index - 1)
             previous_run_dir = os.path.join(spinup_dir, previous_run_dirname)
         else:
             previous_run_dir = None
@@ -256,20 +380,79 @@ class Model(Debug):
     
     
     
-    def make_run(self, path, parameters, years, tolerance, time_step_size, tracer_input_path=None):
-        from ndop.metos3d.constants import MODEL_RUN_DIRECTORY, MODEL_RUN_OPTIONS_FILENAME
+    def get_time_step_size(self, run_dir):
+        from ndop.metos3d.constants import MODEL_RUN_OPTIONS_FILENAME
         
-        self.print_debug_inc('Creating new run directory...')
+        options_file = os.path.join(run_dir, MODEL_RUN_OPTIONS_FILENAME)
+        options = np.loadtxt(options_file)
+        
+        (years, tolerance, time_step_size) = options
+        
+        return time_step_size
+    
+    
+    
+    def get_real_tolerance(self, run_dir):
+        job = Job(debug_level=self.debug_level, required_debug_level=self.required_debug_level+1)
+        job.load(run_dir)
+        tolerance = job.last_tolerance     
+        
+        return tolerance
+    
+    
+    
+    def get_tracer_input_dir(self, run_dir):
+        job = Job(debug_level=self.debug_level, required_debug_level=self.required_debug_level+1)
+        job.load(run_dir)
+        tracer_input_dir = job.get_tracer_input_path()
+        
+        return tracer_input_dir
+    
+    
+#     def extract_parameter_set_dir(self, path):
+#         from ndop.metos3d.constants import MODEL_PARAMETERS_SET_DIRNAME
+#         
+#         path_split = path.split(os.path.sep)
+#         match_list = util.pattern.get_all_matching_strings(path_split, MODEL_PARAMETERS_SET_DIRNAME)
+#         
+#         if len(match_list) >= 1:
+#             return match_list[0]
+#         else:
+#             return None
+
+#     def get_parameters(self, path):
+#         parameters = None
+#         
+#         parameters_file =
+#         os.path.dirname(path)
+#         
+#         
+#         from ndop.metos3d.constants import MODEL_PARAMETERS_FILENAME, MODEL_PARAMETERS_SET_DIRNAME, MODEL_PARAMETERS_FORMAT_STRING
+#         
+#         self.print_debug_inc(('Searching for directory for parameters "', parameters, '" in "', search_path, '".'))
+#         
+#         parameter_set_dirname = util.pattern.replace_int_pattern(MODEL_PARAMETERS_SET_DIRNAME, parameter_set_number)
+#         parameter_set_dir = os.path.join(search_path, parameter_set_dirname)
+#         os.makedirs(parameter_set_dir)
+#         
+#         parameters_file = os.path.join(parameter_set_dir, MODEL_PARAMETERS_FILENAME)
+#         np.savetxt(parameters_file, parameters, fmt=MODEL_PARAMETERS_FORMAT_STRING)
+    
+    
+    def make_run(self, output_path, parameters, years, tolerance, time_step_size, tracer_input_path=None):
+        from ndop.metos3d.constants import MODEL_RUN_DIRNAME, MODEL_RUN_OPTIONS_FILENAME
+        
+        self.print_debug_inc('Creating new run directory ...')
         
         ## get next run index
-        util.io.makedirs_if_not_exists(path)
-        run_dirs = self.get_run_dirs(path)
+        util.io.makedirs_if_not_exists(output_path)
+        run_dirs = self.get_run_dirs(output_path)
         next_run_index = len(run_dirs)
         
         ## create run dir
-        run_dirname = util.pattern.replace_int_pattern(MODEL_RUN_DIRECTORY, next_run_index)
-        run_dir = os.path.join(path, run_dirname)
-        self.print_debug(('... at ', run_dir, '.'))
+        run_dirname = util.pattern.replace_int_pattern(MODEL_RUN_DIRNAME, next_run_index)
+        run_dir = os.path.join(output_path, run_dirname)
+        self.print_debug(('... at ', run_dir, ' ...'))
         os.makedirs(run_dir)
         
         ## create run options file
@@ -279,10 +462,13 @@ class Model(Debug):
         os.chmod(run_options_file, stat.S_IRUSR)
         
         ## create run
-        if tracer_input_path is not None:
+        if tracer_input_path is not None and output_path == os.path.dirname(tracer_input_path):
+        # and self.is_same_parameter_set(output_path, tracer_input_path):
             last_years = self.get_total_years(tracer_input_path)
         else:
             last_years = 0
+        self.print_debug(('... with last_years = ', last_years, ' and tracer_input_path = ', tracer_input_path))
+            
         self.run_job(parameters, output_path=run_dir, tracer_input_path=tracer_input_path, years=years-last_years, tolerance=tolerance, time_step_size=time_step_size, pause_time_seconds=150)
         
         self.print_debug_dec(('Run directory ', run_dir, ' created.'))
@@ -291,10 +477,45 @@ class Model(Debug):
     
     
     
-    def search_or_make_spinup(self, parameter_set_dir, parameters, years, tolerance, time_step_size):
-        from ndop.metos3d.constants import MODEL_SPINUP_DIRECTORY
+    def search_closest_spinup_run(self, parameters):
+        from ndop.metos3d.constants import MODEL_OUTPUTS_DIR, MODEL_SPINUP_DIRNAME
+        self.print_debug_inc(('Searching for spinup run as close as possible to parameters "', parameters, '".'))
         
-        spinup_dir = os.path.join(parameter_set_dir, MODEL_SPINUP_DIRECTORY)
+        ## search for parameter set directories with matching parameters
+        closest_run_dir = None
+        parameter_set_number = 0
+        parameters_diff = float('inf')
+        
+        parameter_set_dirs = util.io.get_dirs(MODEL_OUTPUTS_DIR)
+        while parameters_diff > 0 and parameter_set_number < len(parameter_set_dirs):
+            current_parameter_set_dir = parameter_set_dirs[parameter_set_number]
+            try:
+                current_parameters_diff = self.get_parameters_diff(parameters, current_parameter_set_dir)
+            except IOError:
+                warnings.warn('Could not read the parameters file "' + current_parameters_file + '"!')
+                current_parameters_diff = float('inf')
+            
+            current_spinup_dir = os.path.join(current_parameter_set_dir, MODEL_SPINUP_DIRNAME)
+            last_run_dir = self.search_last_run_dir(current_spinup_dir)
+            if last_run_dir is not None and current_parameters_diff < parameters_diff:
+                closest_run_dir = last_run_dir
+                parameters_diff = current_parameters_diff
+            
+            parameter_set_number += 1
+        
+        if closest_run_dir is not None:
+            self.print_debug_dec(('Spinup run as close as possible found at "', closest_run_dir, '".'))
+        else:
+            self.print_debug_dec('No spinup run found.')
+        
+        return closest_run_dir
+    
+    
+    
+    def search_or_make_spinup(self, parameter_set_dir, parameters, years, tolerance, time_step_size):
+        from ndop.metos3d.constants import MODEL_SPINUP_DIRNAME, MODEL_OUTPUTS_DIR
+        
+        spinup_dir = os.path.join(parameter_set_dir, MODEL_SPINUP_DIRNAME)
         
         self.print_debug_inc(('Searching for spinup with "', years, '" years, "', tolerance, '" tolerance and "', time_step_size, '" time step size in "', spinup_dir, '".'))
         
@@ -308,8 +529,16 @@ class Model(Debug):
         ## create new spinup
         else:
             self.print_debug(('No matching spinup found.'))
+            
+#             closest_parameter_set_dir = self.search_nearest_parameter_set_dir(MODEL_OUTPUTS_DIR, parameters)
+#             closest_spinup_dir = os.path.join(closest_parameter_set_dir, MODEL_SPINUP_DIRNAME)
+#             self.search_last_run_dir(closest_spinup_dir)
+            last_run_dir = self.search_closest_spinup_run(parameters)
+        
             run_dir = self.make_run(spinup_dir, parameters, years, tolerance, time_step_size, tracer_input_path=last_run_dir)
+            
             self.print_debug(('Spinup directory ', run_dir, ' created.'))
+            
             self.remove_f(parameter_set_dir)
         
         self.print_debug_dec('Spinup found.')
@@ -320,10 +549,11 @@ class Model(Debug):
     
     
     def get_trajectory(self, run_dir, parameters, t_dim):
-        (run_years, run_tolerance, run_time_step_size) = self.get_run_options(run_dir)
+#         (run_years, run_tolerance, run_time_step_size) = self.get_run_options(run_dir)
+        run_time_step_size = self.get_time_step_size(run_dir)
         
         with tempfile.TemporaryDirectory(dir=run_dir, prefix='trajectory_tmp_') as tmp_path:
-            self.run_job(parameters, output_path=tmp_path, tracer_input_path=run_dir, write_trajectory=True, years=1, tolerance=run_tolerance, time_step_size=run_time_step_size, pause_time_seconds=10)
+            self.run_job(parameters, output_path=tmp_path, tracer_input_path=run_dir, write_trajectory=True, years=1, tolerance=0, time_step_size=run_time_step_size, pause_time_seconds=10)
             
             trajectory_path = os.path.join(tmp_path, 'trajectory')
             
@@ -380,11 +610,11 @@ class Model(Debug):
     
     
     def f(self, parameters, t_dim=12, years=7000, tolerance=0, time_step_size=1):
-        from ndop.metos3d.constants import MODEL_OUTPUTS_PATH
+        from ndop.metos3d.constants import MODEL_OUTPUTS_DIR
         
-        self.print_debug_inc(('Searching for f value for parameters "', parameters, '" in "', MODEL_OUTPUTS_PATH, '".'))
+        self.print_debug_inc(('Searching for f value for parameters "', parameters, '" in "', MODEL_OUTPUTS_DIR, '".'))
         
-        parameter_set_dir = self.search_or_make_parameter_set_dir(MODEL_OUTPUTS_PATH, parameters)
+        parameter_set_dir = self.search_or_make_parameter_set_dir(MODEL_OUTPUTS_DIR, parameters)
         spinup_run_dir = self.search_or_make_spinup(parameter_set_dir, parameters, years, tolerance, time_step_size)
         f = self.search_or_make_f(parameter_set_dir, spinup_run_dir, parameters, t_dim)
         
@@ -408,9 +638,9 @@ class Model(Debug):
     
     
     def df(self, parameters, t_dim=12, years=7000, tolerance=0, time_step_size=1, accuracy_order=1):
-        from ndop.metos3d.constants import MODEL_OUTPUTS_PATH, MODEL_DERIVATIVE_DIRECTORY, MODEL_SPINUP_DIRECTORY, MODEL_PARTIAL_DERIVATIVE_DIRECTORY, MODEL_DERIVATIVE_SPINUP_YEARS, MODEL_DF_FILENAME
+        from ndop.metos3d.constants import MODEL_OUTPUTS_DIR, MODEL_DERIVATIVE_DIRNAME, MODEL_SPINUP_DIRNAME, MODEL_PARTIAL_DERIVATIVE_DIRNAME, MODEL_DERIVATIVE_SPINUP_YEARS, MODEL_DF_FILENAME
         
-        self.print_debug_inc(('Searching for derivative for parameters "', parameters, '" in "', MODEL_OUTPUTS_PATH, '".'))
+        self.print_debug_inc(('Searching for derivative for parameters "', parameters, '" in "', MODEL_OUTPUTS_DIR, '".'))
         
         ## chose h factors
         if accuracy_order == 1:
@@ -421,8 +651,8 @@ class Model(Debug):
             raise ValueError('Accuracy order ' + str(accuracy_order) + ' not supported.')
         
         ## search directories
-        parameter_set_dir = self.search_or_make_parameter_set_dir(MODEL_OUTPUTS_PATH, parameters)
-        derivative_dir = os.path.join(parameter_set_dir, MODEL_DERIVATIVE_DIRECTORY)
+        parameter_set_dir = self.search_or_make_parameter_set_dir(MODEL_OUTPUTS_DIR, parameters)
+        derivative_dir = os.path.join(parameter_set_dir, MODEL_DERIVATIVE_DIRNAME)
         
         ## check if spinup runs for derivatives are matching the options
         parameters_len = len(parameters)
@@ -434,10 +664,17 @@ class Model(Debug):
         while is_matching and i < parameters_len:
             j = 0
             while is_matching and j < h_factors_len:
-                partial_derivative_dirname = util.pattern.replace_int_pattern(MODEL_PARTIAL_DERIVATIVE_DIRECTORY, (i, j))
+                ## check derivative spinup
+                partial_derivative_dirname = util.pattern.replace_int_pattern(MODEL_PARTIAL_DERIVATIVE_DIRNAME, (i, j))
                 partial_derivative_dir = os.path.join(derivative_dir, partial_derivative_dirname)
                 last_der_run_dir = self.search_last_run_dir(partial_derivative_dir)
-                is_matching = self.is_run_matching_options(last_der_run_dir, years, tolerance, time_step_size)
+#                 is_matching = self.is_run_matching_options(last_der_run_dir, years, tolerance, time_step_size)
+                is_matching = self.is_run_matching_options(last_der_run_dir, MODEL_DERIVATIVE_SPINUP_YEARS, 0, time_step_size)
+                
+                ## check normal input spinup
+                if is_matching:
+                    tracer_input_dir = self.get_tracer_input_dir(last_der_run_dir)
+                    is_matching = is_matching and self.is_run_matching_options(tracer_input_dir, years - MODEL_DERIVATIVE_SPINUP_YEARS, tolerance, time_step_size)
                 j += 1
             i += 1
         
@@ -446,7 +683,7 @@ class Model(Debug):
         if is_matching:
             self.print_debug('Existing derivative spinup runs are matching the options.')
             accuracy_order_i = 2
-            while df is None and accuracy_order_i >= 1:
+            while df is None and accuracy_order_i >= accuracy_order:
                 df_filename = util.pattern.replace_int_pattern(MODEL_DF_FILENAME, (t_dim, accuracy_order_i))
                 df_file = os.path.join(parameter_set_dir, df_filename)
                 try:
@@ -472,10 +709,8 @@ class Model(Debug):
                 spinup_run_dir = previous_spinup_run_dir
                 spinup_run_years = previous_spinup_run_years
             
-            derivative_run_years = spinup_run_years + MODEL_DERIVATIVE_SPINUP_YEARS
-            
             if accuracy_order == 1:
-                f = self.f(parameters, t_dim, derivative_run_years, 0, time_step_size)
+                f = self.f(parameters, t_dim, spinup_run_years + MODEL_DERIVATIVE_SPINUP_YEARS, 0, time_step_size)
             else:
                 f = self.f(parameters, t_dim, spinup_run_years, tolerance, time_step_size)
             df = np.zeros(f.shape + (parameters_len,))
@@ -485,23 +720,23 @@ class Model(Debug):
             h = np.empty(parameters_len)
             
             for i in range(parameters_len):
-                h[i] = max(abs(parameters[i]), eps_sqrt * 2**8) * eps_sqrt;
+                h[i] = max(abs(parameters[i]), eps_sqrt * 2**8) * eps_sqrt
                 
                 for j in range(h_factors_len):
                     h_factor = h_factors[j]
-                    partial_derivative_dirname = util.pattern.replace_int_pattern(MODEL_PARTIAL_DERIVATIVE_DIRECTORY, (i, j))
+                    partial_derivative_dirname = util.pattern.replace_int_pattern(MODEL_PARTIAL_DERIVATIVE_DIRNAME, (i, j))
                     partial_derivative_dir = os.path.join(derivative_dir, partial_derivative_dirname)
                     last_der_run_dir = self.search_last_run_dir(partial_derivative_dir)
                     
-                    if not self.is_run_matching_options(last_der_run_dir, derivative_run_years, tolerance, time_step_size):
-                        delta_p_i = h_factor * h[i];
+                    if not self.is_run_matching_options(last_der_run_dir, MODEL_DERIVATIVE_SPINUP_YEARS, 0, time_step_size):
+                        delta_p_i = h_factor * h[i]
                         
                         parameters_der = np.copy(parameters)
                         parameters_der[i] += delta_p_i
                         parameters_der[i] = min(parameters_der[i], self.parameters_upper_bound[i])
                         parameters_der[i] = max(parameters_der[i], self.parameters_lower_bound[i])
                         
-                        last_der_run_dir = self.make_run(partial_derivative_dir, parameters_der, derivative_run_years, 0, time_step_size, tracer_input_path=spinup_run_dir)
+                        last_der_run_dir = self.make_run(partial_derivative_dir, parameters_der, MODEL_DERIVATIVE_SPINUP_YEARS, 0, time_step_size, tracer_input_path=spinup_run_dir)
                         
                     df[..., i] += h_factor * self.get_trajectory(last_der_run_dir, parameters, t_dim)
                 

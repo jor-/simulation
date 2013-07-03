@@ -11,7 +11,8 @@ DF_EVAL_FILE = '/work_j2/sunip229/NDOP/parameter_optimization/df_eval_iterations
 
 RES_FILE = '/work_j2/sunip229/NDOP/parameter_optimization/res.p'
 
-Y_FILE=F_FILE
-Y_EVAL_FILE=F_EVAL_FILE
-DY_FILE=DF_FILE
-DY_EVAL_FILE=DF_EVAL_FILE
+
+from ndop.metos3d.constants import MODEL_OUTPUTS_DIR
+COST_FUNCTION_OUTPUT_DIRNAME = 'cost_function'
+COST_FUNCTION_F_FILENAME = 'cost_function_f'
+COST_FUNCTION_DF_FILENAME = 'cost_function_df'

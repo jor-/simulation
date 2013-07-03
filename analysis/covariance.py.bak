@@ -1,0 +1,77 @@
+import numpy as np
+import scipy.stats
+
+import ndop.measurements.data
+
+from util.debug import print_debug
+
+
+def for_parameter(df, nobs, varis, debug_level = 0, required_debug_level = 1):
+    
+    print_debug('Calculating covariance matrix.', debug_level, required_debug_level)
+    
+#     if nobs is None:
+#         nobs = ndop.measurements.data.nobs(debug_level, required_debug_level + 1)
+#     if varis is None:
+#         varis = ndop.measurements.data.varis(debug_level, required_debug_level + 1)
+    
+    factors = nobs / varis
+    
+    df_shape = df.shape
+    p_dim = df_shape[-1]
+    
+    matrix = np.zeros([p_dim, p_dim], dtype=np.float64)
+    
+    for multi_index in np.ndindex(*df_shape[:-1]):
+        factor_i = factors[multi_index]
+        if factor_i > 0:
+            df_i = df[multi_index]
+            matrix += (np.outer(df_i, df_i) * factor_i)
+    
+#     matrix_vec_left = np.empty(df_shape, dtype=np.float64)
+#     for i in range(p_dim):
+#         matrix_vec_left[..., i] = df[..., i] * factors
+#         
+#     matrix_vec_right = df
+#     
+#     for multi_index in np.ndindex(*df_shape[:-1]):
+#         vec_left = matrix_vec_left[multi_index]
+#         vec_right = matrix_vec_right[multi_index]
+#         if not any(np.isnan(vec_left)):
+#             matrix += np.outer(vec_left, vec_right)
+    
+    matrix = np.linalg.inv(matrix)
+    return matrix
+
+
+
+def for_model(covariance_for_parameter, df, debug_level = 0, required_debug_level = 1):
+    df_shape = df.shape
+    p_dim = df_shape[-1]
+
+    C_p = covariance_for_parameter.view(type=np.matrix)
+    matrix = np.empty(df_shape[:-1], dtype=np.float64)
+    
+    for i in np.ndindex(*matrix.shape):
+        df_i = df[i]
+        if not any(np.isnan(df_i)):
+            df_i = df[i].view(type=np.matrix).T
+            matrix[i] = df_i.T * C_p * df_i
+        else:
+            matrix[i] = np.nan
+    
+    return matrix
+
+
+def confidence_factors(covariance, alpha = 0.95, debug_level = 0, required_debug_level = 1):
+    C = covariance
+    d = np.diag(C)
+    
+    n = C.shape[0]
+    
+    # calculate chi-square quantil with confidence level alpha and n degrees of freedom
+    gamma = scipy.stats.chi2.ppf(alpha, n)
+    
+    confidence_factors = d**(1/2) * gamma**(1/2)
+    
+    return confidence_factors

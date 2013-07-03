@@ -6,16 +6,16 @@ from ndop.optimization.cost_function import Cost_function
 import util.io
 from util.debug import print_debug
 
-def optimize(p0, maxiter=None, years=7000, tolerance=0, time_step_size=1, debug_level=0, required_debug_level=1):
+def optimize(p0, years=7000, tolerance=0, time_step_size=1, maxiter=None, debug_level=0, required_debug_level=1):
     from ndop.metos3d.constants import  MODEL_PARAMETER_LOWER_BOUND, MODEL_PARAMETER_UPPER_BOUND
     from ndop.optimization.constants import P_FILE, F_FILE, F_EVAL_FILE, DF_FILE, DF_EVAL_FILE, RES_FILE
     
     ## construct fun and jac
-    cost_function = Cost_function(years=years, tolerance=tolerance, time_step_size=time_step_size, debug_level=debug_level + 1)
+    cost_function = Cost_function(years=years, tolerance=tolerance, time_step_size=time_step_size, debug_level=debug_level, required_debug_level=required_debug_level + 1)
     
     def save_iteration(x, file, format_string='%.6g'):
         file_npy = file + '.npy'
-        file_txt = file + '.txt'
+#         file_txt = file + '.txt'
         
         try:
             iteration = np.load(file_npy)
@@ -29,8 +29,10 @@ def optimize(p0, maxiter=None, years=7000, tolerance=0, time_step_size=1, debug_
         else:
             iteration = np.append(iteration, x, axis=0)
         
-        np.save(file_npy, iteration)
-        np.savetxt(file_txt, iteration, fmt=format_string)
+        util.io.save_npy_and_txt(iteration, file)
+        
+#         np.save(file_npy, iteration)
+#         np.savetxt(file_txt, iteration, fmt=format_string)
     
     def increment(file):
         file_npy = file + '.npy'
@@ -51,6 +53,7 @@ def optimize(p0, maxiter=None, years=7000, tolerance=0, time_step_size=1, debug_
         print_debug(('Current p value ', p), debug_level, required_debug_level, 'ndop.optimization.run.optimize: ')
         save_iteration(p, P_FILE)
         
+        df = cost_function.df(p)
         f = cost_function.f(p)
         
         print_debug(('Current f value ', f), debug_level, required_debug_level, 'ndop.optimization.run.optimize: ')

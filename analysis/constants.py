@@ -1,0 +1,5 @@
+ANALYSIS_OUTPUT_DIRNAME = 'analysis'
+CONFIDENCE_FOR_PARAMETERS_FILENAME = 'confidence_for_parameters.npy'
+CONFIDENCE_FOR_MODEL_FILENAME = 'confidence_for_model.npy'
+AVERAGED_MODEL_VARIANCE_FILENAME = 'averaged_model_variance.npy'
+AVERAGED_MODEL_VARIANCE_ESTIMATION_FILENAME = 'averaged_model_variance_estimation.npy'

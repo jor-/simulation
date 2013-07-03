@@ -34,25 +34,64 @@ class Job(Debug):
             raise Exception("Job is not started!")
     
     @property
-    def last_year(self):
+    def last_spinup_line(self):
         opt = self.options
         output_file = opt['/job/output_file']
         
         # 9.704s 0010 Spinup Function norm 2.919666257647e+00
-        spinup_last_line = None
+        last_spinup_line = None
         with open(output_file) as f:
             for line in f.readlines():
                 if 'Spinup Function norm' in line:
-                    spinup_last_line = line
+                    last_spinup_line = line
         
-        if spinup_last_line is not None:
-            spinup_last_line = spinup_last_line.strip()
-            spinup_last_year_str = spinup_last_line.split()[1]
-            spinup_last_year = int(spinup_last_year_str) + 1
+        return last_spinup_line
+    
+    @property
+    def last_year(self):
+        # 9.704s 0010 Spinup Function norm 2.919666257647e+00
+        last_spinup_line = self.last_spinup_line
+        
+        if last_spinup_line is not None:
+            last_spinup_line = last_spinup_line.strip()
+            last_spinup_year_str = last_spinup_line.split()[1]
+            last_spinup_year = int(last_spinup_year_str) + 1
         else:
-            spinup_last_year = 0
+            last_spinup_year = 0
         
-        return spinup_last_year
+        return last_spinup_year
+#         opt = self.options
+#         output_file = opt['/job/output_file']
+#         
+#         # 9.704s 0010 Spinup Function norm 2.919666257647e+00
+#         spinup_last_line = None
+#         with open(output_file) as f:
+#             for line in f.readlines():
+#                 if 'Spinup Function norm' in line:
+#                     spinup_last_line = line
+#         
+#         if spinup_last_line is not None:
+#             spinup_last_line = spinup_last_line.strip()
+#             spinup_last_year_str = spinup_last_line.split()[1]
+#             spinup_last_year = int(spinup_last_year_str) + 1
+#         else:
+#             spinup_last_year = 0
+#         
+#         return spinup_last_year
+    
+    @property
+    def last_tolerance(self):
+        # 9.704s 0010 Spinup Function norm 2.919666257647e+00
+        last_spinup_line = self.last_spinup_line
+        
+        if last_spinup_line is not None:
+            last_spinup_line = last_spinup_line.strip()
+            last_spinup_tolerance_str = last_spinup_line.split()[5]
+            last_spinup_tolerance = float(last_spinup_tolerance_str)
+        else:
+            last_spinup_tolerance = float('inf')
+        
+        return last_spinup_tolerance
     
     
     
@@ -72,8 +111,55 @@ class Job(Debug):
         self.__options = opt
         
         self.print_debug_dec(('Job loaded from file"', option_file, '".'))
+
+    def get_tracer_input_path(self):
+        opt = self.options
+        
+        try:
+            input_dir = opt['/metos3d/tracer_input_path']
+            input_filename = opt['/metos3d/po4_input_filename']
+        except KeyError:
+            input_filename = None
+        
+        if input_filename is not None:
+            input_file = os.path.join(input_dir, input_filename)
+            real_input_file = os.path.realpath(input_file)
+            tracer_input_path = os.path.dirname(real_input_file)
+        else:
+            tracer_input_path = None
+        
+        return tracer_input_path
     
     
+    
+    def update_output_path(self, new_output_path):
+        opt = self.options
+        old_output_path = opt['/metos3d/output_path']
+        
+        if old_output_path.endswith('/'):
+            old_output_path = old_output_path[:-1]
+        if new_output_path.endswith('/'):
+            new_output_path = old_output_path[:-1]
+        
+        opt.replace_all_str_options(old_output_path, new_output_path)
+        
+#         for option in opt.get_all_str_options():
+#             old_option = opt[option]
+#             new_option = old_option.replace(old_output_path, new_output_path)
+#             if old_option != new_option:
+#                 opt[option] = new_option
+#                 self.print_debug_inc_dec(('Job option "', option, '" updated from "', old_option, '" to "', new_option, '".'))
+#             else:
+#                 self.print_debug_inc_dec(('In job option "', option, '" with value "', old_option, '" is noting to update.'))
+    
+#     def update_output_path(self, new_output_path):
+#         output_path = path.abspath(output_path)
+#         opt['/model/parameters_file'] = path.join(output_path, 'model_parameter.txt')
+#         opt['/job/option_file'] = path.join(output_path, 'job_options.txt')
+#         opt['/job/output_file'] = path.join(output_path, 'job_output.txt')
+#     
+#         opt['/metos3d/tracer_input_path'] = output_path
+       
     
     def initialise(self, model_parameters, output_path=os.getcwd(), years=1, tolerance=0, time_step_size=1, walltime_hours=240, cpu_kind='westmere', nodes=1, cpus=1, write_trajectory=False, tracer_input_path=None, pause_time_seconds=10):
         from ndop.metos3d.constants import JOB_OPTIONS_FILENAME, JOB_MEMORY_GB, MODEL_PARAMETERS_FORMAT_STRING, MODEL_TIME_STEP_SIZE_MAX
@@ -142,9 +228,11 @@ class Job(Debug):
             raise ValueError('Unknown cpu_kind ' + str(cpu_kind) + '.')
         opt['/job/queue'] = queue
         
+        opt['/job/output_path'] = path.dirname(output_path)
         opt['/job/option_file'] = path.join(output_path, 'job_options.txt')
         opt['/job/output_file'] = path.join(output_path, 'job_output.txt')
         opt['/job/id_file'] = path.join(output_path, 'job_id.txt')
+        opt['/job/finished_file'] = path.join(output_path, 'finished.txt')
         
         opt['/job/pause_time_seconds'] = pause_time_seconds
         
@@ -222,6 +310,8 @@ class Job(Debug):
         f.write('cd $PBS_O_WORKDIR \n\n')
         
         f.write('mpirun -n %i -machinefile $PBS_NODEFILE %s %s \n\n' % (opt['/job/nodes'] * opt['/job/cpus'], opt['/metos3d/sim_file'], opt['/metos3d/option_file']))
+        
+        f.write('touch %s \n\n' % opt['/job/finished_file'])
         
         f.write('qstat -f $PBS_JOBID \n')
         f.write('exit \n')
@@ -322,7 +412,7 @@ class Job(Debug):
         if write_trajectory and years == 1:
             max_nodes = 1
         else:
-            max_nodes = None
+            max_nodes = float('inf')
         
         nodes = 0
         while nodes == 0:
