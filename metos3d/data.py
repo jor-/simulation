@@ -5,6 +5,7 @@ import numpy as np
 
 import util.pattern
 
+import util.interpolation
 from util.debug import print_debug
 
 
@@ -16,7 +17,7 @@ def load_land_sea_mask(debug_level=0, required_debug_level=1):
         
         print_debug('Returning land-sea-mask loaded from npy file', debug_level, required_debug_level, 'ndop.metos3d.data.load_land_sea_mask: ')
         
-    except IOError:
+    except (OSError, IOError):
         import util.petsc
         
         land_sea_mask = util.petsc.load_petsc_mat(METOS_LAND_SEA_MASK_FILE_PETSC, dtype=int, debug_level=debug_level, required_debug_level=required_debug_level)
@@ -84,15 +85,17 @@ def convert_1D_to_3D(metos_vec, land_sea_mask, debug_level = 0, required_debug_l
 
 
 
-def load_trajectories(path, t_dim, land_sea_mask=None, debug_level = 0, required_debug_level = 1):
+def load_trajectories(path, t_dim, time_step_size, land_sea_mask=None, debug_level = 0, required_debug_level = 1):
     import util.petsc
     from ndop.metos3d.constants import MODEL_TIME_STEP_SIZE_MAX, METOS_TRAJECTORY_FILENAMES
     
+    number_of_petsc_vecs = MODEL_TIME_STEP_SIZE_MAX / time_step_size
+    
     # check t_dim
-    if MODEL_TIME_STEP_SIZE_MAX % t_dim == 0:
-        t_step = int(MODEL_TIME_STEP_SIZE_MAX / t_dim)
+    if number_of_petsc_vecs % t_dim == 0:
+        t_step = int(number_of_petsc_vecs / t_dim)
     else:
-        raise ValueError(concatenate_to_string(('The desired time dimension ', t_dim, ' can not be satisfied because ', MODEL_TIME_STEP_SIZE_MAX, ' it is divisible by ', t_dim, '.')))
+        raise ValueError(concatenate_to_string(('The desired time dimension ', t_dim, ' can not be satisfied because ', number_of_petsc_vecs, ' is not divisible by ', t_dim, '.')))
     
     # init trajectory
     tracer_dim = len(METOS_TRAJECTORY_FILENAMES)
@@ -162,9 +165,7 @@ def load_trajectories(path, t_dim, land_sea_mask=None, debug_level = 0, required
 def get_all_water_boxes(land_sea_mask, debug_level = 0, required_debug_level = 1):
     print_debug('Getting all water boxes.', debug_level, required_debug_level)
     
-    land_sea_mask =  load_metos_land_sea_mask(debug_level, required_debug_level + 1)
-    
-    (water_y, water_x) = np.where(land_sea_mask != 0)
+    (water_x, water_y) = np.where(land_sea_mask != 0)
     water_len = np.sum(land_sea_mask)
     water_boxes = np.empty([water_len, 3], dtype=np.int)
     
@@ -172,7 +173,7 @@ def get_all_water_boxes(land_sea_mask, debug_level = 0, required_debug_level = 1
     for i in range(len(water_x)):
         x_i = water_x[i]
         y_i = water_y[i]
-        z_i = land_sea_mask[y_i, x_i]
+        z_i = land_sea_mask[x_i, y_i]
         
         j_range = range(j, j + z_i)
         water_boxes[j_range, 0] = x_i
@@ -185,15 +186,13 @@ def get_all_water_boxes(land_sea_mask, debug_level = 0, required_debug_level = 1
 
 
 
-def get_nearest_water_box(x_index, y_index, z_index, debug_level = 0, required_debug_level = 1):
-    from util import get_nearest_value, print_debug
-    
+def get_nearest_water_box(land_sea_mask, x_index, y_index, z_index, debug_level = 0, required_debug_level = 1):
     print_debug('Getting nearest water box.', debug_level, required_debug_level)
     
-    water_boxes = get_all_water_boxes()
+    water_boxes = get_all_water_boxes(land_sea_mask, debug_level, required_debug_level + 1)
     
     index = [x_index, y_index, z_index]
-    nearest_water_box = get_nearest_value(water_boxes, index, debug_level, required_debug_level + 1)
+    nearest_water_box = util.interpolation.get_nearest_value(water_boxes, index, debug_level, required_debug_level + 1)
     
     return nearest_water_box
 
@@ -207,6 +206,16 @@ def get_index(t, x, y, z, t_dim, land_sea_mask, debug_level = 0, required_debug_
     ## adjust x coordinates if negative
     if x < 0:
         x += 360
+    
+    ## check input
+    if t < METOS_T_RANGE[0] or t > METOS_T_RANGE[1]:
+        raise ValueError('Value "' + str(t) + '" of t is not in range "' + str(METOS_T_RANGE) + '".')
+    if x < METOS_X_RANGE[0] or x > METOS_X_RANGE[1]:
+        raise ValueError('Value "' + str(x) + '" of x is not in range "' + str(METOS_X_RANGE) + '".')
+    if y < METOS_Y_RANGE[0] or y > METOS_Y_RANGE[1]:
+        raise ValueError('Value "' + str(y) + '" of y is not in range "' + str(METOS_Y_RANGE) + '".')
+    if z < METOS_Z[0]:
+        raise ValueError('Value "' + str(z) + '" of z have ti be greater or equal to "' + str(METOS_Z[0]) + '".')
     
     ## linear interpolate time, x and y index
     (x_dim, y_dim) = land_sea_mask.shape
@@ -224,7 +233,7 @@ def get_index(t, x, y, z, t_dim, land_sea_mask, debug_level = 0, required_debug_
     ## lockup z
     z_index = bisect.bisect(METOS_Z, z) - 1
     
-    if z_index < len(METOS_Z):
+    if z_index + 1 < len(METOS_Z):
         z_left = METOS_Z[z_index]
         z_right = METOS_Z[z_index + 1]
         
@@ -233,13 +242,15 @@ def get_index(t, x, y, z, t_dim, land_sea_mask, debug_level = 0, required_debug_
         z_index_float = z_index
     
     
+    print_debug(('Float indices for ', (t, x, y, z), ' are ', (t_index, x_index_float, y_index_float, z_index_float), '.'), debug_level, required_debug_level)
+    
     ## get nearest water box if box is land
     box_value = land_sea_mask[x_index, y_index]
     if box_value is np.nan or box_value < z_index:
-        print_debug(('Index ', (t_index, x_index, y_index, z_index), ' is land.'), debug_level, required_debug_level)
-        (x_index, y_index, z_index) = get_nearest_water_box(x_index_float, y_index_float, z_index_float, debug_level, required_debug_level + 1)
+        print_debug(('Box ', (x_index, y_index, z_index), ' is land.'), debug_level, required_debug_level)
+        (x_index, y_index, z_index) = get_nearest_water_box(land_sea_mask, x_index_float, y_index_float, z_index_float, debug_level, required_debug_level + 1)
     
-    print_debug(('Nearest indix for ', (t, x, y, z,), ' is ', (t_index, x_index, y_index, z_index)), debug_level, required_debug_level)
+    print_debug(('Nearest index for ', (x, y, z), ' is ', (x_index, y_index, z_index)), debug_level, required_debug_level)
     
     return (t_index, x_index, y_index, z_index)
     

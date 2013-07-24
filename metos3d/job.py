@@ -15,6 +15,15 @@ class Job(Debug):
     def __init__(self, debug_level=0, required_debug_level=1):
         Debug.__init__(self, debug_level, required_debug_level-1, 'ndop.metos3d.job: ')
     
+    def __del__(self):
+        self.close()
+    
+    def __enter__(self):
+        return self
+    
+    def __exit__(self, type, value, traceback):
+        self.close()
+    
     
     
     @property
@@ -105,7 +114,7 @@ class Job(Debug):
         
         try:
             opt = Options(option_file, mode='r+', debug_level=self.debug_level, required_debug_level=self.required_debug_level+1)
-        except IOError:
+        except (OSError, IOError):
             opt = Options(option_file, mode='r', debug_level=self.debug_level, required_debug_level=self.required_debug_level+1)
         
         self.__options = opt
@@ -139,7 +148,7 @@ class Job(Debug):
         if old_output_path.endswith('/'):
             old_output_path = old_output_path[:-1]
         if new_output_path.endswith('/'):
-            new_output_path = old_output_path[:-1]
+            new_output_path = new_output_path[:-1]
         
         opt.replace_all_str_options(old_output_path, new_output_path)
         
@@ -175,8 +184,9 @@ class Job(Debug):
         ## create option file
         output_path = path.abspath(output_path)
         output_path = path.join(output_path, "") # ending with separator
-        if not path.exists(output_path):
-            os.makedirs(output_path)
+#         if not path.exists(output_path):
+#             os.makedirs(output_path)
+        os.makedirs(output_path, exist_ok=True)
         
         opt = Options(path.join(output_path, JOB_OPTIONS_FILENAME), mode='w-', debug_level=self.debug_level, required_debug_level=self.required_debug_level+1)
         self.__options = opt
@@ -249,13 +259,13 @@ class Job(Debug):
             opt['/metos3d/tolerance'] = tolerance
         
         if write_trajectory:
-            opt['/job/name'] = 'T%i' % years
             tracer_output_path = path.join(output_path, 'trajectory/')
-            if not path.exists(tracer_output_path):
-                os.makedirs(tracer_output_path)
+#             if not path.exists(tracer_output_path):
+#                 os.makedirs(tracer_output_path)
+            os.makedirs(tracer_output_path, exist_ok=True)
             opt['/metos3d/tracer_output_path'] = tracer_output_path
-        else:
-            opt['/job/name'] = 'S%i' % years
+        
+        opt['/job/name'] = '%i_%i' % (years, time_step_size)
         
         opt['/metos3d/output_path'] = output_path
         opt['/metos3d/option_file'] = path.join(output_path, 'metos3d_options.txt')
@@ -422,7 +432,7 @@ class Job(Debug):
                 time.sleep(30)
         
         walltime_hours = 240
-        self.initialise(model_parameters, output_path=output_path, walltime_hours=walltime_hours, cpu_kind=cpu_kind, nodes=nodes, cpus=cpus, years=years, tolerance=tolerance, write_trajectory=write_trajectory, tracer_input_path=tracer_input_path, pause_time_seconds=pause_time_seconds)
+        self.initialise(model_parameters, output_path=output_path, walltime_hours=walltime_hours, cpu_kind=cpu_kind, nodes=nodes, cpus=cpus, years=years, tolerance=tolerance, time_step_size=time_step_size, write_trajectory=write_trajectory, tracer_input_path=tracer_input_path, pause_time_seconds=pause_time_seconds)
         
         self.print_debug_dec('Got best job configurations.')
     
@@ -456,6 +466,16 @@ class Job(Debug):
         pause_time_seconds = opt['/job/pause_time_seconds']
         
         util.rzcluster.wait_until_job_finished(job_id, pause_time_seconds=opt['/job/pause_time_seconds'], debug_level=self.debug_level, required_debug_level=self.required_debug_level+1)
+    
+    
+    def close(self):
+        try:
+            options = self.__options
+        except AttributeError:
+            options = None
+        
+        if options is not None:
+            options.close()
     
     
     

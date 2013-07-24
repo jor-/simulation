@@ -16,21 +16,36 @@ class Accuracy(Debug):
         self.print_debug_inc('Initiating accuracy object.')
         
         self.means = ndop.measurements.data.means(self.debug_level, self.required_debug_level + 1)
-        self.mos = ndop.measurements.data.mos(self.debug_level, self.required_debug_level + 1)
         
         nobs = ndop.measurements.data.nobs(self.debug_level, self.required_debug_level + 1)
         varis = ndop.measurements.data.varis(self.debug_level, self.required_debug_level + 1)
         self.nobs = nobs
         self.varis = varis
         self.nobs_per_vari = nobs / varis
+        
+        nobs_with_nans = np.copy(nobs)
+        nobs_with_nans[nobs_with_nans == 0] = np.nan 
+        self.vari_of_means = varis / nobs_with_nans
+        
         p_dim = MODEL_PARAMETER_DIM
         
         axis_sum = tuple(range(1, len(nobs.shape)))
         self.averaged_model_variance_axis_sum = axis_sum
         
-        self.averaged_model_variance_factors = 1 / (np.nansum(nobs, axis=axis_sum) - MODEL_PARAMETER_DIM)
+        number_of_not_empty_boxes = np.sum((nobs > 0), axis=axis_sum)
+        self.averaged_model_variance_factors = 1 / (number_of_not_empty_boxes - MODEL_PARAMETER_DIM)
         
-        self._averaged_model_variance = np.nansum(nobs * varis, axis=axis_sum) / np.nansum(nobs, axis=axis_sum)
+        model_out_dim = nobs.shape[0]
+        averaged_model_variance = np.empty(model_out_dim, dtype=np.float64)
+        
+        for i in range(model_out_dim):
+            varis_i = varis[i]
+            nobs_i = nobs[i]
+            number_of_not_empty_boxes_i = number_of_not_empty_boxes[i]
+            
+            averaged_model_variance[i] = np.sum(varis_i[nobs_i > 0] / nobs_i[nobs_i > 0]) / number_of_not_empty_boxes_i
+            
+        self._averaged_model_variance = averaged_model_variance
         
         self.print_debug_dec('Accuracy object initiated.')
     
@@ -40,14 +55,11 @@ class Accuracy(Debug):
         return self._averaged_model_variance
     
     def averaged_model_variance_estimation(self, model_f):
-        model_f_mos = model_f ** 2
-        
         means = self.means
-        mos = self.mos
         factors = self.averaged_model_variance_factors
         axis_sum = self.averaged_model_variance_axis_sum
         
-        ave = factors * np.nansum(mos - 2 * means * model_f + model_f_mos, axis=axis_sum)
+        ave = factors * np.nansum((means - model_f)**2, axis=axis_sum)
         
         return ave
     
@@ -122,6 +134,23 @@ class Accuracy(Debug):
         self.print_debug_dec('Confidence for model calculated.')
         
         return confidence
+    
+    
+    
+    def probability_of_observations(self, model_f):
+        self.print_debug_inc('Calculating probability of observations.')
+        
+        means = self.means
+        nobs = np.copy(self.nobs)
+        varis = self.varis
+        nobs[nobs == 0] = np.inf
+        
+#         probability = 2 * (1 - scipy.stats.norm.cdf(np.abs(means - model_f), scale=(varis/nobs)))
+        probability = 2 * scipy.stats.norm.cdf(- np.abs(means - model_f), scale=(varis/nobs))
+        
+        self.print_debug_dec('Probability of observations calculated.')
+        
+        return probability
     
     
     

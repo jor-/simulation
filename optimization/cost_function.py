@@ -7,6 +7,8 @@ from util.debug import Debug
 class Cost_function(Debug):
     
     def __init__(self, years=7000, tolerance=0, time_step_size=1, debug_level=0, required_debug_level=1):
+        from ndop.metos3d.constants import MODEL_PARAMETER_DIM
+        
         Debug.__init__(self, debug_level, required_debug_level-1, 'ndop.optimization.cost_function: ')
         
         self.print_debug_inc('Initiating cost function.')
@@ -18,12 +20,11 @@ class Cost_function(Debug):
         self.model = Model(self.debug_level, self.required_debug_level + 1)
         
         self.means = ndop.measurements.data.means(self.debug_level, self.required_debug_level + 1)
-        self.mos = ndop.measurements.data.mos(self.debug_level, self.required_debug_level + 1)
         
         nobs = ndop.measurements.data.nobs(self.debug_level, self.required_debug_level + 1)
         varis = ndop.measurements.data.varis(self.debug_level, self.required_debug_level + 1)
         self.nobs_per_vari = nobs / varis
-        self.factor = 1 / np.nansum(nobs)
+        self.factor = 1 / ((nobs > 0).sum() - MODEL_PARAMETER_DIM)
         
         self.last_parameters = None
         
@@ -39,14 +40,11 @@ class Cost_function(Debug):
             self.last_parameters = parameters
             self.last_model_f = model_f
         
-        model_f_mos = model_f ** 2
-        
         means = self.means
-        mos = self.mos
         nobs_per_vari = self.nobs_per_vari
         factor = self.factor
         
-        f = factor * np.nansum(nobs_per_vari * (mos - 2 * means * model_f + model_f_mos))
+        f = factor * np.nansum(nobs_per_vari * (means - model_f)**2)
         
         return f
     
@@ -65,7 +63,7 @@ class Cost_function(Debug):
         nobs_per_vari = self.nobs_per_vari
         factor = self.factor
         
-        df_factors = 2 * nobs_per_vari * (model_f - means)
+        df_factors = - 2 * nobs_per_vari * (means - model_f)
         
         p_dim = len(parameters)
         df = np.empty(p_dim)

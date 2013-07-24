@@ -248,17 +248,27 @@
       </item>
       <item>
        <property name="text">
-        <string>observations: mean</string>
+        <string>observations: mean of observations</string>
        </property>
       </item>
       <item>
        <property name="text">
-        <string>observations: number</string>
+        <string>observations: number of observations</string>
        </property>
       </item>
       <item>
        <property name="text">
-        <string>observations: variance of measurement errors</string>
+        <string>observations: variance of observations</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>observations: variance of observation means</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>observations: propability</string>
        </property>
       </item>
       <item>
@@ -342,7 +352,7 @@
      <x>20</x>
      <y>220</y>
      <width>461</width>
-     <height>151</height>
+     <height>157</height>
     </rect>
    </property>
    <layout class="QFormLayout" name="formLayout_2">

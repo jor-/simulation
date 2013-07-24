@@ -19,7 +19,7 @@ def get_df(parameter_set_dir, t_dim =  12, debug_level=0, required_debug_level=1
         try:
             df = np.load(df_file, 'r')
             print_debug(('DF File loaded from "', df_file, '".'), debug_level, required_debug_level, BASENAME)
-        except IOError as e:
+        except (OSError, IOError) as e:
             if accuracy_order > 1:
                 print_debug(('Tried to load DF file from "', df_file, '" but it does not exists.'), debug_level, required_debug_level, BASENAME)
                 accuracy_order -= 1
@@ -41,9 +41,9 @@ def get_f(parameter_set_dir, t_dim =  12, debug_level=0, required_debug_level=1)
     print_debug(('Try to load F from "', f_file, '".'), debug_level, required_debug_level, BASENAME)
     try:
         f = np.load(f_file, 'r')
-        print_debug(('F file loaded from "', f_file, '".'))
-    except IOError as e:
-        print_debug('No F file found.')
+        print_debug(('F file loaded from "', f_file, '".'), debug_level, required_debug_level, BASENAME)
+    except (OSError, IOError) as e:
+        print_debug('No F file found.', debug_level, required_debug_level, BASENAME)
         raise e
     
     return f

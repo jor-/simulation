@@ -19,7 +19,7 @@ def optimize(p0, years=7000, tolerance=0, time_step_size=1, maxiter=None, debug_
         
         try:
             iteration = np.load(file_npy)
-        except IOError:
+        except (OSError, IOError):
             iteration = None
         
         x = x.reshape((1,) + x.shape)
@@ -40,7 +40,7 @@ def optimize(p0, years=7000, tolerance=0, time_step_size=1, maxiter=None, debug_
         
         try:
             x = np.load(file_npy)
-        except IOError:
+        except (OSError, IOError):
             x = np.array([0])
             
         x += 1

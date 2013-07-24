@@ -17,7 +17,7 @@ def save_regrided(debug_level = 0, required_debug_level = 1):
     from ndop.measurements.constants import WOA_PO4_NOBS_NETCDF_ANNUAL_FILE, WOA_PO4_NOBS_NETCDF_MONTHLY_FILE, WOA_PO4_NOBS_NETCDF_DATANAME, PO4_NOBS
     from ndop.measurements.constants import WOA_PO4_VARIS_NETCDF_ANNUAL_FILE, WOA_PO4_VARIS_NETCDF_MONTHLY_FILE, WOA_PO4_VARIS_NETCDF_DATANAME, PO4_VARIS
     from ndop.measurements.constants import WOA_PO4_MEANS_NETCDF_ANNUAL_FILE, WOA_PO4_MEANS_NETCDF_MONTHLY_FILE, WOA_PO4_MEANS_NETCDF_DATANAME, PO4_MEANS
-    from ndop.measurements.constants import WOA_PO4_MOS_NETCDF_ANNUAL_FILE, WOA_PO4_MOS_NETCDF_MONTHLY_FILE, WOA_PO4_MOS_NETCDF_DATANAME, PO4_MOS
+#     from ndop.measurements.constants import WOA_PO4_MOS_NETCDF_ANNUAL_FILE, WOA_PO4_MOS_NETCDF_MONTHLY_FILE, WOA_PO4_MOS_NETCDF_DATANAME, PO4_MOS
     
     from ndop.measurements.constants import PO4_ANNUAL_THRESHOLD
     from ndop.metos3d.constants import METOS_Z
@@ -28,7 +28,8 @@ def save_regrided(debug_level = 0, required_debug_level = 1):
     z_index_annual_threshold = bisect.bisect(METOS_Z, PO4_ANNUAL_THRESHOLD)
     print_debug(('Taking annual data from z index ', z_index_annual_threshold, '.'), debug_level, required_debug_level, base_string)
     
-    for (netcdf_annual_file, netcdf_monthly_file, netcdf_dataname, npy_file, divide) in ((WOA_PO4_NOBS_NETCDF_ANNUAL_FILE, WOA_PO4_NOBS_NETCDF_MONTHLY_FILE, WOA_PO4_NOBS_NETCDF_DATANAME, PO4_NOBS, True), (WOA_PO4_VARIS_NETCDF_ANNUAL_FILE, WOA_PO4_VARIS_NETCDF_MONTHLY_FILE, WOA_PO4_VARIS_NETCDF_DATANAME, PO4_VARIS, False), (WOA_PO4_MEANS_NETCDF_ANNUAL_FILE, WOA_PO4_MEANS_NETCDF_MONTHLY_FILE, WOA_PO4_MEANS_NETCDF_DATANAME, PO4_MEANS, False), (WOA_PO4_MOS_NETCDF_ANNUAL_FILE, WOA_PO4_MOS_NETCDF_MONTHLY_FILE, WOA_PO4_MOS_NETCDF_DATANAME, PO4_MOS, False)):
+#     for (netcdf_annual_file, netcdf_monthly_file, netcdf_dataname, npy_file, divide) in ((WOA_PO4_NOBS_NETCDF_ANNUAL_FILE, WOA_PO4_NOBS_NETCDF_MONTHLY_FILE, WOA_PO4_NOBS_NETCDF_DATANAME, PO4_NOBS, True), (WOA_PO4_VARIS_NETCDF_ANNUAL_FILE, WOA_PO4_VARIS_NETCDF_MONTHLY_FILE, WOA_PO4_VARIS_NETCDF_DATANAME, PO4_VARIS, False), (WOA_PO4_MEANS_NETCDF_ANNUAL_FILE, WOA_PO4_MEANS_NETCDF_MONTHLY_FILE, WOA_PO4_MEANS_NETCDF_DATANAME, PO4_MEANS, False), (WOA_PO4_MOS_NETCDF_ANNUAL_FILE, WOA_PO4_MOS_NETCDF_MONTHLY_FILE, WOA_PO4_MOS_NETCDF_DATANAME, PO4_MOS, False)):
+    for (netcdf_annual_file, netcdf_monthly_file, netcdf_dataname, npy_file, divide) in ((WOA_PO4_NOBS_NETCDF_ANNUAL_FILE, WOA_PO4_NOBS_NETCDF_MONTHLY_FILE, WOA_PO4_NOBS_NETCDF_DATANAME, PO4_NOBS, True), (WOA_PO4_VARIS_NETCDF_ANNUAL_FILE, WOA_PO4_VARIS_NETCDF_MONTHLY_FILE, WOA_PO4_VARIS_NETCDF_DATANAME, PO4_VARIS, False), (WOA_PO4_MEANS_NETCDF_ANNUAL_FILE, WOA_PO4_MEANS_NETCDF_MONTHLY_FILE, WOA_PO4_MEANS_NETCDF_DATANAME, PO4_MEANS, False)):
         
         data_monthly = load_from_netcdf(netcdf_monthly_file, netcdf_dataname, debug_level, required_debug_level + 1)
         data_annual = load_from_netcdf(netcdf_annual_file, netcdf_dataname, debug_level, required_debug_level + 1)

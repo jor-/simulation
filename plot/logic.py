@@ -49,65 +49,6 @@ class Logic(Debug):
 #         pp.show(block=False)
         
         self._accuracy_object = Accuracy_Cached(self.debug_level, self.required_debug_level + 1)
-        
-#         pp.ion()
-        
-#         self._nobs = np.load(NOBS_FILE)
-#         self._varis = np.load(VARIS_FILE)
-        
-#         ion() # enable pylab interactive mode
-    
-#     def get_f(self):
-#         from ndop.plot.constants import F_FILE_PATTERN
-#         
-#         self.print_debug_inc('Getting F.')
-#         
-#         parameter_set = self.get_parameter_set()
-#         
-#         f_file = util.pattern.replace_int_pattern(F_FILE_PATTERN, (parameter_set, 12))
-#         try:
-#             f = np.load(f_file, 'r')
-#             self.print_debug_dec(('F file loaded from "', f_file, '".'))
-#         except IOError:
-#             f = None
-#             self.print_debug_dec('No F file found.')
-#         
-#         return f
-#     
-#     
-#     def get_df(self):
-#         from ndop.plot.constants import DF_FILE_PATTERN
-#         
-#         self.print_debug_inc('Getting DF.')
-#         
-#         df = self._df
-#         
-#         if df is None:
-#             parameter_set = self.get_parameter_set()
-#             accuracy_order = 2
-#             
-#             while df is None and accuracy_order > 0:
-#                 df_file = util.pattern.replace_int_pattern(DF_FILE_PATTERN, (parameter_set, 12, accuracy_order))
-#                 self.print_debug(('Try to load DF from "', df_file, '".'))
-#                 try:
-#                     df = np.load(df_file, 'r')
-#                     self.print_debug(('DF File loaded from "', df_file, '".'))
-#                 except IOError:
-#                     accuracy_order -= 1
-#                     self.print_debug(('Tried to load DF file from "', df_file, '" but it does not exists.'))
-#             
-#             if df is None:
-#                 raise IOError('No DF file found.')
-#             
-#             self._df = df
-#             
-#             self.print_debug_dec('Returning loaded DF.')
-#         else:
-#             self.print_debug_dec('Returning catched DF.')
-#             
-#         
-#         return df
-    
     
 # #     @property
 #     def get_parameter_set(self):
@@ -247,8 +188,10 @@ class Logic(Debug):
         MODEL_DIFF_PLOT = 2
         MEANS_PLOT_INDEX = 3
         NOBS_PLOT_INDEX = 4
-        VARIS_PLOT_INDEX = 5
-        SENSITIVITY_PLOT_INDEX = 6
+        VARIS_OF_OBSERVATION_PLOT_INDEX = 5
+        VARIS_OF_OBSERVATION_MEAN_PLOT_INDEX = 6
+        PROPABILITY_PLOT_INDEX = 7
+        SENSITIVITY_PLOT_INDEX = 8
         
         if plot_index == MODEL_OUTPUT_PLOT_INDEX:
             self.print_debug('Drawing model output plot.')
@@ -267,9 +210,15 @@ class Logic(Debug):
         elif plot_index == NOBS_PLOT_INDEX:
             self.print_debug('Drawing nobs plot.')
             map = self._accuracy_object.nobs
-        elif plot_index == VARIS_PLOT_INDEX:
-            self.print_debug('Drawing vars plot.')
+        elif plot_index == VARIS_OF_OBSERVATION_PLOT_INDEX:
+            self.print_debug('Drawing varis of observations plot.')
             map = self._accuracy_object.varis
+        elif plot_index == VARIS_OF_OBSERVATION_MEAN_PLOT_INDEX:
+            self.print_debug('Drawing varis of mean of observations plot.')
+            map = self._accuracy_object.vari_of_means
+        elif plot_index == PROPABILITY_PLOT_INDEX:
+            self.print_debug('Drawing probility plot.')
+            map = self._accuracy_object.probability_of_observations(parameter_set_dir)
         else:
             self.print_debug('Drawing sensitivity plot.')
             map = ndop.metos3d.direct_access.get_df(parameter_set_dir)
