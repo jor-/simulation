@@ -75,20 +75,15 @@ class Model(Debug):
         self.check_if_parameters_in_bounds(model_parameters)
         
         ## execute job
-        job = Job(debug_level=self.debug_level, required_debug_level=self.required_debug_level+1)
-        job.initialise_with_best_configuration(model_parameters, output_path=output_path, years=years, tolerance=tolerance, time_step_size=time_step_size, write_trajectory=write_trajectory, tracer_input_path=tracer_input_path, pause_time_seconds=pause_time_seconds)
-        time.sleep(2)
-        job.start()
-        job.wait_until_finished()
+        with Job(debug_level=self.debug_level, required_debug_level=self.required_debug_level+1) as job:
+            job.initialise_with_best_configuration(model_parameters, output_path=output_path, years=years, tolerance=tolerance, time_step_size=time_step_size, write_trajectory=write_trajectory, tracer_input_path=tracer_input_path, pause_time_seconds=pause_time_seconds)
+            time.sleep(2)
+            job.start()
+            job.make_readonly()
+            job.wait_until_finished()
         
         ## change access mode of files
-        for (dirpath, dirnames, filenames) in os.walk(output_path, topdown=False):
-            for filename in filenames:
-                file = os.path.join(dirpath, filename)
-                os.chmod(file, stat.S_IRUSR)
-            for dirname in dirnames:
-                dir = os.path.join(dirpath, dirname)
-                os.chmod(dir, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
+        util.io.make_files_readonly(output_path)
         
         self.print_debug_dec('Job finished.')
     
@@ -292,7 +287,7 @@ class Model(Debug):
     
     
     
-    def search_last_run_dir(self, search_path):
+    def search_last_run_dir(self, search_path, wait_until_finished=True):
         from ndop.metos3d.constants import MODEL_RUN_DIRNAME
         
         self.print_debug_inc(('Searching for last run in "', search_path, '".'))
@@ -308,20 +303,20 @@ class Model(Debug):
             
             # load last job finished
             if last_run_dir is not None:
-                job = Job(debug_level=self.debug_level, required_debug_level=self.required_debug_level+1)
-                try:
-                    job.load(last_run_dir)
-                except (OSError, IOError) as exception:
-                    warnings.warn('Could not read the job options file from "' + last_run_dir + '": ' + str(exception))
-                    last_run_dir = None
-            
-            # check if job is finished
-            if last_run_dir is not None:
-                try:
-                    job.wait_until_finished()
-                except (OSError, IOError) as exception:
-                    warnings.warn('Could not check if job ' + job.id + ' is finished: ' + str(exception))
-                    last_run_dir = None
+                with Job(debug_level=self.debug_level, required_debug_level=self.required_debug_level+1) as job:
+                    try:
+                        job.load(last_run_dir)
+                    except (OSError, IOError) as exception:
+                        warnings.warn('Could not read the job options file from "' + last_run_dir + '": ' + str(exception))
+                        last_run_dir = None
+                    
+                    # check if job is finished
+                    if wait_until_finished and last_run_dir is not None:
+                        try:
+                            job.wait_until_finished()
+                        except (OSError, IOError) as exception:
+                            warnings.warn('Could not check if job ' + job.id + ' is finished: ' + str(exception))
+                            last_run_dir = None
             
             last_run_index -= 1
         
@@ -329,15 +324,6 @@ class Model(Debug):
         
         return last_run_dir
     
-    
-    
-#     def get_run_options(self, run_path):
-#         from ndop.metos3d.constants import MODEL_RUN_OPTIONS_FILENAME
-#         
-#         options_file = os.path.join(run_path, MODEL_RUN_OPTIONS_FILENAME)
-#         options = np.loadtxt(options_file)
-#         
-#         return options
     
     
     
@@ -378,20 +364,13 @@ class Model(Debug):
         total_years = 0
         
         while run_dir is not None:
-            run_job = Job(debug_level=self.debug_level, required_debug_level=self.required_debug_level+1)
-            run_job.load(run_dir)
-            run_years = run_job.last_year
+            with Job(debug_level=self.debug_level, required_debug_level=self.required_debug_level+1) as run_job:
+                run_job.load(run_dir)
+                run_years = run_job.last_year
             
             total_years += run_years
             
             run_dir = self.previous_run_dir(run_dir)
-        
-#         for run_dir in self.get_run_dirs(search_path):
-#             run_job = Job(debug_level=self.debug_level, required_debug_level=self.required_debug_level+1)
-#             run_job.load(run_dir)
-#             run_years = run_job.last_year
-#             
-#             total_years += run_years
         
         return total_years
     
@@ -410,18 +389,18 @@ class Model(Debug):
     
     
     def get_real_tolerance(self, run_dir):
-        job = Job(debug_level=self.debug_level, required_debug_level=self.required_debug_level+1)
-        job.load(run_dir)
-        tolerance = job.last_tolerance     
+        with Job(debug_level=self.debug_level, required_debug_level=self.required_debug_level+1) as job:
+            job.load(run_dir)
+            tolerance = job.last_tolerance     
         
         return tolerance
     
     
     
     def get_tracer_input_dir(self, run_dir):
-        job = Job(debug_level=self.debug_level, required_debug_level=self.required_debug_level+1)
-        job.load(run_dir)
-        tracer_input_dir = job.get_tracer_input_path()
+        with Job(debug_level=self.debug_level, required_debug_level=self.required_debug_level+1) as job:
+            job.load(run_dir)
+            tracer_input_dir = job.get_tracer_input_path()
         
         return tracer_input_dir
     
@@ -513,7 +492,7 @@ class Model(Debug):
                 current_parameters_diff = float('inf')
             
             current_spinup_dir = os.path.join(current_parameter_set_dir, MODEL_SPINUP_DIRNAME)
-            last_run_dir = self.search_last_run_dir(current_spinup_dir)
+            last_run_dir = self.search_last_run_dir(current_spinup_dir, wait_until_finished=False)
             if last_run_dir is not None and current_parameters_diff < parameters_diff:
                 closest_run_dir = last_run_dir
                 parameters_diff = current_parameters_diff
@@ -521,6 +500,9 @@ class Model(Debug):
             parameter_set_number += 1
         
         if closest_run_dir is not None:
+            with Job(debug_level=self.debug_level, required_debug_level=self.required_debug_level+1) as job:
+                job.load(closest_run_dir)
+                job.wait_until_finished()
             self.print_debug_dec(('Spinup run as close as possible found at "', closest_run_dir, '".'))
         else:
             self.print_debug_dec('No spinup run found.')
@@ -684,7 +666,6 @@ class Model(Debug):
                 partial_derivative_dirname = util.pattern.replace_int_pattern(MODEL_PARTIAL_DERIVATIVE_DIRNAME, (i, j))
                 partial_derivative_dir = os.path.join(derivative_dir, partial_derivative_dirname)
                 last_der_run_dir = self.search_last_run_dir(partial_derivative_dir)
-#                 is_matching = self.is_run_matching_options(last_der_run_dir, years, tolerance, time_step_size)
                 is_matching = self.is_run_matching_options(last_der_run_dir, MODEL_DERIVATIVE_SPINUP_YEARS, 0, time_step_size)
                 
                 ## check normal input spinup
@@ -744,7 +725,13 @@ class Model(Debug):
                     partial_derivative_dir = os.path.join(derivative_dir, partial_derivative_dirname)
                     last_der_run_dir = self.search_last_run_dir(partial_derivative_dir)
                     
+                    ## make new run if run not matching
                     if not self.is_run_matching_options(last_der_run_dir, MODEL_DERIVATIVE_SPINUP_YEARS, 0, time_step_size):
+                        ## remove old runs
+                        for run_dir in util.io.get_dirs(partial_derivative_dir):
+                            util.io.remove_dir(run_dir, force=True)
+                        
+                        ## prepare parameters
                         delta_p_i = h_factor * h[i]
                         
                         parameters_der = np.copy(parameters)
@@ -752,6 +739,7 @@ class Model(Debug):
                         parameters_der[i] = min(parameters_der[i], self.parameters_upper_bound[i])
                         parameters_der[i] = max(parameters_der[i], self.parameters_lower_bound[i])
                         
+                        ## make new run
                         last_der_run_dir = self.make_run(partial_derivative_dir, parameters_der, MODEL_DERIVATIVE_SPINUP_YEARS, 0, time_step_size, tracer_input_path=spinup_run_dir)
                         
                     df[..., i] += h_factor * self.get_trajectory(last_der_run_dir, parameters, t_dim, time_step_size)

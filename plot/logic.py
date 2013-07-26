@@ -1,6 +1,7 @@
 import numpy as np
 # from pylab import *
 import matplotlib.pyplot as pp
+# import matplotlib.colors
 # import math
 import os.path
 
@@ -253,9 +254,13 @@ class Logic(Debug):
         
         self.print_debug(('Map shape is "', map.shape, '".'))
         
-        vmin = 0    #math.floor(np.nanmin(map))
+#         vmin = 0    #math.floor(np.nanmin(map))
 #         vmax = math.ceil(np.nanmax(map))
+        vmin = np.nanmin(map)
         vmax = np.nanmax(map)
+        vmax = 1
+        if vmax == vmin:
+            vmax = vmin + 1
         
 #         axes_image = pp.imshow(map.transpose(), origin='lower', extent=(0, 360, -90, 90), vmin=vmin, vmax=vmax, aspect='equal')
         
@@ -268,6 +273,8 @@ class Logic(Debug):
         if is_initiated:
             self.print_debug('Drawing plot. (Plot was initialised before.)')
             axes_image = pp.imshow(map.transpose(), origin='lower', extent=(0, 360, -90, 90), vmin=vmin, vmax=vmax, aspect='equal')
+#             axes_image = pp.imshow(map.transpose(), origin='lower', extent=(0, 360, -90, 90), norm=matplotlib.colors.LogNorm(vmin=vmin, vmax=vmax), aspect='equal')
+            
             self._colorbar.update_bruteforce(axes_image)
 #             pp.draw()
         else:
@@ -281,6 +288,7 @@ class Logic(Debug):
 # #             pp.show(block=False)
 #             pp.show()
             axes_image = pp.imshow(map.transpose(), origin='lower', extent=(0, 360, -90, 90), vmin=vmin, vmax=vmax, aspect='equal')
+#             axes_image = pp.imshow(map.transpose(), origin='lower', extent=(0, 360, -90, 90), norm=matplotlib.colors.LogNorm(vmin=vmin, vmax=vmax), aspect='equal')
             self._colorbar = pp.colorbar(axes_image)
             pp.tight_layout()
 #             pp.show(block=False)

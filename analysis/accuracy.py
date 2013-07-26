@@ -27,14 +27,16 @@ class Accuracy(Debug):
         nobs_with_nans[nobs_with_nans == 0] = np.nan 
         self.vari_of_means = varis / nobs_with_nans
         
-        p_dim = MODEL_PARAMETER_DIM
+#         p_dim = MODEL_PARAMETER_DIM
         
         axis_sum = tuple(range(1, len(nobs.shape)))
-        self.averaged_model_variance_axis_sum = axis_sum
+#         self.averaged_model_variance_axis_sum = axis_sum
         
         number_of_not_empty_boxes = np.sum((nobs > 0), axis=axis_sum)
-        self.averaged_model_variance_factors = 1 / (number_of_not_empty_boxes - MODEL_PARAMETER_DIM)
+        self.number_of_not_empty_boxes = number_of_not_empty_boxes
+#         self.averaged_model_variance_factors = 1 / (number_of_not_empty_boxes - MODEL_PARAMETER_DIM)
         
+        ## calculate averaged model variance
         model_out_dim = nobs.shape[0]
         averaged_model_variance = np.empty(model_out_dim, dtype=np.float64)
         
@@ -55,9 +57,13 @@ class Accuracy(Debug):
         return self._averaged_model_variance
     
     def averaged_model_variance_estimation(self, model_f):
+        from ndop.metos3d.constants import MODEL_PARAMETER_DIM
+        
         means = self.means
-        factors = self.averaged_model_variance_factors
-        axis_sum = self.averaged_model_variance_axis_sum
+        number_of_not_empty_boxes = self.number_of_not_empty_boxes
+        
+        axis_sum = tuple(range(1, len(model_f.shape)))
+        factors = 1 / (number_of_not_empty_boxes - MODEL_PARAMETER_DIM)
         
         ave = factors * np.nansum((means - model_f)**2, axis=axis_sum)
         
@@ -137,6 +143,22 @@ class Accuracy(Debug):
     
     
     
+    
+    def confidence(self, covariance, alpha = 0.99, debug_level = 0, required_debug_level = 1):
+        C = covariance
+        d = np.diag(C)
+        
+        n = C.shape[0]
+        
+        # calculate chi-square quantil with confidence level alpha and n degrees of freedom
+        gamma = scipy.stats.chi2.ppf(alpha, n)
+        
+        confidence_factors = d**(1/2) * gamma**(1/2)
+        
+        return confidence_factors
+    
+    
+    
     def probability_of_observations(self, model_f):
         self.print_debug_inc('Calculating probability of observations.')
         
@@ -153,25 +175,9 @@ class Accuracy(Debug):
         return probability
     
     
-    
-    
-    def confidence(self, covariance, alpha = 0.99, debug_level = 0, required_debug_level = 1):
-        C = covariance
-        d = np.diag(C)
+    def averaged_probability_of_observations(self, model_f):
+        probability = self.probability_of_observations(model_f)
+        number_of_not_empty_boxes = self.number_of_not_empty_boxes
         
-        n = C.shape[0]
-        
-        # calculate chi-square quantil with confidence level alpha and n degrees of freedom
-        gamma = scipy.stats.chi2.ppf(alpha, n)
-        
-        confidence_factors = d**(1/2) * gamma**(1/2)
-        
-        return confidence_factors
-    
-#     def averaged_variance(self):
-#         nobs = self.nobs
-#         varis = self.varis
-#         
-#         averaged_variance = np.nansum(nobs * varis, axis=nobs.shape[1:]) / np.nansum(nobs, axis=nobs.shape[1:])
-#         
-#         return ave
+        axis_sum = tuple(range(1, len(model_f.shape)))
+        ave = np.nansum(probability, axis=axis_sum) / number_of_not_empty_boxes

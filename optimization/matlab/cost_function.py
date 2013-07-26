@@ -48,9 +48,9 @@ p = p['p']
 if eval_grad_value:
     df = {}
     df['df'] = cf.df(p)
-    scipy.io.savemat(df_file, df)
+    scipy.io.savemat(df_file, df, oned_as='column')
 
 if eval_function_value:
     f = {}
     f['f'] = cf.f(p)
-    scipy.io.savemat(f_file, f)
+    scipy.io.savemat(f_file, f, oned_as='column')

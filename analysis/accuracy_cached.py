@@ -102,3 +102,23 @@ class Accuracy_Cached(Accuracy):
         values = util.cache.load_or_calculate(file, calculate_method, debug_level=self.debug_level, required_debug_level=self.required_debug_level+1)
         
         return values
+    
+    
+    
+    def calculate_averaged_probability_of_observations(self, parameter_set_dir):
+        f = ndop.metos3d.direct_access.get_f(parameter_set_dir, debug_level=self.debug_level, required_debug_level=self.required_debug_level+1)
+        
+        probability = super(Accuracy_Cached, self).averaged_probability_of_observations(f)
+        
+        return probability
+    
+    
+    def averaged_probability_of_observations(self, parameter_set_dir):
+        from ndop.analysis.constants import ANALYSIS_OUTPUT_DIRNAME, AVERAGED_OBSERVATION_PROPERTY_FILENAME
+        
+        file = os.path.join(parameter_set_dir, ANALYSIS_OUTPUT_DIRNAME, AVERAGED_OBSERVATION_PROPERTY_FILENAME)
+        calculate_method = lambda : self.calculate_averaged_probability_of_observations(parameter_set_dir)
+        
+        values = util.cache.load_or_calculate(file, calculate_method, debug_level=self.debug_level, required_debug_level=self.required_debug_level+1)
+        
+        return values

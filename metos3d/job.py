@@ -120,7 +120,12 @@ class Job(Debug):
         self.__options = opt
         
         self.print_debug_dec(('Job loaded from file"', option_file, '".'))
-
+    
+    
+    def make_readonly(self):
+        self.options.make_readonly()
+    
+    
     def get_tracer_input_path(self):
         opt = self.options
         

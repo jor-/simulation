@@ -11,4 +11,4 @@ p = p['p']
 
 f = {}
 f['f'] = cf.f(p)
-scipy.io.savemat(MATLAB_EVAL_F_FILE, f)
+scipy.io.savemat(MATLAB_EVAL_F_FILE, f, oned_as='column')
