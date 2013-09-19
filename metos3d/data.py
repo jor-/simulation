@@ -56,33 +56,6 @@ def convert_1D_to_3D(metos_vec, land_sea_mask, debug_level = 0, required_debug_l
     
     return array
     
-    
-
-# def convert_1D_to_3D(metos_vec, land_sea_mask, debug_level = 0, required_debug_level = 1):
-#     from ndop.metos3d.constants import METOS_Z_DIM
-#     
-#     
-#     # metos3d: x and y are changed
-#     x_dim, y_dim = land_sea_mask.shape
-#     
-#     # init array
-#     array = np.empty([y_dim, x_dim, METOS_Z_DIM], dtype=np.float64)
-#     array.fill(np.nan)
-#     
-#     # debug info
-#     print_debug(('Converting  metos ', metos_vec.shape, ' vector to ', array.shape, ' matrix.'), debug_level, required_debug_level, base_string='ndop.metos3d.data.convert_1D_to_3D: ')
-#     
-#     # fill array
-#     offset = 0
-#     for ix in range(x_dim):
-#         for iy in range(y_dim):
-#             length = land_sea_mask[ix, iy]
-#             if not length == 0:
-#                 array[iy, ix, 0:length] = metos_vec[offset:offset+length]
-#                 offset = offset + length
-#     
-#     return array
-
 
 
 def load_trajectories(path, t_dim, time_step_size, land_sea_mask=None, debug_level = 0, required_debug_level = 1):
@@ -197,19 +170,16 @@ def get_nearest_water_box(land_sea_mask, x_index, y_index, z_index, debug_level 
     return nearest_water_box
 
 
-
-def get_index(t, x, y, z, t_dim, land_sea_mask, debug_level = 0, required_debug_level = 1):
-    from ndop.metos3d.constants import METOS_T_RANGE, METOS_X_RANGE, METOS_Y_RANGE, METOS_Z
+def get_spatial_index(x, y, z, land_sea_mask, debug_level = 0, required_debug_level = 1):
+    from ndop.metos3d.constants import METOS_X_RANGE, METOS_Y_RANGE, METOS_Z
     
-    print_debug(('Getting nearest index for ', (t, x, y, z)), debug_level, required_debug_level)
+    print_debug(('Getting nearest spatial index for ', (x, y, z)), debug_level, required_debug_level)
     
     ## adjust x coordinates if negative
     if x < 0:
         x += 360
     
     ## check input
-    if t < METOS_T_RANGE[0] or t > METOS_T_RANGE[1]:
-        raise ValueError('Value "' + str(t) + '" of t is not in range "' + str(METOS_T_RANGE) + '".')
     if x < METOS_X_RANGE[0] or x > METOS_X_RANGE[1]:
         raise ValueError('Value "' + str(x) + '" of x is not in range "' + str(METOS_X_RANGE) + '".')
     if y < METOS_Y_RANGE[0] or y > METOS_Y_RANGE[1]:
@@ -228,7 +198,6 @@ def get_index(t, x, y, z, t_dim, land_sea_mask, debug_level = 0, required_debug_
     
     (x_index, x_index_float) = linear_interpolate(x, METOS_X_RANGE, x_dim)
     (y_index, y_index_float) = linear_interpolate(y, METOS_Y_RANGE, y_dim)
-    (t_index, _) = linear_interpolate(t, METOS_T_RANGE, t_dim)
     
     ## lockup z
     z_index = bisect.bisect(METOS_Z, z) - 1
@@ -242,7 +211,7 @@ def get_index(t, x, y, z, t_dim, land_sea_mask, debug_level = 0, required_debug_
         z_index_float = z_index
     
     
-    print_debug(('Float indices for ', (t, x, y, z), ' are ', (t_index, x_index_float, y_index_float, z_index_float), '.'), debug_level, required_debug_level)
+    print_debug(('Float indices for ', (x, y, z), ' are ', (x_index_float, y_index_float, z_index_float), '.'), debug_level, required_debug_level)
     
     ## get nearest water box if box is land
     box_value = land_sea_mask[x_index, y_index]
@@ -252,7 +221,90 @@ def get_index(t, x, y, z, t_dim, land_sea_mask, debug_level = 0, required_debug_
     
     print_debug(('Nearest index for ', (x, y, z), ' is ', (x_index, y_index, z_index)), debug_level, required_debug_level)
     
+    return (x_index, y_index, z_index)
+
+
+def get_temporal_index(t, t_dim, debug_level = 0, required_debug_level = 1):
+    from ndop.metos3d.constants import METOS_T_RANGE
+    
+    ## check input
+    if t < METOS_T_RANGE[0] or t > METOS_T_RANGE[1]:
+        raise ValueError('Value "' + str(t) + '" of t is not in range "' + str(METOS_T_RANGE) + '".')
+    
+    def linear_interpolate(x, range, dim):
+        i_float = (x - range[0]) / (range[1] - range[0]) * (dim)
+        if i_float == dim:
+            i_float = i_float - 1
+        i_int = math.floor(i_float)
+        return i_int
+    
+    t_index = linear_interpolate(t, METOS_T_RANGE, t_dim)
+    
+    print_debug(('Nearest temporal index for ', t, ' is ', t_index), debug_level, required_debug_level)
+    
+    return t_index
+
+
+def get_index(t, x, y, z, t_dim, land_sea_mask, debug_level = 0, required_debug_level = 1):
+    t_index =  get_temporal_index(t, t_dim, debug_level, required_debug_level)
+    x_index, y_index, z_index = get_spatial_index(x, y, z, land_sea_mask, debug_level, required_debug_level)
+    
     return (t_index, x_index, y_index, z_index)
+    
+#     from ndop.metos3d.constants import METOS_T_RANGE, METOS_X_RANGE, METOS_Y_RANGE, METOS_Z
+#     
+#     print_debug(('Getting nearest index for ', (t, x, y, z)), debug_level, required_debug_level)
+#     
+#     ## adjust x coordinates if negative
+#     if x < 0:
+#         x += 360
+#     
+#     ## check input
+#     if t < METOS_T_RANGE[0] or t > METOS_T_RANGE[1]:
+#         raise ValueError('Value "' + str(t) + '" of t is not in range "' + str(METOS_T_RANGE) + '".')
+#     if x < METOS_X_RANGE[0] or x > METOS_X_RANGE[1]:
+#         raise ValueError('Value "' + str(x) + '" of x is not in range "' + str(METOS_X_RANGE) + '".')
+#     if y < METOS_Y_RANGE[0] or y > METOS_Y_RANGE[1]:
+#         raise ValueError('Value "' + str(y) + '" of y is not in range "' + str(METOS_Y_RANGE) + '".')
+#     if z < METOS_Z[0]:
+#         raise ValueError('Value "' + str(z) + '" of z have ti be greater or equal to "' + str(METOS_Z[0]) + '".')
+#     
+#     ## linear interpolate time, x and y index
+#     (x_dim, y_dim) = land_sea_mask.shape
+#     def linear_interpolate(x, range, dim):
+#         i_float = (x - range[0]) / (range[1] - range[0]) * (dim)
+#         if i_float == dim:
+#             i_float = i_float - 1
+#         i_int = math.floor(i_float)
+#         return i_int, i_float
+#     
+#     (x_index, x_index_float) = linear_interpolate(x, METOS_X_RANGE, x_dim)
+#     (y_index, y_index_float) = linear_interpolate(y, METOS_Y_RANGE, y_dim)
+#     (t_index, _) = linear_interpolate(t, METOS_T_RANGE, t_dim)
+#     
+#     ## lockup z
+#     z_index = bisect.bisect(METOS_Z, z) - 1
+#     
+#     if z_index + 1 < len(METOS_Z):
+#         z_left = METOS_Z[z_index]
+#         z_right = METOS_Z[z_index + 1]
+#         
+#         z_index_float = z_index + (z - z_left) / (z_right - z_left)
+#     else:
+#         z_index_float = z_index
+#     
+#     
+#     print_debug(('Float indices for ', (t, x, y, z), ' are ', (t_index, x_index_float, y_index_float, z_index_float), '.'), debug_level, required_debug_level)
+#     
+#     ## get nearest water box if box is land
+#     box_value = land_sea_mask[x_index, y_index]
+#     if box_value is np.nan or box_value < z_index:
+#         print_debug(('Box ', (x_index, y_index, z_index), ' is land.'), debug_level, required_debug_level)
+#         (x_index, y_index, z_index) = get_nearest_water_box(land_sea_mask, x_index_float, y_index_float, z_index_float, debug_level, required_debug_level + 1)
+#     
+#     print_debug(('Nearest index for ', (x, y, z), ' is ', (x_index, y_index, z_index)), debug_level, required_debug_level)
+#     
+#     return (t_index, x_index, y_index, z_index)
     
 
     

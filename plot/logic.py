@@ -21,8 +21,6 @@ from util.debug import Debug
 class Logic(Debug):
     
     def __init__(self, debug_level=0):
-#         from ndop.plot.constants import LSM_FILE, NOBS_FILE, VARIS_FILE
-        
         Debug.__init__(self, debug_level, base_string='ndop.plot.logic: ')
         
         self._df = None
@@ -33,6 +31,8 @@ class Logic(Debug):
         self._time_index = -1
         self._depth_index = 0
         self._plot_index = 0
+        self.set_lower_value_range('-inf')
+        self.set_upper_value_range('inf')
         
         # plot NANs in black
         colormap = pp.cm.jet
@@ -52,9 +52,6 @@ class Logic(Debug):
         self._accuracy_object = Accuracy_Cached(self.debug_level, self.required_debug_level + 1)
     
 # #     @property
-#     def get_parameter_set(self):
-#         return self._parameter_set
-        
     def get_parameter_set_dir(self):
         return self._parameter_set_dir
     
@@ -65,13 +62,8 @@ class Logic(Debug):
         parameter_set_dir_pattern = os.path.join(MODEL_OUTPUTS_DIR, MODEL_PARAMETERS_SET_DIRNAME)
         parameter_set_dir = util.pattern.replace_int_pattern(parameter_set_dir_pattern, parameter_set)
         self._parameter_set_dir = parameter_set_dir
-#         if parameter_set != self._parameter_set:
-#             self._parameter_set = parameter_set
-#             self._df = None
         
         self.print_debug_inc_dec(('Parameter set dir changed to "', parameter_set_dir, '".'))
-        
-#         self.parameter_str_changed(str(parameter_set))
     
     
 #     @property
@@ -114,50 +106,25 @@ class Logic(Debug):
     
 #     @plot_index.setter
     def set_plot_index(self, plot_index):
-#         if plot_index == 0:
-#             plot_index = range(self.sensitivity_length)
-#         else:
-#         plot_index = plot_index - 1
         self._plot_index = plot_index
         
         self.print_debug_inc_dec(('Sensitivity index changed to "', plot_index, '".'))
     
     
-#     @staticmethod
-#     def parameter_str_changed(self, str):
-#         print('BABABBABB')
+    def get_lower_value_range(self):
+        return self._lower_value_range
+    
+    def set_lower_value_range(self, lb_string):
+        self._lower_value_range = float(lb_string)
     
     
+    def get_upper_value_range(self):
+        return self._upper_value_range
     
+    def set_upper_value_range(self, ub_string):
+        self._upper_value_range = float(ub_string)
     
-#     def set_time(self, time):
-#         time = str(time)
-#         self.print_debug_inc_dec(('Time changed to "', time, '".'))
-#         
-#         if time == "annual":
-#             time_index = range(13)
-#         else:
-#             time_index = strptime(time,'%B').tm_mon
-#             
-#         self.print_debug_inc_dec(('tracer index changed to: ', time_index))
-#         self._tracer_index = time_index
 
-#     def get_parameters_str(self):
-#         from ndop.plot.constants import PARAMETER_FILE_PATTERN
-#         
-#         parameter_set = self.get_parameter_set()
-#         parameter_file = util.pattern.replace_int_pattern(PARAMETER_FILE_PATTERN, parameter_set)
-#         parameters = np.loadtxt(parameter_file)
-#         
-#         parameters_strings = ["%.3f" % parameter for parameter in parameters]
-#         parameters_string = ''
-#         
-#         last_index = len(parameters_strings) - 1
-#         for i in range(last_index):
-#             parameters_string += parameters_strings[i] + '\n'
-#         parameters_string += parameters_strings[last_index]
-#         
-#         return parameters_string
 
     def get_parameters_strings(self):
         from ndop.metos3d.constants import MODEL_PARAMETERS_FILENAME
@@ -203,20 +170,20 @@ class Logic(Debug):
         elif plot_index == MODEL_DIFF_PLOT:
             self.print_debug('Drawing model diff plot.')
             f = ndop.metos3d.direct_access.get_f(parameter_set_dir)
-            y = self._accuracy_object.means
+            y = self._accuracy_object.accuracy.means
             map = abs(y - f)
         elif plot_index == MEANS_PLOT_INDEX:
             self.print_debug('Drawing observation means plot.')
-            map = self._accuracy_object.means
+            map = self._accuracy_object.accuracy.means
         elif plot_index == NOBS_PLOT_INDEX:
             self.print_debug('Drawing nobs plot.')
-            map = self._accuracy_object.nobs
+            map = self._accuracy_object.accuracy.nobs
         elif plot_index == VARIS_OF_OBSERVATION_PLOT_INDEX:
             self.print_debug('Drawing varis of observations plot.')
-            map = self._accuracy_object.varis
+            map = self._accuracy_object.accuracy.varis
         elif plot_index == VARIS_OF_OBSERVATION_MEAN_PLOT_INDEX:
             self.print_debug('Drawing varis of mean of observations plot.')
-            map = self._accuracy_object.vari_of_means
+            map = self._accuracy_object.accuracy.vari_of_means
         elif plot_index == PROPABILITY_PLOT_INDEX:
             self.print_debug('Drawing probility plot.')
             map = self._accuracy_object.probability_of_observations(parameter_set_dir)
@@ -254,11 +221,21 @@ class Logic(Debug):
         
         self.print_debug(('Map shape is "', map.shape, '".'))
         
+        
+        ## apply plot bounds
+        map = np.copy(map)
+        lb = self.get_lower_value_range()
+        ub = self.get_upper_value_range()
+        map[map < lb] = np.nan
+        map[map > ub] = np.nan
+        
+        
+        
+        ## make plot
 #         vmin = 0    #math.floor(np.nanmin(map))
 #         vmax = math.ceil(np.nanmax(map))
         vmin = np.nanmin(map)
         vmax = np.nanmax(map)
-        vmax = 1
         if vmax == vmin:
             vmax = vmin + 1
         

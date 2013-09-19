@@ -118,72 +118,52 @@ class Model(Debug):
     
     
     
-#     def get_parameter_set_dir(self, path):
-#         from ndop.metos3d.constants import MODEL_PARAMETERS_SET_DIRNAME
-#         
-#         parameter_set_dir = None
-#         while parameter_set_dir is None and len(path) > 0:
-#             (head, tail) = os.path.split(path)
-#             if util.pattern.is_matching(tail, MODEL_PARAMETERS_SET_DIRNAME):
-#                 parameter_set_dir = path
-#             else:
-#                 path = head
-#         
-#         return parameter_set_dir
-    
-    
     def is_matching_parameter_set(self, parameters, parameter_set_dir):
         from ndop.metos3d.constants import MODEL_PARAMETERS_MAX_DIFF
         
-#         parameter_set_dir = self.get_parameter_set_dir(path)
         parameters_diff = self.get_parameters_diff(parameters, parameter_set_dir)
         is_matching = parameters_diff <= MODEL_PARAMETERS_MAX_DIFF
         
         return is_matching
     
-#     def is_same_parameter_set(self, path1, path2):
-#         parameter_set_dir_1 = self.get_parameter_set_dir(path1)
-#         parameter_set_dir_2 = self.get_parameter_set_dir(path2)
-#         
-#         is_matching = parameter_set_dir_1 == parameter_set_dir_2
-#         
-#         return is_matching
     
     
-#     def search_nearest_parameter_set_dir(self, search_path, parameters):
-#         self.print_debug_inc(('Searching for directory for parameters as close as possible to "', parameters, '" in "', search_path, '".'))
-#         
-#         ## check input
-#         self.check_if_parameters_in_bounds(parameters)
-#         
-#         
-#         ## search for directories with matching parameters
-#         parameter_set_dir = None
-#         parameter_set_number = 0
-#         parameters_diff = float('inf')
-#         
-#         if os.path.exists(search_path):
-#             parameter_set_dirs = util.io.get_dirs(search_path)
-#             while parameters_diff > 0 and parameter_set_number < len(parameter_set_dirs):
-#                 current_parameter_set_dir = parameter_set_dirs[parameter_set_number]
-#                 try:
-#                     current_parameters_diff = self.get_parameters_diff(parameters, current_parameter_set_dir)
-#                 except (OSError, IOError):
-#                     warnings.warn('Could not read the parameters file "' + current_parameters_file + '"!')
-#                     current_parameters_diff = float('inf')
-#                 
-#                 if current_parameters_diff < parameters_diff:
-#                     parameter_set_dir = current_parameter_set_dir
-#                     parameters_diff = current_parameters_diff
-#                 
-#                 parameter_set_number += 1
-#         
-#         if parameter_set_dir is not None:
-#             self.print_debug_dec(('Directory closest to parameters at "', parameter_set_dir, '" found.'))
-#         else:
-#             self.print_debug_dec('No directory closest to parameters found.')
-#         
-#         return parameter_set_dir
+    def search_nearest_parameter_set_dir(self, parameters, search_path):
+        self.print_debug_inc(('Searching for directory for parameters as close as possible to "', parameters, '" in "', search_path, '".'))
+        
+        ## check input
+        self.check_if_parameters_in_bounds(parameters)
+        
+        
+        ## search for directories with matching parameters
+        parameter_set_dir = None
+        parameter_set_number = 0
+        parameters_diff = float('inf')
+        
+        if os.path.exists(search_path):
+            parameter_set_dirs = util.io.get_dirs(search_path)
+            number_of_parameter_set_dirs = len(parameter_set_dirs)
+            while parameters_diff > 0 and parameter_set_number < number_of_parameter_set_dirs:
+                current_parameter_set_dir = parameter_set_dirs[parameter_set_number]
+                try:
+                    current_parameters_diff = self.get_parameters_diff(parameters, current_parameter_set_dir)
+                except (OSError, IOError):
+                    warnings.warn('Could not read the parameters file "' + current_parameters_file + '"!')
+                    current_parameters_diff = float('inf')
+                
+                if current_parameters_diff < parameters_diff:
+                    parameter_set_dir = current_parameter_set_dir
+                    parameters_diff = current_parameters_diff
+                
+                parameter_set_number += 1
+        
+        ## return parameter_set_dir with min diff
+        if parameter_set_dir is not None:
+            self.print_debug_dec(('Directory closest to parameters at "', parameter_set_dir, '" found.'))
+        else:
+            self.print_debug_dec('No directory closest to parameters found.')
+        
+        return parameter_set_dir
     
     
     
@@ -192,13 +172,6 @@ class Model(Debug):
         
         self.print_debug_inc(('Creating new parameter set directory in "', path, '".'))
         
-#         parameter_set_dirs = util.io.get_dirs(path)
-#         next_parameter_set_number = len(parameter_set_dirs)
-#         
-#         parameter_set_dirname = util.pattern.replace_int_pattern(MODEL_PARAMETERS_SET_DIRNAME, next_parameter_set_number)
-#         parameter_set_dir = os.path.join(path, parameter_set_dirname)
-#         os.makedirs(parameter_set_dir)
-
         parameter_set_number = 0
         parameter_set_dir = None
         while parameter_set_dir is None:
@@ -229,45 +202,18 @@ class Model(Debug):
         parameter_set_number = 0
         
         if os.path.exists(search_path):
-# #             closest_parameter_set_dir = self.search_nearest_parameter_set_dir(search_path, parameters)
-# #             if self.is_matching_parameter_set(parameters, closest_parameter_set_dir):
-# #                 parameter_set_dir = closest_parameter_set_dir
-# # #             closest_parameters = np.loadtxt(current_parameters_file)
-# # #             if all(closest_parameters == parameters):
-# # #                 parameter_set_dir = closest_parameter_set_dir
-            parameter_set_dirs = util.io.get_dirs(search_path)
-            while parameter_set_dir is None and parameter_set_number < len(parameter_set_dirs):
-                current_parameter_set_dir = parameter_set_dirs[parameter_set_number]
-#                 current_parameters_file = os.path.join(current_parameter_set_dir, MODEL_PARAMETERS_FILENAME)
-                try:
-#                     current_parameters = np.loadtxt(current_parameters_file)
-                    if self.is_matching_parameter_set(parameters, current_parameter_set_dir):
-                    #if all(current_parameters == parameters):
-                        parameter_set_dir = current_parameter_set_dir
-                except (OSError, IOError):
-                    warnings.warn('Could not read the parameters file "' + current_parameters_file + '"!')
-                
-                if parameter_set_dir is None:
-                        parameter_set_number += 1
+            closest_parameter_set_dir = self.search_nearest_parameter_set_dir(parameters, search_path)
+            if self.is_matching_parameter_set(parameters, closest_parameter_set_dir):
+                parameter_set_dir = closest_parameter_set_dir
         else:
             os.makedirs(search_path)
         
         
         ## make new model_output if the parameters are not matching
         if parameter_set_dir is not None:
-            self.print_debug_dec(('Matching directory for parameters at "', current_parameter_set_dir, '" found.'))
+            self.print_debug_dec(('Matching directory for parameters at "', parameter_set_dir, '" found.'))
         else:
             parameter_set_dir = self.make_new_parameter_set_dir(search_path, parameters)
-#             self.print_debug(('No matching directory for parameters found.'))
-#             parameter_set_dirname = util.pattern.replace_int_pattern(MODEL_PARAMETERS_SET_DIRNAME, parameter_set_number)
-#             parameter_set_dir = os.path.join(search_path, parameter_set_dirname)
-#             os.makedirs(parameter_set_dir)
-#             
-#             parameters_file = os.path.join(parameter_set_dir, MODEL_PARAMETERS_FILENAME)
-#             np.savetxt(parameters_file, parameters, fmt=MODEL_PARAMETERS_FORMAT_STRING)
-#             os.chmod(parameters_file, stat.S_IRUSR)
-#             self.print_debug(('Directory "', parameter_set_dir, '" for parameters created.'))
-            
             self.print_debug_dec(('Directory for parameters "', parameters, '" created in "', parameter_set_dir, '".'))
         
         return parameter_set_dir
@@ -329,9 +275,6 @@ class Model(Debug):
     
     def is_run_matching_options(self, run_dir, years, tolerance, time_step_size):
         if run_dir is not None:
-#             (run_years, run_tolerance, run_time_step_size) = self.get_run_options(run_path
-#             is_matching = years <= run_years and tolerance >= run_tolerance and time_step_size >= run_time_step_size
-
             run_years = self.get_total_years(run_dir)
             run_tolerance = self.get_real_tolerance(run_dir)
             run_time_step_size = self.get_time_step_size(run_dir)
@@ -377,14 +320,14 @@ class Model(Debug):
     
     
     def get_time_step_size(self, run_dir):
-        from ndop.metos3d.constants import MODEL_RUN_OPTIONS_FILENAME
+        from ndop.metos3d.constants import MODEL_RUN_OPTIONS_FILENAME  
         
-        options_file = os.path.join(run_dir, MODEL_RUN_OPTIONS_FILENAME)
-        options = np.loadtxt(options_file)
+        with Job(debug_level=self.debug_level, required_debug_level=self.required_debug_level+1) as job:
+            job.load(run_dir)
+            time_step = job.time_step
         
-        (years, tolerance, time_step_size) = options
         
-        return time_step_size
+        return time_step
     
     
     
@@ -404,35 +347,6 @@ class Model(Debug):
         
         return tracer_input_dir
     
-    
-#     def extract_parameter_set_dir(self, path):
-#         from ndop.metos3d.constants import MODEL_PARAMETERS_SET_DIRNAME
-#         
-#         path_split = path.split(os.path.sep)
-#         match_list = util.pattern.get_all_matching_strings(path_split, MODEL_PARAMETERS_SET_DIRNAME)
-#         
-#         if len(match_list) >= 1:
-#             return match_list[0]
-#         else:
-#             return None
-
-#     def get_parameters(self, path):
-#         parameters = None
-#         
-#         parameters_file =
-#         os.path.dirname(path)
-#         
-#         
-#         from ndop.metos3d.constants import MODEL_PARAMETERS_FILENAME, MODEL_PARAMETERS_SET_DIRNAME, MODEL_PARAMETERS_FORMAT_STRING
-#         
-#         self.print_debug_inc(('Searching for directory for parameters "', parameters, '" in "', search_path, '".'))
-#         
-#         parameter_set_dirname = util.pattern.replace_int_pattern(MODEL_PARAMETERS_SET_DIRNAME, parameter_set_number)
-#         parameter_set_dir = os.path.join(search_path, parameter_set_dirname)
-#         os.makedirs(parameter_set_dir)
-#         
-#         parameters_file = os.path.join(parameter_set_dir, MODEL_PARAMETERS_FILENAME)
-#         np.savetxt(parameters_file, parameters, fmt=MODEL_PARAMETERS_FORMAT_STRING)
     
     
     def make_run(self, output_path, parameters, years, tolerance, time_step_size, tracer_input_path=None):
@@ -512,7 +426,7 @@ class Model(Debug):
     
     
     def search_or_make_spinup(self, parameter_set_dir, parameters, years, tolerance, time_step_size):
-        from ndop.metos3d.constants import MODEL_SPINUP_DIRNAME
+        from ndop.metos3d.constants import MODEL_SPINUP_DIRNAME, MODEL_PARAMETERS_FILENAME
         
         spinup_dir = os.path.join(parameter_set_dir, MODEL_SPINUP_DIRNAME)
         
@@ -528,9 +442,21 @@ class Model(Debug):
         ## create new spinup
         else:
             self.print_debug(('No matching spinup found.'))
-            output_dir = os.path.dirname(parameter_set_dir)
-            last_run_dir = self.search_closest_spinup_run(output_dir, parameters)
-        
+            
+            ## get spinup run for closest parameters
+            time_step_dir = os.path.dirname(parameter_set_dir)
+            last_run_dir = self.search_closest_spinup_run(time_step_dir, parameters)
+            
+            ## complete spinup for closest parameters
+            last_spinup_dir = os.path.dirname(last_run_dir)
+            if spinup_dir != last_spinup_dir:
+                last_parameter_set_dir = os.path.dirname(last_spinup_dir)
+                last_parameter_file = os.path.join(last_parameter_set_dir, MODEL_PARAMETERS_FILENAME)
+                last_parameters = np.loadtxt(last_parameter_file)
+                
+                self.f(last_parameters, t_dim=12, years=years, tolerance=tolerance, time_step_size=time_step_size)
+            
+            ## make spinup run
             run_dir = self.make_run(spinup_dir, parameters, years, tolerance, time_step_size, tracer_input_path=last_run_dir)
             
             self.print_debug(('Spinup directory ', run_dir, ' created.'))

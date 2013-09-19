@@ -4,16 +4,28 @@ import ndop.metos3d.direct_access
 from ndop.analysis.accuracy import Accuracy
 
 import util.cache
+from util.debug import Debug
 
-class Accuracy_Cached(Accuracy):
+class Accuracy_Cached(Debug):
     
     def __init__(self, debug_level=0, required_debug_level=1):
-        super(Accuracy_Cached, self).__init__(debug_level, required_debug_level)
+        Debug.__init__(self, debug_level, required_debug_level-1, 'ndop.optimization.accuracy_cached: ')
+        
+        accuracy = Accuracy(debug_level, required_debug_level+1)
+        
+        self.accuracy = accuracy
+        self.means = accuracy.means
+        self.nobs = accuracy.nobs
+        self.varis = accuracy.varis
+        self.nobs_per_vari = accuracy.nobs_per_vari
+        self.vari_of_means = accuracy.vari_of_means
+        self.number_of_not_empty_boxes = accuracy.number_of_not_empty_boxes
+        self.averaged_model_variance = accuracy.averaged_model_variance
     
     
     def calculate_confidence_for_parameters(self, parameter_set_dir):
         df = ndop.metos3d.direct_access.get_df(parameter_set_dir, debug_level=self.debug_level, required_debug_level=self.required_debug_level+1)
-        confidence = super(Accuracy_Cached, self).confidence_for_parameters(df)
+        confidence = self.accuracy.confidence_for_parameters(df)
         
         return confidence
         
@@ -32,7 +44,7 @@ class Accuracy_Cached(Accuracy):
     
     def calculate_confidence_for_model(self, parameter_set_dir):
         df = ndop.metos3d.direct_access.get_df(parameter_set_dir, debug_level=self.debug_level, required_debug_level=self.required_debug_level+1)
-        confidence = super(Accuracy_Cached, self).confidence_for_model(df)
+        confidence = self.accuracy.confidence_for_model(df)
         
         return confidence
     
@@ -50,7 +62,7 @@ class Accuracy_Cached(Accuracy):
     
     
     def calculate_averaged_model_variance(self):
-        return super(Accuracy_Cached, self).averaged_model_variance()
+        return self.accuracy.averaged_model_variance()
     
     
     def averaged_model_variance(self, parameter_set_dir):
@@ -68,7 +80,7 @@ class Accuracy_Cached(Accuracy):
     def calculate_averaged_model_variance_estimation(self, parameter_set_dir):
         f = ndop.metos3d.direct_access.get_f(parameter_set_dir, debug_level=self.debug_level, required_debug_level=self.required_debug_level+1)
         
-        variance_estimation = super(Accuracy_Cached, self).averaged_model_variance_estimation(f)
+        variance_estimation = self.accuracy.averaged_model_variance_estimation(f)
         
         return variance_estimation
     
@@ -88,7 +100,7 @@ class Accuracy_Cached(Accuracy):
     def calculate_probability_of_observations(self, parameter_set_dir):
         f = ndop.metos3d.direct_access.get_f(parameter_set_dir, debug_level=self.debug_level, required_debug_level=self.required_debug_level+1)
         
-        probability = super(Accuracy_Cached, self).probability_of_observations(f)
+        probability = self.accuracy.probability_of_observations(f)
         
         return probability
     
@@ -108,7 +120,7 @@ class Accuracy_Cached(Accuracy):
     def calculate_averaged_probability_of_observations(self, parameter_set_dir):
         f = ndop.metos3d.direct_access.get_f(parameter_set_dir, debug_level=self.debug_level, required_debug_level=self.required_debug_level+1)
         
-        probability = super(Accuracy_Cached, self).averaged_probability_of_observations(f)
+        probability = self.accuracy.averaged_probability_of_observations(f)
         
         return probability
     

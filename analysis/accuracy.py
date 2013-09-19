@@ -163,12 +163,11 @@ class Accuracy(Debug):
         self.print_debug_inc('Calculating probability of observations.')
         
         means = self.means
-        nobs = np.copy(self.nobs)
-        varis = self.varis
-        nobs[nobs == 0] = np.inf
+        vari_of_means = self.vari_of_means
         
-#         probability = 2 * (1 - scipy.stats.norm.cdf(np.abs(means - model_f), scale=(varis/nobs)))
-        probability = 2 * scipy.stats.norm.cdf(- np.abs(means - model_f), scale=(varis/nobs))
+#         probability = 2 * scipy.stats.norm.cdf(- np.abs(means - model_f), scale=(vari_of_means))
+#         probability = scipy.stats.norm.pdf(np.abs(means - model_f), scale=(vari_of_means))
+        probability = scipy.stats.norm.logpdf(np.abs(means - model_f), scale=(vari_of_means))
         
         self.print_debug_dec('Probability of observations calculated.')
         
@@ -180,4 +179,9 @@ class Accuracy(Debug):
         number_of_not_empty_boxes = self.number_of_not_empty_boxes
         
         axis_sum = tuple(range(1, len(model_f.shape)))
-        ave = np.nansum(probability, axis=axis_sum) / number_of_not_empty_boxes
+        average = np.nansum(probability, axis=axis_sum) / number_of_not_empty_boxes
+#         average = np.exp(average)
+#         probability[np.isnan(probability)] = 1
+#         average = probability.prod()
+        
+        return average

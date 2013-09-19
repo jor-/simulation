@@ -46,37 +46,6 @@ def load_measurements(debug_level = 0, required_debug_level = 1):
 
 
 
-# def measurements_array(debug_level = 0, required_debug_level = 1):
-#     from ndop.measurements.constants import YOSHIMURA_DOP_MEASUREMENT_FILE
-#     
-#     print_debug(('Loading dop measurements from ', YOSHIMURA_DOP_MEASUREMENT_FILE), debug_level, required_debug_level,  'ndop.measurements.regrid_dop.load_measurements: ')
-#     
-#     x = np.loadtxt(YOSHIMURA_DOP_MEASUREMENT_FILE, usecols = (0,))
-#     y = np.loadtxt(YOSHIMURA_DOP_MEASUREMENT_FILE, usecols = (1,))
-#     z = np.zeros_like(x)
-#     time = np.loadtxt(YOSHIMURA_DOP_MEASUREMENT_FILE, usecols = (2,))
-#     
-#     measurements = np.empty([len(time), 4], dtype=np.float64)
-#     measurements[:, 0] = time
-#     measurements[:, 1] = x
-#     measurements[:, 2] = y
-#     measurements[:, 3] = z
-#     
-#     return measurements
-# 
-# 
-# 
-# 
-# def values_array(debug_level = 0, required_debug_level = 1):
-#     from ndop.measurements.constants import YOSHIMURA_DOP_MEASUREMENT_FILE
-#     
-#     print_debug(('Loading dop values from ', YOSHIMURA_DOP_MEASUREMENT_FILE), debug_level, required_debug_level, 'ndop.measurements.regrid_dop.values_array: ')
-#     
-#     values = np.loadtxt(YOSHIMURA_DOP_MEASUREMENT_FILE, usecols = (3,))
-#     
-#     return values
-
-
 
 def init_masked_array(land_sea_mask, t_dim, dtype=np.float64):
     z_dim = np.nanmax(land_sea_mask)
@@ -131,8 +100,6 @@ def save_regrided(land_sea_mask, t_dim=12, debug_level = 0, required_debug_level
     
     mean = np.array(sum_of_values, copy=True)
     mean[where_measurements] /= nobs[where_measurements]
-#     mean_of_square = np.array(sum_of_squares, copy=True)
-#     mean_of_square[where_measurements] /= nobs[where_measurements]
     
     ## calculate variance
     where_measurements_ge_3 = np.where(nobs >= 3)
@@ -150,5 +117,3 @@ def save_regrided(land_sea_mask, t_dim=12, debug_level = 0, required_debug_level
     np.save(DOP_NOBS, nobs)
     np.save(DOP_VARIS, varis)
     np.save(DOP_MEANS, mean)
-#     np.save(DOP_MOS, mean_of_square)
-

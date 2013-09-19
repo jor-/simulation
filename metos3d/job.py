@@ -2,6 +2,7 @@ import os
 import os.path as path
 import time
 import subprocess
+import re
 import numpy as np
 
 import util.rzcluster
@@ -46,6 +47,8 @@ class Job(Debug):
     def last_spinup_line(self):
         opt = self.options
         output_file = opt['/job/output_file']
+        
+        self.wait_until_finished()
         
         # 9.704s 0010 Spinup Function norm 2.919666257647e+00
         last_spinup_line = None
@@ -102,6 +105,21 @@ class Job(Debug):
         
         return last_spinup_tolerance
     
+    @property
+    def time_step(self):
+        from ndop.metos3d.constants import MODEL_TIME_STEP_SIZE_MAX
+        
+        opt = self.options
+        metos3d_opt_file = opt['/metos3d/option_file']
+        with open(metos3d_opt_file) as metos3d_opt_file_object:
+            metos3d_opt_lines = metos3d_opt_file_object.readlines()
+        
+        for metos3d_opt_line in metos3d_opt_lines:
+            if re.search('Metos3DTimeStepCount', metos3d_opt_line) is not None:
+                time_step_count = int(re.findall('\d+', metos3d_opt_line)[1])
+                time_step = MODEL_TIME_STEP_SIZE_MAX / time_step_count
+                return time_step
+    
     
     
     def load(self, option_file):
@@ -156,33 +174,21 @@ class Job(Debug):
             new_output_path = new_output_path[:-1]
         
         opt.replace_all_str_options(old_output_path, new_output_path)
-        
-#         for option in opt.get_all_str_options():
-#             old_option = opt[option]
-#             new_option = old_option.replace(old_output_path, new_output_path)
-#             if old_option != new_option:
-#                 opt[option] = new_option
-#                 self.print_debug_inc_dec(('Job option "', option, '" updated from "', old_option, '" to "', new_option, '".'))
-#             else:
-#                 self.print_debug_inc_dec(('In job option "', option, '" with value "', old_option, '" is noting to update.'))
-    
-#     def update_output_path(self, new_output_path):
-#         output_path = path.abspath(output_path)
-#         opt['/model/parameters_file'] = path.join(output_path, 'model_parameter.txt')
-#         opt['/job/option_file'] = path.join(output_path, 'job_options.txt')
-#         opt['/job/output_file'] = path.join(output_path, 'job_output.txt')
-#     
-#         opt['/metos3d/tracer_input_path'] = output_path
        
     
-    def initialise(self, model_parameters, output_path=os.getcwd(), years=1, tolerance=0, time_step_size=1, walltime_hours=240, cpu_kind='westmere', nodes=1, cpus=1, write_trajectory=False, tracer_input_path=None, pause_time_seconds=10):
+#     def initialise(self, model_parameters, output_path=os.getcwd(), years=1, tolerance=0, time_step_size=1, walltime_hours=240, cpu_kind='westmere', nodes=1, cpus=1, write_trajectory=False, tracer_input_path=None, pause_time_seconds=10):
+    def initialise(self, model_parameters, output_path=os.getcwd(), years=1, tolerance=0, time_step_size=1, cpu_kind='f_ocean', queue='f_ocean', nodes=1, cpus=1, write_trajectory=False, tracer_input_path=None, pause_time_seconds=10):
         from ndop.metos3d.constants import JOB_OPTIONS_FILENAME, JOB_MEMORY_GB, MODEL_PARAMETERS_FORMAT_STRING, MODEL_TIME_STEP_SIZE_MAX
+        from util.rzcluster_constants import QUEUES
 
         self.print_debug_inc('Initialising job.')
         
         ## check input
         if MODEL_TIME_STEP_SIZE_MAX % time_step_size != 0:
             raise ValueError('Wrong time_step_size passed. ' + str(MODEL_TIME_STEP_SIZE_MAX) + ' has to be divisible by time_step_size. But time_step_size is ' + str(time_step_size) + '.')
+        
+        if queue not in QUEUES:
+            raise ValueError('Unknown queue ' + str(queue) + '.')
         
         
         
@@ -212,35 +218,53 @@ class Job(Debug):
         
         
         ## set job options
-        opt['/job/walltime_hours'] = walltime_hours
+#         opt['/job/walltime_hours'] = walltime_hours
         opt['/job/nodes'] = nodes
         opt['/job/cpus'] = cpus
         opt['/job/memory_gb'] = JOB_MEMORY_GB
         
-        if cpu_kind == 'barcelona':
-            cpu_kind = 'f_ocean'
-        
-        if cpu_kind == 'opteron':
-            cpu_kind = 'all'
+#         if cpu_kind == 'barcelona':
+#             cpu_kind = 'f_ocean'
+#         
+#         if cpu_kind == 'opteron':
+#             cpu_kind = 'all'
         opt['/job/cpu_kind'] = cpu_kind
         
-        if cpu_kind == 'f_ocean':
-            queue = 'f_ocean'
-        elif cpu_kind == 'westmere' or cpu_kind == 'all':
-            if walltime_hours <= 3:
-                queue = 'express'
-            elif walltime_hours <= 24:
-                queue = 'small'
-            elif walltime_hours <= 240:
-                queue = 'medium'
-            elif walltime_hours <= 480:
-                queue = 'long'
-            elif walltime_hours <= 1000:
-                queue = 'para_low'
-            else:
-                raise ValueError('Walltime hours ' + str(walltime_hours) + ' to long.')
-        else:
-            raise ValueError('Unknown cpu_kind ' + str(cpu_kind) + '.')
+        if queue == 'f_ocean':
+            walltime_hours = 240
+        elif queue == 'express':
+            walltime_hours = 3
+        elif queue == 'small':
+            walltime_hours = 24
+        elif queue == 'medium':
+            walltime_hours = 240
+        elif queue == 'long':
+            walltime_hours = 480
+        elif queue == 'para_low':
+            walltime_hours = 1000
+            
+        opt['/job/walltime_hours'] = walltime_hours
+#         
+#         
+#         if cpu_kind == 'f_ocean':
+#             queue = 'f_ocean'
+#         elif cpu_kind == 'westmere' or cpu_kind == 'all':
+#             if walltime_hours <= 3:
+#                 queue = 'express'
+#             elif walltime_hours <= 24:
+#                 queue = 'small'
+#             elif walltime_hours <= 240:
+#                 queue = 'medium'
+#             elif walltime_hours <= 480:
+#                 queue = 'long'
+#             elif walltime_hours <= 1000:
+#                 queue = 'para_low'
+#             else:
+#                 raise ValueError('Walltime hours ' + str(walltime_hours) + ' to long.')
+#         else:
+#             raise ValueError('Unknown cpu_kind ' + str(cpu_kind) + '.')
+        
+            
         opt['/job/queue'] = queue
         
         opt['/job/output_path'] = path.dirname(output_path)
@@ -295,7 +319,7 @@ class Job(Debug):
             model_parameters_string += MODEL_PARAMETERS_FORMAT_STRING % model_parameters[i]
             if i < model_parameters_len - 1:
                 model_parameters_string += ','
-                
+        
 #         model_parameters_last_index = len(model_parameters) - 1
 #         for i in range(model_parameters_last_index):
 #             model_parameters_string += MODEL_PARAMETERS_FORMAT_STRING + ', ' % model_parameters[i]
@@ -313,7 +337,12 @@ class Job(Debug):
         f.write('#PBS -N %s \n' % opt['/job/name'])
         f.write('#PBS -j oe \n')
         f.write('#PBS -o %s \n' % opt['/job/output_file'])
-        f.write('#PBS -l walltime=%02i:00:00 \n' % opt['/job/walltime_hours'])
+        
+        try:
+            f.write('#PBS -l walltime=%02i:00:00 \n' % opt['/job/walltime_hours'])
+        except KeyError:
+            pass
+        
         f.write('#PBS -l select=%i:%s=true:ncpus=%i:mpiprocs=%i:mem=%igb \n' % (opt['/job/nodes'], opt['/job/cpu_kind'], opt['/job/cpus'], opt['/job/cpus'], opt['/job/memory_gb']))
         f.write('#PBS -q %s \n\n' % opt['/job/queue'])
         
@@ -420,24 +449,37 @@ class Job(Debug):
     
     def initialise_with_best_configuration(self, model_parameters, output_path=os.getcwd(), years=1, tolerance=0, time_step_size=1, write_trajectory=False, tracer_input_path=None, pause_time_seconds=10):
         
-        from ndop.metos3d.constants import JOB_MEMORY_GB
+        from ndop.metos3d.constants import JOB_MEMORY_GB, JOB_MIN_CPUS
         
         self.print_debug_inc('Getting best job configutrations.')
         
-        if write_trajectory and years == 1:
+        if years == 1:
             max_nodes = 1
         else:
             max_nodes = float('inf')
         
         nodes = 0
-        while nodes == 0:
+        cpus = 0
+        resources_free = False
+        while not resources_free:
             (cpu_kind, nodes, cpus) =  util.rzcluster.get_best_cpu_configurations(JOB_MEMORY_GB * 1024, nodes_ub=max_nodes, debug_level=self.debug_level, required_debug_level=self.required_debug_level+1)
-            if nodes == 0:
-                self.print_debug('No resources free. Waiting.')
-                time.sleep(30)
+            resources_free = (nodes * cpus >= JOB_MIN_CPUS) or (write_trajectory and nodes >= 1)
+            if not resources_free:
+                self.print_debug('No enough resources free. Waiting.')
+                time.sleep(60)
         
-        walltime_hours = 240
-        self.initialise(model_parameters, output_path=output_path, walltime_hours=walltime_hours, cpu_kind=cpu_kind, nodes=nodes, cpus=cpus, years=years, tolerance=tolerance, time_step_size=time_step_size, write_trajectory=write_trajectory, tracer_input_path=tracer_input_path, pause_time_seconds=pause_time_seconds)
+        if cpu_kind == 'f_ocean':
+            queue = 'f_ocean'
+        elif years == 1:
+            queue = 'express'
+            cpus = min(cpus, 8)
+            cpu_kind = 'all'
+        else:
+            queue = 'medium'
+        
+#         walltime_hours = 240
+#         self.initialise(model_parameters, output_path=output_path, walltime_hours=walltime_hours, cpu_kind=cpu_kind, nodes=nodes, cpus=cpus, years=years, tolerance=tolerance, time_step_size=time_step_size, write_trajectory=write_trajectory, tracer_input_path=tracer_input_path, pause_time_seconds=pause_time_seconds)
+        self.initialise(model_parameters, output_path=output_path, cpu_kind=cpu_kind, queue=queue, nodes=nodes, cpus=cpus, years=years, tolerance=tolerance, time_step_size=time_step_size, write_trajectory=write_trajectory, tracer_input_path=tracer_input_path, pause_time_seconds=pause_time_seconds)
         
         self.print_debug_dec('Got best job configurations.')
     
@@ -482,20 +524,3 @@ class Job(Debug):
         if options is not None:
             options.close()
     
-    
-    
-#     def run_and_wait(self, model_parameters, output_path=os.getcwd(), years=1, tolerance=0, time_step_size=1, walltime_hours=240, cpu_kind='westmere', nodes=1, cpus=1, write_trajectory=False, tracer_input_path=None, pause_time_seconds=10):
-#         
-#         self.print_debug_inc('Running and waiting for job.')
-#         
-#         self.initialise(model_parameters, output_path=output_path, walltime_hours=walltime_hours, cpu_kind=cpu_kind, nodes=nodes, cpus=cpus, years=years, tolerance=tolerance, write_trajectory=write_trajectory, tracer_input_path=tracer_input_path, pause_time_seconds=pause_time_seconds)
-#         self.start()
-#         self.wait_until_finished()
-#         
-#         self.required_debug_level_dec()
-#     
-#     def run_and_wait_with_best_configuration(self, model_parameters, output_path=os.getcwd(), years=1, tolerance=0, time_step_size=1, write_trajectory=False, tracer_input_path=None, pause_time_seconds=10):
-#         
-#         walltime_hours = 240
-#         (cpu_kind, nodes, cpus) =  util.rzcluster.get_best_cpu_configurations(debug_level=self.debug_level, required_debug_level=self.required_debug_level)
-#         self.run_and_wait(model_parameters, output_path=output_path, walltime_hours=walltime_hours, cpu_kind=cpu_kind, nodes=nodes, cpus=cpus, years=years, tolerance=tolerance, write_trajectory=write_trajectory, tracer_input_path=tracer_input_path, pause_time_seconds=pause_time_seconds)
