@@ -1,8 +1,8 @@
 import datetime
 
 DATA_DIR = '/work_j2/sunip229/NDOP/measurement_data/PO4/wod/data'
-CRUISES_PICKLED_FILE = '/work_j2/sunip229/NDOP/measurement_data/PO4/wod/analysis/cruises_list_pickeld.py'
-MEASUREMENTS_PICKLED_FILE = '/work_j2/sunip229/NDOP/measurement_data/PO4/wod/analysis/measurements_dict_pickeld.py'
+CRUISES_PICKLED_FILE = '/work_j2/sunip229/NDOP/measurement_data/PO4/wod/analysis/cruises_list.py'
+MEASUREMENTS_PICKLED_FILE = '/work_j2/sunip229/NDOP/measurement_data/PO4/wod/analysis/measurements_dict.py'
 
 BASE_DATE = datetime.datetime(1770, 1, 1)
 # SAME_DATETIME_BOUND = 1 / (366.0 * 2)

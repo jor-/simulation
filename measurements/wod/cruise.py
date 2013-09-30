@@ -243,22 +243,31 @@ class Measurements(Debug):
         self.measurements_dict = dict()
     
     
+    def add_result(self, t, x, y, z, result):
+        dictionary = self.measurements_dict
+        index = (t, x, y, z)
+        n = len(index)
+        for i in range(n-1):
+            dictionary = dictionary.setdefault(index[i], dict())
+        result_list = dictionary.setdefault(index[n-1], [])
+        try:
+            result_list.extend(result)
+        except TypeError:
+            result_list.append(result)
+    
+    
     def add_cruises_with_box_indices(self, cruises):
         measurements_dict = self.measurements_dict
         
         ## insert results in dict
         for cruise in cruises:
-            cruise_spatial_indices = cruise.spatial_indices
-            cruise_dt_float = cruise.dt_float
-            cruise_results = cruise.po4
+            spatial_indices = cruise.spatial_indices
+            t = cruise.dt_float
+            results = cruise.po4.astype(float)
             
-            for i in range(cruise_results.size):
-                space_index = tuple(cruise_spatial_indices[i].tolist())
-                
-                # get value if in dict or new dict if not in dict
-                time_dict = measurements_dict.setdefault(space_index, dict())
-                result_list = time_dict.setdefault(cruise_dt_float, [])
-                result_list.append(cruise_results[i].astype(float))
+            for i in range(results.size):
+                (x, y, z) = spatial_indices[i]
+                self.add_result(t, x, y, z, results[i])
     
     
     def add_cruises_with_coordinates(self, cruises):
@@ -266,17 +275,14 @@ class Measurements(Debug):
         
         ## insert results in dict
         for cruise in cruises:
-            cruise_x = cruise.x
-            cruise_y = cruise.y
-            cruise_z = cruise.z
-            cruise_dt_float = cruise.dt_float
-            cruise_results = cruise.po4
+            x = cruise.x
+            y = cruise.y
+            z = cruise.z
+            t = cruise.dt_float
+            results = cruise.po4.astype(float)
             
-            for i in range(cruise_results.size):
-                space_index = (cruise_x, cruise_y, cruise_z[i])
-                time_dict = measurements_dict.setdefault(space_index, dict())
-                result_list = time_dict.setdefault(cruise_dt_float, [])
-                result_list.append(cruise_results[i].astype(float))
+            for i in range(results.size):
+                self.add_result(t, x, y, z[i], results[i])
     
     
     
@@ -295,87 +301,59 @@ class Measurements(Debug):
     
     def transform_indices(self, transform_function):
         measurements_dict = self.measurements_dict
-        transformed_measurements_dict = dict()
+        measurements_dict_transformed = dict()
         
-        for (space_index, time_dict) in measurements_dict.items():
-            
-            for (time_index, results_list) in time_dict.items():
-                index = list(space_index) + [time_index]
-                transformed_index = transform_function(index)
-                transformed_space_index = transformed_index[0:-1]
-                transformed_time_index = transformed_index[-1]
-                
-                transformed_time_dict = transformed_measurements_dict.setdefault(transformed_space_index, dict())
-                transformed_result_list = transformed_time_dict.setdefault(transformed_time_index, [])
-                transformed_result_list += results_list
+        for (t, t_dict) in  measurements_dict.items():
+            for (x, x_dict) in t_dict.items():
+                for (y, y_dict) in x_dict.items():
+                    for (z, results) in y_dict.items():
+                        index = (t, x, y, z)
+                        index_transformed = transform_function(index)
+                        
+                        n = len(index)
+                        dictionary = measurements_dict_transformed
+                        for i in range(n-1):
+                            dictionary = dictionary.setdefault(index_transformed[i], dict())
+                        results_transformed = dictionary.setdefault(index_transformed[n-1], [])
+                        results_transformed.extend(results)
+                        dictionary[index_transformed[n-1]] = results_transformed
         
-        transformed_measurements = Measurements(debug_level=self.debug_level, required_debug_level=self.required_debug_level)
-        transformed_measurements.measurements_dict = transformed_measurements_dict
-        
-        return transformed_measurements
+        self.measurements_dict = measurements_dict_transformed
     
     
     def categorize_indices(self, separation_values):
         def transform_function(index):
+            index_list = list(index)
             for i in range(len(separation_values)):
                 if separation_values[i] is not None:
-                     index[i] = math.floor(index[i] / separation_values[i]) * separation_values[i]
-            
+                     index_list[i] = math.floor(index[i] / separation_values[i]) * separation_values[i]
+            index = tuple(index_list)
             return index
             
-        transformed_measurements = self.transform_indices(transform_function)
-        return transformed_measurements
-    
-#     def categorize_time(self, separation_value):
-#         def transform_function(index):
-#             index[3] = math.floor(index[3] / separation_value) * separation_value
-#             return index
-#             
-#         transformed_measurements = self.transform_indices(transform_function)
-#         return transformed_measurements
+        self.transform_indices(transform_function)
     
     
     def discard_year(self):
         def transform_function(index):
-            index[3] = index[3] % 1
+            index_list = list(index)
+            index_list[0] = index[0] % 1
+            index = tuple(index_list)
             return index
             
-        transformed_measurements = self.transform_indices(transform_function)
-        return transformed_measurements
+        self.transform_indices(transform_function)
     
     
-#     def transform_time(self, transform_function):
-#         measurements_dict = self.measurements_dict
-#         transformed_measurements_dict = dict()
-#         
-#         for (space_index, time_dict) in measurements_dict.items():
-#             transformed_time_dict = transformed_measurements_dict.setdefault(space_index, dict())
-#             
-#             for (time_index, results_list) in time_dict.items():
-#                 transformed_time_index = transform_function(time_index)
-#                 transformed_result_list = transformed_time_dict.setdefault(transformed_time_index, [])
-#                 transformed_result_list += results_list
-#         
-#         transformed_measurements = Measurements(debug_level=self.debug_level, required_debug_level=self.required_debug_level)
-#         transformed_measurements.measurements_dict = transformed_measurements_dict
-#         
-#         return transformed_measurements
-#     
-#     
-#     def categorize_time(self, separation_value):
-#         transform_function = lambda t: math.floor(t / separation_value) * separation_value
-#         transformed_measurements = self.transform_time(transform_function)
-#         
-#         return transformed_measurements
-#     
-#     def discard_year(self):
-#         transform_function = lambda t: t%1
-#         transformed_measurements = self.transform_time(transform_function)
-#         
-#         return transformed_measurements
+    def discard_time(self):
+        def transform_function(index):
+            index_list = list(index)
+            index_list[0] = 0
+            index = tuple(index_list)
+            return index
+            
+        self.transform_indices(transform_function)
     
     
-    
+    #TODO: rewrite (new dic struct)
     def filter_by_space(self, filter_function):
         measurements_dict = self.measurements_dict
         filtered_measurements_dict = dict()
@@ -390,6 +368,7 @@ class Measurements(Debug):
         return filtered_measurements
     
     
+    #TODO: rewrite (new dic struct)
     def filter_space_values(self, x=None, y=None, z=None):
         compare_value_function = lambda value1, value2: value1 is None or value2 is None or value1 == value2 
         filter_function = lambda space_index: compare_value_function(x, space_index[0]) and compare_value_function(y, space_index[1]) and compare_value_function(z, space_index[2])
@@ -397,6 +376,7 @@ class Measurements(Debug):
         return self.filter_by_space(filter_function)
     
     
+    #TODO: rewrite (new dic struct)
     def filter_by_time(self, filter_function):
         measurements_dict = self.measurements_dict
         filtered_measurements_dict = dict()
@@ -413,6 +393,7 @@ class Measurements(Debug):
         return filtered_measurements
     
     
+    #TODO: rewrite (new dic struct)
     def filter_time_range(self, lower_bound, upper_bound):
         filter_function = lambda time: time >= lower_bound and time <= upper_bound
         
@@ -421,57 +402,84 @@ class Measurements(Debug):
     
     
     
-    def iterate_space_discard_time(self, fun, minimum_measurements=1):
-        measurements_dict = self.measurements_dict
-#         spatial_indices_list = []
-        value_list = []
-        
-        for (space_index, time_dict) in measurements_dict.items():
-            results_list = list(itertools.chain(*time_dict.values()))
-            
-            if len(results_list) >= minimum_measurements:
-#                 spatial_indices_list.append(space_index)
-                
-                results = np.array(results_list)
-                value = fun(results)
-                
-                row = space_index + (value,)
-                
-                value_list.append(row)
-        
-#         spatial_indices = np.array(spatial_indices_list, dtype=np.uint16)
-        values = np.array(value_list)
-        
-#         return (spatial_indices, values)
-        return values
+#     #TODO: rewrite (new dic struct)
+#     def iterate_space_discard_time(self, fun, minimum_measurements=1):
+#         measurements_dict = self.measurements_dict
+# #         spatial_indices_list = []
+#         value_list = []
+#         
+#         for (space_index, time_dict) in measurements_dict.items():
+#             results_list = list(itertools.chain(*time_dict.values()))
+#             
+#             if len(results_list) >= minimum_measurements:
+# #                 spatial_indices_list.append(space_index)
+#                 
+#                 results = np.array(results_list)
+#                 value = fun(results)
+#                 
+#                 row = space_index + (value,)
+#                 
+#                 value_list.append(row)
+#         
+# #         spatial_indices = np.array(spatial_indices_list, dtype=np.uint16)
+#         values = np.array(value_list)
+#         
+# #         return (spatial_indices, values)
+#         return values
     
 #     def discard_axis(self, axis=()):
         
     
-    def iterate_space_time(self, fun, minimum_measurements=1):
+#     # TODO rewrite (new dic struct)
+#     def iterate_space_time(self, fun, minimum_measurements=1):
+#         measurements_dict = self.measurements_dict
+#         value_list = []
+#         
+#         for (space_index, time_dict) in measurements_dict.items():
+#             for (time_index, results_list) in time_dict.items():
+#                 if len(results_list) >= minimum_measurements:
+#                     index = (time_index,) + space_index
+#                     results = np.array(results_list)
+#                     value = fun(results)
+#                     row = index + (value,)
+#                     
+#                     value_list.append(row)
+#         
+#         values = np.array(value_list)
+#         
+#         return values
+#     
+#     
+#     def iterate(self, fun, minimum_measurements=1, discard_time=False, return_as_map=False, map_default_value=float('nan')):
+#         if discard_time:
+#             values = self.iterate_space_discard_time(fun, minimum_measurements=minimum_measurements)
+#         else:
+#             values = self.iterate_space_time(fun, minimum_measurements=minimum_measurements)
+#         
+#         if return_as_map:
+#             values = ndop.measurements.util.insert_values_in_map(values, default_value=map_default_value)
+#         
+#         return values
+#     
+    
+    
+    
+    def iterate(self, fun, minimum_measurements=1, return_as_map=False, map_default_value=float('nan')):
         measurements_dict = self.measurements_dict
         value_list = []
         
-        for (space_index, time_dict) in measurements_dict.items():
-            for (time_index, results_list) in time_dict.items():
-                if len(results_list) >= minimum_measurements:
-                    index = (time_index,) + space_index
-                    results = np.array(results_list)
-                    value = fun(results)
-                    row = index + (value,)
-                    
-                    value_list.append(row)
+        for (t, t_dict) in measurements_dict.items():
+            for (x, x_dict) in t_dict.items():
+                for (y, y_dict) in x_dict.items():
+                    for (z, results_list) in y_dict.items():
+                        if len(results_list) >= minimum_measurements:
+                            results = np.array(results_list)
+                            value = fun(results)
+                            row = (t, x, y, z, value)
+                            
+                            value_list.append(row)
         
         values = np.array(value_list)
-        
-        return values
-    
-    
-    def iterate(self, fun, minimum_measurements=1, discard_time=False, return_as_map=False, map_default_value=float('nan')):
-        if discard_time:
-            values = self.iterate_space_discard_time(fun, minimum_measurements=minimum_measurements)
-        else:
-            values = self.iterate_space_time(fun, minimum_measurements=minimum_measurements)
         
         if return_as_map:
             values = ndop.measurements.util.insert_values_in_map(values, default_value=map_default_value)
@@ -479,181 +487,38 @@ class Measurements(Debug):
         return values
     
     
-    def number_of_measurements(self, minimum_measurements=1, discard_time=False, return_as_map=False):
-        return self.iterate(len, minimum_measurements, discard_time, return_as_map)
+    
+    def number_of_measurements(self, minimum_measurements=1, return_as_map=False):
+        return self.iterate(len, minimum_measurements, return_as_map, map_default_value=0)
     
     
-    def means(self, minimum_measurements=1, discard_time=False, return_as_map=False):
-        return self.iterate(np.average, minimum_measurements, discard_time, return_as_map)
+    def means(self, minimum_measurements=1, return_as_map=False):
+        return self.iterate(np.average, minimum_measurements, return_as_map)
     
     
-    
-    def variances(self, minimum_measurements=3, discard_time=False, return_as_map=False):
+    def variances(self, minimum_measurements=3, return_as_map=False):
         def calculate_variance(results):
             mean = np.average(results)
             number_of_results = results.size
             variance = np.sum((results - mean)**2) / (number_of_results - 1)
             return variance
         
-        return self.iterate(calculate_variance, minimum_measurements, discard_time, return_as_map)
+        return self.iterate(calculate_variance, minimum_measurements, return_as_map, map_default_value=float('inf'))
     
     
-    def standard_deviations(self, minimum_measurements=3, discard_time=False, return_as_map=False):
+    def standard_deviations(self, minimum_measurements=3, return_as_map=False):
         def calculate_standard_deviation(results):
             mean = np.average(results)
             number_of_results = results.size
             standard_deviation = (np.sum((results - mean)**2) / (number_of_results - 1))**(1/2)
             return standard_deviation
         
-        return self.iterate(calculate_standard_deviation, minimum_measurements, discard_time, return_as_map)
+        return self.iterate(calculate_standard_deviation, minimum_measurements, return_as_map, map_default_value=float('inf'))
     
     
-    
-#     def variogram_increment_dict(self, space_offset=(0, 0, 0), time_offset=0, minimum_measurements=50):
-#         from .constants import SAME_DATETIME_BOUND
-#         from ndop.metos3d.constants import METOS_DIM
-#         
-#         self.print_debug_inc(('Calculating variogram increment dict for space offset ', space_offset, ' and time offset ', time_offset, '.'))
-#         
-#         transform_time_function = lambda t: math.floor(t / SAME_DATETIME_BOUND) * SAME_DATETIME_BOUND
-#         measurements_dict = self.measurements_dict
-#         variogram_dict = dict()
-#         
-#         space_offset_array = np.array(space_offset)
-#         
-#         ## calculate max space factor
-#         if np.all(space_offset_array == 0):
-#             max_space_factor = 0
-#         else:
-#             max_space_factor_dim = np.array(METOS_DIM)
-#             max_space_factor_dim[0:1] = max_space_factor_dim[0:1] / 2
-#             max_space_factor_mask = space_offset_array != 0
-#             max_space_factor = math.ceil(max(max_space_factor_dim[max_space_factor_mask] / space_offset_array[max_space_factor_mask]))
-#         
-#         ## compute variogram_dict
-#         self.print_debug(('Max space factor is ', max_space_factor, '.'))
-#         
-#         ## iterate over all measurements
-#         for (space_index, time_dict) in measurements_dict.items():
-#             self.print_debug_inc(('Looking at space index ', space_index, '.'))
-#             space_index_array = np.array(space_index)
-#             
-#             ## iterate over all possible space factors
-#             for space_factor in range(max_space_factor + 1):
-#                 self.print_debug_inc(('Using space factor ', space_factor, '.'))
-#                 
-#                 ## calculate space offset
-#                 space_offset_index_array = space_index_array + space_factor * space_offset_array
-#                 if space_offset_index_array[0] < 0:
-#                     space_offset_index_array[0] += METOS_X_DIM
-#                 if space_offset_index_array[1] < 0:
-#                     space_offset_index_array[1] += METOS_Y_DIM
-#                 space_offset_index = tuple(space_offset_index_array)
-#             
-#                 ## get time dict for space offset 
-#                 try:
-#                     time_offset_dict = measurements_dict[space_offset_index]
-#                 except KeyError:
-#                     time_offset_dict = None
-#                 
-#                 ## iterate over all time combinations
-#                 if time_offset_dict is not None:
-#                     variogram_time_dict = variogram_dict.setdefault(space_factor, dict())
-#                     
-#                     for (time_index, results_list) in time_dict.items():
-#                         for (time_offset_index, results_offset_list) in time_offset_dict.items():
-#                             
-#                             if time_offset == 0:
-#                                 time_factor = int((time_index - time_offset_index) / SAME_DATETIME_BOUND)
-#                             else:
-#                                 time_factor = round((time_index - time_offset_index) / time_offset)
-#                             
-#                             ## insert results in varigram dict
-#                             if (time_offset != 0 and time_factor >= 0) or (time_offset == 0 and time_factor == 0):
-#                                 
-#                                 variogram_increment_list = variogram_time_dict.setdefault(time_factor, [])
-#                                 
-#                                 for result in results_list:
-#                                     for result_offset in results_offset_list:
-#                                         increment= (result - result_offset)**2
-#                                         variogram_increment_list.append(increment)
-#                     
-#                     self.print_debug((len(variogram_time_dict.keys()), ' different time factors found.'))
-#                 else:
-#                     self.print_debug('No time factors found.')
-#                 
-#                 self.required_debug_level_dec()
-#             
-#             self.required_debug_level_dec()
-#             
-#         self.print_debug_idec('Variogram increment dict calculated.')
-#         
-#         return variogram_increment_dict
-#     
-#     
-#     def variogram(self, space_offset=(0, 0, 0), time_offset=0, minimum_measurements=50):
-#         from .constants import SAME_DATETIME_BOUND
-#         from ndop.metos3d.constants import METOS_X_DIM, METOS_Y_DIM
-#         
-#         self.print_debug_inc('Calculating variogram.')
-#         
-#         variogram_increment_dict = self.variogram_increment_dict(space_offset, time_offset, minimum_measurements)
-#         
-#         ## compute variogram list
-#         self.print_debug('Calculating variogram list.')
-#         
-#         variogram_list = []
-#         for (space_factor, variogram_time_dict) in variogram_dict.items():
-#             for (time_factor, variogram_result) in variogram_time_dict.items():
-#                 variogram_increment_list = variogram_result
-#                 variogram_number = len(variogram_increment_list)
-#                 
-#                 if variogram_number >= minimum_measurements:
-#                     variogram_increment_array = np.array(variogram_increment_list)
-#                     variogram_mean = np.average(variogram_increment_array)
-#                     variogram_percentiles = np.percentile(variogram_increment_array, (2.5, 50, 97.5), overwrite_input=True)
-#                     
-#                     variogram_result = (space_factor, time_factor, variogram_mean, variogram_number) + tuple(variogram_percentiles)
-#                     variogram_list.append(variogram_result)
-#         
-#         
-#         self.print_debug('Calculating variogram array.')
-#         variogram = np.array(variogram_list)
-#         
-#         self.print_debug_dec('Variogram calculated.')
-#         
-#         return variogram
-    
-
-    
-    def iterate_over_shift(self, calculate_function, direction=(0, 0, 0, 0), same_space_bound=[0.5, 0.5, 10], same_time_bound=1/(366.0*2)):
-        self.print_debug_inc(('Calculating results list from shifts for direction ', direction, '.'))
+    def get_results_together_with_shifted(self, factor, direction, same_bound, x_range):
+        self.print_debug_inc(('Gathering results with direction ', direction, ' shifted by factor ', factor, '.'))
         
-        measurements_dict = self.measurements_dict
-        function_results_list = []
-        
-        ## prepare directions
-        direction_array = np.array(direction)
-        space_direction_array = direction_array[0:-1]
-        time_direction = direction[-1]
-        
-        ## calculate max factor
-        space_keys = np.array(list(measurements_dict.keys()))
-        space_min = np.min(space_keys, axis=0)
-        space_max = np.max(space_keys, axis=0)
-        
-        if np.all(direction == 0):
-            max_factor = 0
-        else:
-            max_factor_dim = np.array(tuple(space_max - space_min) + (100,0))
-            max_factor_dim[0] = max_factor_dim[0] / 2
-            max_factor_mask = direction_array != 0
-            max_factor = math.floor(min(max_factor_dim[max_factor_mask] / direction_array[max_factor_mask]))
-        
-        self.print_debug(('Max factor is ', max_factor, '.'))
-        
-        ## calculate x range
-        x_range = (space_min[0], space_max[0])
         x_range_diff = x_range[1] - x_range[0]
         def wrap_around_x(x):
             if x < x_range[0]:
@@ -662,62 +527,93 @@ class Measurements(Debug):
                 x -= x_range_diff
             return x
         
-        self.print_debug(('Range of x is ', x_range, '.'))
+        measurements_dict = self.measurements_dict
+        shift_list = []
         
+        ## iterate over t
+        for (t, t_dict) in measurements_dict.items():
+            t_shifted_desired = t + factor * direction[0]
+            for (t_shifted, t_dict_shifted) in measurements_dict.items():
+                t_diff = t_shifted - t_shifted_desired
+                if abs(t_diff) <= same_bound[0]:
+                    
+                    ## iterate over x
+                    for (x, x_dict) in t_dict.items():
+                        x_shifted_desired = x + factor * direction[1]
+                        for (x_shifted, x_dict_shifted) in t_dict_shifted.items():
+                            x_diff = x_shifted - x_shifted_desired
+                            x_diff = wrap_around_x(x_diff)
+                            if abs(x_diff) <= same_bound[1]:
+                                
+                                ## iterate over y
+                                for (y, y_dict) in x_dict.items():
+                                    y_shifted_desired = y + factor * direction[2]
+                                    for (y_shifted, y_dict_shifted) in x_dict_shifted.items():
+                                        y_diff = y_shifted - y_shifted_desired
+                                        if abs(y_diff) <= same_bound[2]:
+                                            
+                                            ## iterate over z
+                                            for (z, results_list) in y_dict.items():
+                                                z_shifted_desired = z + factor * direction[2]
+                                                for (z_shifted, results_list_shifted) in y_dict_shifted.items():
+                                                    z_diff = z_shifted - z_shifted_desired
+                                                    if abs(z_diff) <= same_bound[2]:
+                                                        self.print_debug_inc_dec(('Current index is: ', (t, x, y, z), '. Shifted index is: ', (t_shifted, x_shifted, y_shifted, z_shifted), '.'))
+                                                        
+                                                        ## insert shift to shift list
+                                                        for result in results_list:
+                                                            for result_shifted in results_list_shifted:
+                                                                shift_list.append((result, result_shifted))
+        
+        self.print_debug_dec('Results gathered.')
+        
+        return shift_list
+        
+    
+    def iterate_over_shift(self, calculate_function, direction, same_bound, dim_ranges, file=None):
+        self.print_debug_inc(('Applying function to shifts by direction ', direction, '.'))
+        
+        ## init
+        function_results_list = []
+        direction_array = np.array(direction)
+        x_range = (dim_ranges[1][0], dim_ranges[1][1])
+        
+        ## calculate max factor
+        if np.all(direction == 0):
+            max_factor = 0
+        else:
+            dim_ranges_array = np.array(dim_ranges)
+            dim_ranges_diff = dim_ranges_array[:,1] - dim_ranges_array[:,0]
+            dim_ranges_diff[1] = dim_ranges_diff[1] / 2
+            max_factor_mask = direction_array != 0
+            max_factor = math.floor(min(dim_ranges_diff[max_factor_mask] / direction_array[max_factor_mask]))
+        
+        self.print_debug(('Max factor is ', max_factor, '.'))
         
         ## iterate over all factors
         for factor in range(max_factor + 1):
-            self.print_debug_inc(('Current factor is ', factor, '.'))
-            shift_list = []
-                
-            ## iterate over all space indices
-            for (space_index, time_dict) in measurements_dict.items():
-                self.print_debug_inc(('Current space index is ', space_index, '.'))
-                
-                ## calculate desired space index
-                space_index_array = np.array(space_index)
-                shifted_space_index_desired_array = space_index_array + factor * space_direction_array
-                shifted_space_index_desired_array[0] = wrap_around_x(shifted_space_index_desired_array[0])
-                self.print_debug(('Desired space index is ', shifted_space_index_desired_array, '.'))
-                
-                ## search matching space index
-                for (shifted_space_index, shifted_time_dict) in measurements_dict.items():
-                    space_diff_array = shifted_space_index_desired_array - space_index_array
-                    space_diff_array[0] = wrap_around_x(space_diff_array[0])
-                    
-                    ## if matching space index found
-                    if np.all(np.abs(space_diff_array) <= same_space_bound):
-                        self.print_debug(('Matching space index ', shifted_space_index, ' found.'))
-                        
-                        ## iterate over all time indices
-                        for (time_index, results_list) in time_dict.items():
-                            shifted_time_index_desired = time_index + factor * time_direction
-                            for (shifted_time_index, shifted_results_list) in shifted_time_dict.items():
-                                time_diff = shifted_time_index - shifted_time_index_desired
-                                
-                                ## insert shift to shift list if desired time diff
-                                if abs(time_diff) <= same_time_bound:
-                                    for result in results_list:
-                                        for shifted_results in shifted_results_list:
-                                            shift_list.append((result, shifted_results))
-                
-                self.required_debug_level_dec()
+            shift_list = self.get_results_together_with_shifted(factor, direction, same_bound, x_range)
             
             ## apply calculate_function to shift list
             self.print_debug(('Applying calculate function to ', len(shift_list), ' shifts.'))
-            
             function_result = calculate_function(shift_list)
             function_results_list.append(function_result)
             
-            self.required_debug_level_dec()
-            
-        self.print_debug_dec('Results list calculated.')
+            ## save intermediate result
+            if file is not None:
+                function_results_array = np.array(function_results_list)
+                np.save(file, function_results_array)
         
-        return function_results_list
+        if file is None:
+            function_results_array = np.array(function_results_list)
+        
+        self.print_debug_dec('Results array calculated.')
+        
+        return function_results_array
     
     
     
-    def correlogram(self, direction=(0, 0, 0, 0), same_space_bound=[0.5, 0.5, 10], same_time_bound=1/(366.0*2), minimum_measurements=1):
+    def correlogram(self, direction, same_bound, dim_ranges, minimum_measurements=1, file=None):
         def calculate_function(shift_list):
             number = len(shift_list)
             
@@ -740,12 +636,9 @@ class Measurements(Debug):
             return result
         
         
-        self.print_debug('Calculating correlation list.')
+        self.print_debug_inc('Calculating correlogram.')
         
-        correlation_list = self.iterate_over_shift(calculate_function, direction, same_space_bound, same_time_bound)
-        
-        self.print_debug('Calculating correlogram array.')
-        correlogram = np.array(correlation_list)
+        correlogram = self.iterate_over_shift(calculate_function, direction, same_bound, dim_ranges, file=file)
         
         self.print_debug_dec('Correlogram calculated.')
         
@@ -837,7 +730,7 @@ class Measurements(Debug):
 #         return function_results_list
     
     
-    
+    #TODO: rewrite to use iterate_over_shift
     def variogram(self, direction=(0, 0, 0, 0)):
         def calculate_function(increment_list):
             number = len(increment_list)

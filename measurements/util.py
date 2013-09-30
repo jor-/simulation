@@ -45,21 +45,21 @@ def insert_values_in_map(values, default_value=0, apply_mask_last=True):
     if values.shape[1] == 5:
             time = values[:,0]
             time_unique = np.unique(time)
-            time_unique_sorted = time_unique[np.argsort(time_unique)]
-            time_unique_len = len(time_unique_sorted)
+            time_unique = time_unique[np.argsort(time_unique)]
+            time_unique_len = len(time_unique)
             
             value_map = np.empty((time_unique_len,) + METOS_DIM)
             
             for i in range(time_unique_len):
                 value_map[i] = np.copy(init_map)
-                values_i = values[time == time_unique_sorted[i], 1:]
+                values_i = values[time == time_unique[i], 1:]
                 insert_space_values_im_map(value_map[i], values_i)
     ## if without time axis
     elif values.shape[1] == 4:
         insert_space_values_im_map(value_map, values)
         value_map = init_map
     else:
-        raise Error('Values have wrong shape: Second dimension have to be 4 or 5, but it is ' + str(values.shape[1]) + '.')
+        raise Exception('Values have wrong shape: Second dimension have to be 4 or 5, but it is ' + str(values.shape[1]) + '.')
     
     return value_map
     
