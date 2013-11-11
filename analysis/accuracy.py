@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.stats
 
-import ndop.measurements.data
+import measurements.data
 from ndop.metos3d.model import Model
 
 from util.debug import Debug
@@ -15,10 +15,10 @@ class Accuracy(Debug):
         
         self.print_debug_inc('Initiating accuracy object.')
         
-        self.means = ndop.measurements.data.means(self.debug_level, self.required_debug_level + 1)
+        self.means = measurements.data.means(self.debug_level, self.required_debug_level + 1)
         
-        nobs = ndop.measurements.data.nobs(self.debug_level, self.required_debug_level + 1)
-        varis = ndop.measurements.data.varis(self.debug_level, self.required_debug_level + 1)
+        nobs = measurements.data.nobs(self.debug_level, self.required_debug_level + 1)
+        varis = measurements.data.varis(self.debug_level, self.required_debug_level + 1)
         self.nobs = nobs
         self.varis = varis
         self.nobs_per_vari = nobs / varis

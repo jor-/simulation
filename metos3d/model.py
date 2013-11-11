@@ -11,12 +11,12 @@ import util.io
 from util.debug import Debug
 
 import ndop.metos3d.data
-from ndop.metos3d.job import Job
+from ndop.metos3d.job import Metos3D_Job
 
 class Model(Debug):
     
     def __init__(self, debug_level=0, required_debug_level=1):
-        from ndop.metos3d.constants import  MODEL_PARAMETER_LOWER_BOUND, MODEL_PARAMETER_UPPER_BOUND
+        from .constants import  MODEL_PARAMETER_LOWER_BOUND, MODEL_PARAMETER_UPPER_BOUND
         
         Debug.__init__(self, debug_level, required_debug_level-1, 'ndop.metos3d.model: ')
         
@@ -75,8 +75,8 @@ class Model(Debug):
         self.check_if_parameters_in_bounds(model_parameters)
         
         ## execute job
-        with Job(debug_level=self.debug_level, required_debug_level=self.required_debug_level+1) as job:
-            job.initialise_with_best_configuration(model_parameters, output_path=output_path, years=years, tolerance=tolerance, time_step_size=time_step_size, write_trajectory=write_trajectory, tracer_input_path=tracer_input_path, pause_time_seconds=pause_time_seconds)
+        with Metos3D_Job(output_path, pause_time_seconds, debug_level=self.debug_level, required_debug_level=self.required_debug_level+1) as job:
+            job.init(model_parameters, years=years, tolerance=tolerance, time_step_size=time_step_size, write_trajectory=write_trajectory, tracer_input_path=tracer_input_path)
             time.sleep(2)
             job.start()
             job.make_readonly()
@@ -89,7 +89,7 @@ class Model(Debug):
     
     
     def search_or_make_time_step_dir(self, search_path, time_step):
-        from ndop.metos3d.constants import MODEL_TIME_STEP_DIRNAME
+        from .constants import MODEL_TIME_STEP_DIRNAME
         
         self.print_debug_inc(('Searching for directory for time step size "', time_step, '" in "', search_path, '".'))
         
@@ -107,7 +107,7 @@ class Model(Debug):
     
     
     def get_parameters_diff(self, parameters, parameter_set_dir):
-        from ndop.metos3d.constants import MODEL_PARAMETERS_FILENAME
+        from .constants import MODEL_PARAMETERS_FILENAME
         
         parameters_file = os.path.join(parameter_set_dir, MODEL_PARAMETERS_FILENAME)
         current_parameters = np.loadtxt(parameters_file)
@@ -119,7 +119,7 @@ class Model(Debug):
     
     
     def is_matching_parameter_set(self, parameters, parameter_set_dir):
-        from ndop.metos3d.constants import MODEL_PARAMETERS_MAX_DIFF
+        from .constants import MODEL_PARAMETERS_MAX_DIFF
         
         parameters_diff = self.get_parameters_diff(parameters, parameter_set_dir)
         is_matching = parameters_diff <= MODEL_PARAMETERS_MAX_DIFF
@@ -168,7 +168,7 @@ class Model(Debug):
     
     
     def make_new_parameter_set_dir(self, path, parameters):
-        from ndop.metos3d.constants import MODEL_PARAMETERS_SET_DIRNAME, MODEL_PARAMETERS_FILENAME, MODEL_PARAMETERS_FORMAT_STRING
+        from .constants import MODEL_PARAMETERS_SET_DIRNAME, MODEL_PARAMETERS_FILENAME, MODEL_PARAMETERS_FORMAT_STRING
         
         self.print_debug_inc(('Creating new parameter set directory in "', path, '".'))
         
@@ -220,7 +220,7 @@ class Model(Debug):
     
     
     def get_run_dirs(self, search_path):
-        from ndop.metos3d.constants import MODEL_RUN_DIRNAME
+        from .constants import MODEL_RUN_DIRNAME
         
         run_dir_condition = lambda file: os.path.isdir(file) and util.pattern.is_matching(os.path.basename(file), MODEL_RUN_DIRNAME)
         try:
@@ -234,7 +234,7 @@ class Model(Debug):
     
     
     def search_last_run_dir(self, search_path, wait_until_finished=True):
-        from ndop.metos3d.constants import MODEL_RUN_DIRNAME
+        from .constants import MODEL_RUN_DIRNAME
         
         self.print_debug_inc(('Searching for last run in "', search_path, '".'))
         
@@ -249,20 +249,37 @@ class Model(Debug):
             
             # load last job finished
             if last_run_dir is not None:
-                with Job(debug_level=self.debug_level, required_debug_level=self.required_debug_level+1) as job:
+                try: 
+                    job = Metos3D_Job(last_run_dir, force_load=True, debug_level=self.debug_level, required_debug_level=self.required_debug_level+1)
+                except (OSError, IOError) as exception:
+                    warnings.warn('Could not read the job options file from "' + last_run_dir + '": ' + str(exception))
+                    job = None
+                    last_run_dir = None
+                
+                # check if job is finished
+                if wait_until_finished and last_run_dir is not None:
                     try:
-                        job.load(last_run_dir)
+                        job.wait_until_finished()
                     except (OSError, IOError) as exception:
-                        warnings.warn('Could not read the job options file from "' + last_run_dir + '": ' + str(exception))
+                        warnings.warn('Could not check if job ' + job.id + ' is finished: ' + str(exception))
                         last_run_dir = None
-                    
-                    # check if job is finished
-                    if wait_until_finished and last_run_dir is not None:
-                        try:
-                            job.wait_until_finished()
-                        except (OSError, IOError) as exception:
-                            warnings.warn('Could not check if job ' + job.id + ' is finished: ' + str(exception))
-                            last_run_dir = None
+                
+                if job is not None:
+                    job.close()
+#                 with Metos3D_Job(output_dir, debug_level=self.debug_level, required_debug_level=self.required_debug_level+1) as job:
+#                     try:
+#                         job.load(last_run_dir)
+#                     except (OSError, IOError) as exception:
+#                         warnings.warn('Could not read the job options file from "' + last_run_dir + '": ' + str(exception))
+#                         last_run_dir = None
+#                     
+#                     # check if job is finished
+#                     if wait_until_finished and last_run_dir is not None:
+#                         try:
+#                             job.wait_until_finished()
+#                         except (OSError, IOError) as exception:
+#                             warnings.warn('Could not check if job ' + job.id + ' is finished: ' + str(exception))
+#                             last_run_dir = None
             
             last_run_index -= 1
         
@@ -289,7 +306,7 @@ class Model(Debug):
     
     
     def previous_run_dir(self, run_dir):
-        from ndop.metos3d.constants import MODEL_RUN_DIRNAME
+        from .constants import MODEL_RUN_DIRNAME
         
         (spinup_dir, run_dirname) = os.path.split(run_dir)
         run_index = int(re.findall('\d+', run_dirname)[0])
@@ -307,8 +324,8 @@ class Model(Debug):
         total_years = 0
         
         while run_dir is not None:
-            with Job(debug_level=self.debug_level, required_debug_level=self.required_debug_level+1) as run_job:
-                run_job.load(run_dir)
+            with Metos3D_Job(run_dir, force_load=True, debug_level=self.debug_level, required_debug_level=self.required_debug_level+1) as run_job:
+#                 run_job.load(run_dir)
                 run_years = run_job.last_year
             
             total_years += run_years
@@ -320,10 +337,10 @@ class Model(Debug):
     
     
     def get_time_step_size(self, run_dir):
-        from ndop.metos3d.constants import MODEL_RUN_OPTIONS_FILENAME  
+        from .constants import MODEL_RUN_OPTIONS_FILENAME  
         
-        with Job(debug_level=self.debug_level, required_debug_level=self.required_debug_level+1) as job:
-            job.load(run_dir)
+        with Metos3D_Job(run_dir, force_load=True, debug_level=self.debug_level, required_debug_level=self.required_debug_level+1) as job:
+#             job.load(run_dir)
             time_step = job.time_step
         
         
@@ -332,8 +349,8 @@ class Model(Debug):
     
     
     def get_real_tolerance(self, run_dir):
-        with Job(debug_level=self.debug_level, required_debug_level=self.required_debug_level+1) as job:
-            job.load(run_dir)
+        with Metos3D_Job(run_dir, force_load=True, debug_level=self.debug_level, required_debug_level=self.required_debug_level+1) as job:
+#             job.load(run_dir)
             tolerance = job.last_tolerance     
         
         return tolerance
@@ -341,16 +358,16 @@ class Model(Debug):
     
     
     def get_tracer_input_dir(self, run_dir):
-        with Job(debug_level=self.debug_level, required_debug_level=self.required_debug_level+1) as job:
-            job.load(run_dir)
-            tracer_input_dir = job.get_tracer_input_path()
+        with Metos3D_Job(run_dir, force_load=True, debug_level=self.debug_level, required_debug_level=self.required_debug_level+1) as job:
+#             job.load(run_dir)
+            tracer_input_dir = job.tracer_input_path
         
         return tracer_input_dir
     
     
     
     def make_run(self, output_path, parameters, years, tolerance, time_step_size, tracer_input_path=None):
-        from ndop.metos3d.constants import MODEL_RUN_DIRNAME, MODEL_RUN_OPTIONS_FILENAME
+        from .constants import MODEL_RUN_DIRNAME, MODEL_RUN_OPTIONS_FILENAME
         
         self.print_debug_inc('Creating new run directory ...')
         
@@ -388,7 +405,7 @@ class Model(Debug):
     
     
     def search_closest_spinup_run(self, path, parameters):
-        from ndop.metos3d.constants import MODEL_SPINUP_DIRNAME
+        from .constants import MODEL_SPINUP_DIRNAME
         self.print_debug_inc(('Searching for spinup run as close as possible to parameters "', parameters, '" in "', path, '".'))
         
         ## search for parameter set directories with matching parameters
@@ -414,9 +431,9 @@ class Model(Debug):
             parameter_set_number += 1
         
         if closest_run_dir is not None:
-            with Job(debug_level=self.debug_level, required_debug_level=self.required_debug_level+1) as job:
-                job.load(closest_run_dir)
-                job.wait_until_finished()
+#             with Metos3D_Job(closest_run_dir, force_load=True, debug_level=self.debug_level, required_debug_level=self.required_debug_level+1) as job:
+# #                 job.load(closest_run_dir)
+#                 job.wait_until_finished()
             self.print_debug_dec(('Spinup run as close as possible found at "', closest_run_dir, '".'))
         else:
             self.print_debug_dec('No spinup run found.')
@@ -425,8 +442,8 @@ class Model(Debug):
     
     
     
-    def search_or_make_spinup(self, parameter_set_dir, parameters, years, tolerance, time_step_size):
-        from ndop.metos3d.constants import MODEL_SPINUP_DIRNAME, MODEL_PARAMETERS_FILENAME
+    def search_or_make_spinup(self, parameter_set_dir, parameters, years, tolerance, time_step_size, start_from_closest_parameters=False):
+        from .constants import MODEL_SPINUP_DIRNAME, MODEL_PARAMETERS_FILENAME
         
         spinup_dir = os.path.join(parameter_set_dir, MODEL_SPINUP_DIRNAME)
         
@@ -446,18 +463,26 @@ class Model(Debug):
             ## get spinup run for closest parameters
             time_step_dir = os.path.dirname(parameter_set_dir)
             last_run_dir = self.search_closest_spinup_run(time_step_dir, parameters)
-            
-            ## complete spinup for closest parameters
             last_spinup_dir = os.path.dirname(last_run_dir)
-            if spinup_dir != last_spinup_dir:
+            
+            ## wait for last run to finish if necessary
+            if spinup_dir == last_spinup_dir or start_from_closest_parameters:
+                with Metos3D_Job(last_run_dir, force_load=True, debug_level=self.debug_level, required_debug_level=self.required_debug_level+1) as job:
+                    job.wait_until_finished()
+            
+            ## complete last run with new configs if necessary
+            if spinup_dir != last_spinup_dir and start_from_closest_parameters:
                 last_parameter_set_dir = os.path.dirname(last_spinup_dir)
                 last_parameter_file = os.path.join(last_parameter_set_dir, MODEL_PARAMETERS_FILENAME)
                 last_parameters = np.loadtxt(last_parameter_file)
                 
                 self.f(last_parameters, t_dim=12, years=years, tolerance=tolerance, time_step_size=time_step_size)
             
-            ## make spinup run
-            run_dir = self.make_run(spinup_dir, parameters, years, tolerance, time_step_size, tracer_input_path=last_run_dir)
+            ## make new run
+            if spinup_dir == last_spinup_dir or start_from_closest_parameters:
+                run_dir = self.make_run(spinup_dir, parameters, years, tolerance, time_step_size, tracer_input_path=last_run_dir)
+            else:
+                run_dir = self.make_run(spinup_dir, parameters, years, tolerance, time_step_size)
             
             self.print_debug(('Spinup directory ', run_dir, ' created.'))
             
@@ -486,7 +511,7 @@ class Model(Debug):
     
     
     def search_or_make_f(self, search_path, spinup_dir, parameters, t_dim, time_step_size):
-        from ndop.metos3d.constants import MODEL_F_FILENAME, MODEL_TIME_STEP_SIZE_MAX
+        from .constants import MODEL_F_FILENAME, MODEL_TIME_STEP_SIZE_MAX
         
         self.print_debug_inc(('Searching for F file with time dimension "', t_dim, '" in "', search_path, '".'))
         
@@ -519,7 +544,7 @@ class Model(Debug):
     
     
     def remove_f(self, search_path):
-        from ndop.metos3d.constants import MODEL_F_FILENAME
+        from .constants import MODEL_F_FILENAME
         
         self.print_debug_inc_dec(('Removing F files in "', search_path, '".'))
         
@@ -532,13 +557,13 @@ class Model(Debug):
     
     
     def f(self, parameters, t_dim=12, years=7000, tolerance=0, time_step_size=1):
-        from ndop.metos3d.constants import MODEL_OUTPUTS_DIR
+        from .constants import MODEL_OUTPUTS_DIR
         
         self.print_debug_inc(('Searching for f value for parameters "', parameters, '" in "', MODEL_OUTPUTS_DIR, '".'))
         
         time_step_dir = self.search_or_make_time_step_dir(MODEL_OUTPUTS_DIR, time_step_size)
         parameter_set_dir = self.search_or_make_parameter_set_dir(time_step_dir, parameters)
-        spinup_run_dir = self.search_or_make_spinup(parameter_set_dir, parameters, years, tolerance, time_step_size)
+        spinup_run_dir = self.search_or_make_spinup(parameter_set_dir, parameters, years, tolerance, time_step_size, start_from_closest_parameters=True)
         f = self.search_or_make_f(parameter_set_dir, spinup_run_dir, parameters, t_dim, time_step_size)
         
         self.print_debug_dec('F value found.')
@@ -548,7 +573,7 @@ class Model(Debug):
     
     
     def remove_df(self, search_path):
-        from ndop.metos3d.constants import MODEL_DF_FILENAME
+        from .constants import MODEL_DF_FILENAME
         
         self.print_debug_inc_dec(('Removing DF files in "', search_path, '".'))
         
@@ -561,7 +586,7 @@ class Model(Debug):
     
     
     def df(self, parameters, t_dim=12, years=7000, tolerance=0, time_step_size=1, accuracy_order=1):
-        from ndop.metos3d.constants import MODEL_OUTPUTS_DIR, MODEL_DERIVATIVE_DIRNAME, MODEL_SPINUP_DIRNAME, MODEL_PARTIAL_DERIVATIVE_DIRNAME, MODEL_DERIVATIVE_SPINUP_YEARS, MODEL_DF_FILENAME
+        from .constants import MODEL_OUTPUTS_DIR, MODEL_DERIVATIVE_DIRNAME, MODEL_SPINUP_DIRNAME, MODEL_PARTIAL_DERIVATIVE_DIRNAME, MODEL_DERIVATIVE_SPINUP_YEARS, MODEL_DF_FILENAME
         
         self.print_debug_inc(('Searching for derivative for parameters "', parameters, '" in "', MODEL_OUTPUTS_DIR, '".'))
         

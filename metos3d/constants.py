@@ -7,6 +7,8 @@ from ndop.constants import BASE_DIR, MODEL_OUTPUTS_DIR
 JOB_OPTIONS_FILENAME = 'job_options.hdf5'
 JOB_MEMORY_GB = 4
 JOB_MIN_CPUS = 4 * 8
+JOB_NODES_MAX = (12, 13, 24, 3, 1, 0, 0)
+JOB_NODES_LEFT_FREE = (0, 0, 0, 3, 1, 0, 0)
 
 
 MODEL_TIME_STEP_SIZE_MAX = 2880
@@ -26,7 +28,7 @@ MODEL_DERIVATIVE_DIRNAME = 'derivative'
 MODEL_PARTIAL_DERIVATIVE_DIRNAME = 'partial_derivative_%01d_%01d' # partial_derivative, h_factor_index
 MODEL_RUN_DIRNAME = 'run_%02d'              # %0Xd is substituted by the number of the run to X digits
 MODEL_RUN_OPTIONS_FILENAME = 'run_options.txt'
-MODEL_F_FILENAME = 'F_%04d.npy'                      # %0Xd is substituted by the time dimension to X digits
+MODEL_F_FILENAME = 'F_%04d.npy'                     # %0Xd is substituted by the time dimension to X digits
 MODEL_DF_FILENAME = 'DF_%04d_%01d.npy'              # t_dim, accuracy_order
 
 MODEL_DERIVATIVE_SPINUP_YEARS = 50

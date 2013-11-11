@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.optimize
 
-from ndop.optimization.cost_function import Cost_function
+from ndop.optimization.cost_function import Cost_Function_2
 
 import util.io
 from util.debug import print_debug
@@ -11,7 +11,7 @@ def optimize(p0, years=7000, tolerance=0, time_step_size=1, maxiter=None, debug_
     from ndop.optimization.constants import P_FILE, F_FILE, F_EVAL_FILE, DF_FILE, DF_EVAL_FILE, RES_FILE
     
     ## construct fun and jac
-    cost_function = Cost_function(years=years, tolerance=tolerance, time_step_size=time_step_size, debug_level=debug_level, required_debug_level=required_debug_level + 1)
+    cost_function = Cost_Function_2(years=years, tolerance=tolerance, time_step_size=time_step_size, debug_level=debug_level, required_debug_level=required_debug_level + 1)
     
     def save_iteration(x, file, format_string='%.6g'):
         file_npy = file + '.npy'

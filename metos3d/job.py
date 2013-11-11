@@ -5,43 +5,16 @@ import subprocess
 import re
 import numpy as np
 
-import util.rzcluster
-
-from util.debug import Debug
-from util.options import Options
+import util.rzcluster.interact
+from util.rzcluster.job import Job
 
 
-class Job(Debug):
+class Metos3D_Job(Job):
     
-    def __init__(self, debug_level=0, required_debug_level=1):
-        Debug.__init__(self, debug_level, required_debug_level-1, 'ndop.metos3d.job: ')
-    
-    def __del__(self):
-        self.close()
-    
-    def __enter__(self):
-        return self
-    
-    def __exit__(self, type, value, traceback):
-        self.close()
+    def __init__(self, output_path, pause_time_seconds=30, force_load=False, debug_level=0, required_debug_level=1):
+        Job.__init__(self, output_path, pause_time_seconds, force_load, debug_level, required_debug_level)
     
     
-    
-    @property
-    def options(self):
-        try:
-            return self.__options
-        except AttributeError:
-            raise Exception("Job is not initialised!")
-    
-    @property
-    def id(self):
-        opt = self.options
-        
-        try:
-            return opt['/job/id']
-        except KeyError:
-            raise Exception("Job is not started!")
     
     @property
     def last_spinup_line(self):
@@ -59,6 +32,7 @@ class Job(Debug):
         
         return last_spinup_line
     
+    
     @property
     def last_year(self):
         # 9.704s 0010 Spinup Function norm 2.919666257647e+00
@@ -72,24 +46,7 @@ class Job(Debug):
             last_spinup_year = 0
         
         return last_spinup_year
-#         opt = self.options
-#         output_file = opt['/job/output_file']
-#         
-#         # 9.704s 0010 Spinup Function norm 2.919666257647e+00
-#         spinup_last_line = None
-#         with open(output_file) as f:
-#             for line in f.readlines():
-#                 if 'Spinup Function norm' in line:
-#                     spinup_last_line = line
-#         
-#         if spinup_last_line is not None:
-#             spinup_last_line = spinup_last_line.strip()
-#             spinup_last_year_str = spinup_last_line.split()[1]
-#             spinup_last_year = int(spinup_last_year_str) + 1
-#         else:
-#             spinup_last_year = 0
-#         
-#         return spinup_last_year
+    
     
     @property
     def last_tolerance(self):
@@ -104,6 +61,7 @@ class Job(Debug):
             last_spinup_tolerance = float('inf')
         
         return last_spinup_tolerance
+    
     
     @property
     def time_step(self):
@@ -121,30 +79,8 @@ class Job(Debug):
                 return time_step
     
     
-    
-    def load(self, option_file):
-        from ndop.metos3d.constants import JOB_OPTIONS_FILENAME
-        
-        if path.isdir(option_file):
-            option_file = path.join(option_file, JOB_OPTIONS_FILENAME)
-        
-        self.print_debug_inc(('Loading job from file"', option_file, '".'))
-        
-        try:
-            opt = Options(option_file, mode='r+', debug_level=self.debug_level, required_debug_level=self.required_debug_level+1)
-        except (OSError, IOError):
-            opt = Options(option_file, mode='r', debug_level=self.debug_level, required_debug_level=self.required_debug_level+1)
-        
-        self.__options = opt
-        
-        self.print_debug_dec(('Job loaded from file"', option_file, '".'))
-    
-    
-    def make_readonly(self):
-        self.options.make_readonly()
-    
-    
-    def get_tracer_input_path(self):
+    @property
+    def tracer_input_path(self):
         opt = self.options
         
         try:
@@ -174,37 +110,55 @@ class Job(Debug):
             new_output_path = new_output_path[:-1]
         
         opt.replace_all_str_options(old_output_path, new_output_path)
-       
     
-#     def initialise(self, model_parameters, output_path=os.getcwd(), years=1, tolerance=0, time_step_size=1, walltime_hours=240, cpu_kind='westmere', nodes=1, cpus=1, write_trajectory=False, tracer_input_path=None, pause_time_seconds=10):
-    def initialise(self, model_parameters, output_path=os.getcwd(), years=1, tolerance=0, time_step_size=1, cpu_kind='f_ocean', queue='f_ocean', nodes=1, cpus=1, write_trajectory=False, tracer_input_path=None, pause_time_seconds=10):
-        from ndop.metos3d.constants import JOB_OPTIONS_FILENAME, JOB_MEMORY_GB, MODEL_PARAMETERS_FORMAT_STRING, MODEL_TIME_STEP_SIZE_MAX
-        from util.rzcluster_constants import QUEUES
+    
+    
+    def init(self, model_parameters, years=1, tolerance=0, time_step_size=1, write_trajectory=False, tracer_input_path=None):
+        from ndop.metos3d.constants import JOB_OPTIONS_FILENAME, JOB_MEMORY_GB, JOB_MIN_CPUS, JOB_NODES_MAX, JOB_NODES_LEFT_FREE, MODEL_PARAMETERS_FORMAT_STRING, MODEL_TIME_STEP_SIZE_MAX
 
         self.print_debug_inc('Initialising job.')
+        
         
         ## check input
         if MODEL_TIME_STEP_SIZE_MAX % time_step_size != 0:
             raise ValueError('Wrong time_step_size passed. ' + str(MODEL_TIME_STEP_SIZE_MAX) + ' has to be divisible by time_step_size. But time_step_size is ' + str(time_step_size) + '.')
         
-        if queue not in QUEUES:
-            raise ValueError('Unknown queue ' + str(queue) + '.')
+        
+        ## init job with best cpu configurations
+        if years == 1:
+            cpus_total_min = 1
+            nodes_ub = ()
+            for i in JOB_NODES_MAX:
+                nodes_ub = nodes_ub + (min(i, 1),)
+        else:
+            cpus_total_min = JOB_MIN_CPUS
+            nodes_ub = JOB_NODES_MAX
+        
+        (cpu_kind, nodes, cpus) = util.rzcluster.interact.wait_for_needed_resources(JOB_MEMORY_GB, cpus_total_min=cpus_total_min, nodes_ub=nodes_ub, node_left_free=JOB_NODES_LEFT_FREE, debug_level=self.debug_level, required_debug_level=self.required_debug_level+1)
+        
+        if cpu_kind == 'f_ocean':
+            queue = 'f_ocean'
+        elif years == 1:
+            queue = 'express'
+            cpus = min(cpus, 8)
+            cpu_kind = 'all'
+        else:
+            queue = 'medium'
+        
+        job_name = '%i_%i' % (years, time_step_size)
+        Job.init(self, cpu_kind, nodes, cpus, JOB_MEMORY_GB, queue, job_name)
         
         
         
-        ## create option file
-        output_path = path.abspath(output_path)
+        ## get output path
+        output_path = path.abspath(self.output_dir)
         output_path = path.join(output_path, "") # ending with separator
-#         if not path.exists(output_path):
-#             os.makedirs(output_path)
-        os.makedirs(output_path, exist_ok=True)
-        
-        opt = Options(path.join(output_path, JOB_OPTIONS_FILENAME), mode='w-', debug_level=self.debug_level, required_debug_level=self.required_debug_level+1)
-        self.__options = opt
         
         
         
         ## set model options
+        opt = self.options
+        
         model_parameters = np.array(model_parameters, dtype=np.float64)
         opt['/model/parameters'] = model_parameters
         opt['/model/parameters_file'] = path.join(output_path, 'model_parameter.txt')
@@ -215,65 +169,6 @@ class Job(Debug):
         opt['/model/time_step_count'] = time_step_count
         opt['/model/time_step'] = 1 / time_step_count
         
-        
-        
-        ## set job options
-#         opt['/job/walltime_hours'] = walltime_hours
-        opt['/job/nodes'] = nodes
-        opt['/job/cpus'] = cpus
-        opt['/job/memory_gb'] = JOB_MEMORY_GB
-        
-#         if cpu_kind == 'barcelona':
-#             cpu_kind = 'f_ocean'
-#         
-#         if cpu_kind == 'opteron':
-#             cpu_kind = 'all'
-        opt['/job/cpu_kind'] = cpu_kind
-        
-        if queue == 'f_ocean':
-            walltime_hours = 240
-        elif queue == 'express':
-            walltime_hours = 3
-        elif queue == 'small':
-            walltime_hours = 24
-        elif queue == 'medium':
-            walltime_hours = 240
-        elif queue == 'long':
-            walltime_hours = 480
-        elif queue == 'para_low':
-            walltime_hours = 1000
-            
-        opt['/job/walltime_hours'] = walltime_hours
-#         
-#         
-#         if cpu_kind == 'f_ocean':
-#             queue = 'f_ocean'
-#         elif cpu_kind == 'westmere' or cpu_kind == 'all':
-#             if walltime_hours <= 3:
-#                 queue = 'express'
-#             elif walltime_hours <= 24:
-#                 queue = 'small'
-#             elif walltime_hours <= 240:
-#                 queue = 'medium'
-#             elif walltime_hours <= 480:
-#                 queue = 'long'
-#             elif walltime_hours <= 1000:
-#                 queue = 'para_low'
-#             else:
-#                 raise ValueError('Walltime hours ' + str(walltime_hours) + ' to long.')
-#         else:
-#             raise ValueError('Unknown cpu_kind ' + str(cpu_kind) + '.')
-        
-            
-        opt['/job/queue'] = queue
-        
-        opt['/job/output_path'] = path.dirname(output_path)
-        opt['/job/option_file'] = path.join(output_path, 'job_options.txt')
-        opt['/job/output_file'] = path.join(output_path, 'job_output.txt')
-        opt['/job/id_file'] = path.join(output_path, 'job_id.txt')
-        opt['/job/finished_file'] = path.join(output_path, 'finished.txt')
-        
-        opt['/job/pause_time_seconds'] = pause_time_seconds
         
         
         
@@ -289,12 +184,8 @@ class Job(Debug):
         
         if write_trajectory:
             tracer_output_path = path.join(output_path, 'trajectory/')
-#             if not path.exists(tracer_output_path):
-#                 os.makedirs(tracer_output_path)
             os.makedirs(tracer_output_path, exist_ok=True)
             opt['/metos3d/tracer_output_path'] = tracer_output_path
-        
-        opt['/job/name'] = '%i_%i' % (years, time_step_size)
         
         opt['/metos3d/output_path'] = output_path
         opt['/metos3d/option_file'] = path.join(output_path, 'metos3d_options.txt')
@@ -320,10 +211,6 @@ class Job(Debug):
             if i < model_parameters_len - 1:
                 model_parameters_string += ','
         
-#         model_parameters_last_index = len(model_parameters) - 1
-#         for i in range(model_parameters_last_index):
-#             model_parameters_string += MODEL_PARAMETERS_FORMAT_STRING + ', ' % model_parameters[i]
-#         model_parameters_string += MODEL_PARAMETERS_FORMAT_STRING % model_parameters[model_parameters_last_index]
         opt['/metos3d/parameters_string'] = model_parameters_string
         
 
@@ -331,7 +218,7 @@ class Job(Debug):
         
         ## write job file
         f = open(opt['/job/option_file'], mode='w')
-
+        
         f.write('#!/bin/bash \n\n')
         
         f.write('#PBS -N %s \n' % opt['/job/name'])
@@ -444,83 +331,3 @@ class Job(Debug):
         f.close()
         
         self.print_debug_dec('Job initialised.')
-    
-    
-    
-    def initialise_with_best_configuration(self, model_parameters, output_path=os.getcwd(), years=1, tolerance=0, time_step_size=1, write_trajectory=False, tracer_input_path=None, pause_time_seconds=10):
-        
-        from ndop.metos3d.constants import JOB_MEMORY_GB, JOB_MIN_CPUS
-        
-        self.print_debug_inc('Getting best job configutrations.')
-        
-        if years == 1:
-            max_nodes = 1
-        else:
-            max_nodes = float('inf')
-        
-        nodes = 0
-        cpus = 0
-        resources_free = False
-        while not resources_free:
-            (cpu_kind, nodes, cpus) =  util.rzcluster.get_best_cpu_configurations(JOB_MEMORY_GB * 1024, nodes_ub=max_nodes, debug_level=self.debug_level, required_debug_level=self.required_debug_level+1)
-            resources_free = (nodes * cpus >= JOB_MIN_CPUS) or (write_trajectory and nodes >= 1)
-            if not resources_free:
-                self.print_debug('No enough resources free. Waiting.')
-                time.sleep(60)
-        
-        if cpu_kind == 'f_ocean':
-            queue = 'f_ocean'
-        elif years == 1:
-            queue = 'express'
-            cpus = min(cpus, 8)
-            cpu_kind = 'all'
-        else:
-            queue = 'medium'
-        
-#         walltime_hours = 240
-#         self.initialise(model_parameters, output_path=output_path, walltime_hours=walltime_hours, cpu_kind=cpu_kind, nodes=nodes, cpus=cpus, years=years, tolerance=tolerance, time_step_size=time_step_size, write_trajectory=write_trajectory, tracer_input_path=tracer_input_path, pause_time_seconds=pause_time_seconds)
-        self.initialise(model_parameters, output_path=output_path, cpu_kind=cpu_kind, queue=queue, nodes=nodes, cpus=cpus, years=years, tolerance=tolerance, time_step_size=time_step_size, write_trajectory=write_trajectory, tracer_input_path=tracer_input_path, pause_time_seconds=pause_time_seconds)
-        
-        self.print_debug_dec('Got best job configurations.')
-    
-        
-        
-    def start(self):
-        opt = self.options
-        
-        job_id = util.rzcluster.start_job(opt['/job/option_file'], debug_level=self.debug_level, required_debug_level=self.required_debug_level+1)
-        
-        opt['/job/id'] = job_id
-        
-        with open(opt['/job/id_file'], "w") as job_id_file:
-            job_id_file.write(job_id)
-        
-    
-    
-    
-    def is_finished(self):
-        job_id = self.id
-        
-        is_finished = util.rzcluster.is_job_finished(job_id, debug_level=self.debug_level, required_debug_level=self.required_debug_level+1)
-        
-        return is_finished
-    
-    
-    
-    def wait_until_finished(self):
-        job_id = self.id
-        opt = self.options
-        pause_time_seconds = opt['/job/pause_time_seconds']
-        
-        util.rzcluster.wait_until_job_finished(job_id, pause_time_seconds=opt['/job/pause_time_seconds'], debug_level=self.debug_level, required_debug_level=self.required_debug_level+1)
-    
-    
-    def close(self):
-        try:
-            options = self.__options
-        except AttributeError:
-            options = None
-        
-        if options is not None:
-            options.close()
-    

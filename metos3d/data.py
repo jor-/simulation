@@ -20,7 +20,7 @@ def load_land_sea_mask(debug_level=0, required_debug_level=1):
     except (OSError, IOError):
         import util.petsc
         
-        land_sea_mask = util.petsc.load_petsc_mat(METOS_LAND_SEA_MASK_FILE_PETSC, dtype=int, debug_level=debug_level, required_debug_level=required_debug_level)
+        land_sea_mask = util.petsc.load_petsc_mat_to_array(METOS_LAND_SEA_MASK_FILE_PETSC, dtype=int)
         land_sea_mask = land_sea_mask.transpose() # metos3d: x and y are changed
         
         print_debug(('Saving land-sea-mask to npy file ', METOS_LAND_SEA_MASK_FILE_NPY, '.'), debug_level, required_debug_level, 'ndop.metos3d.data.load_land_sea_mask: ')
@@ -74,7 +74,7 @@ def load_trajectories(path, t_dim, time_step_size, land_sea_mask=None, debug_lev
     tracer_dim = len(METOS_TRAJECTORY_FILENAMES)
     filename = util.pattern.replace_int_pattern(METOS_TRAJECTORY_FILENAMES[0], 0)
     file = os.path.join(path, filename)
-    trajectory = util.petsc.load_petsc_vec(file, debug_level = debug_level, required_debug_level = required_debug_level + 3)
+    trajectory = util.petsc.load_petsc_vec_to_array(file)
     if land_sea_mask is not None:
         trajectory = convert_1D_to_3D(trajectory, land_sea_mask, debug_level = debug_level, required_debug_level = required_debug_level + 2)
     s_dim = trajectory.shape
@@ -96,9 +96,9 @@ def load_trajectories(path, t_dim, time_step_size, land_sea_mask=None, debug_lev
                 filename = util.pattern.replace_int_pattern(file_pattern, file_nr)
                 file = os.path.join(path, filename)
                 if k == 0:
-                    trajectory_averaged = util.petsc.load_petsc_vec(file)
+                    trajectory_averaged = util.petsc.load_petsc_vec_to_array(file)
                 else:
-                    trajectory_averaged += util.petsc.load_petsc_vec(file)
+                    trajectory_averaged += util.petsc.load_petsc_vec_to_array(file)
                 
             trajectory_averaged /= t_step
             
@@ -185,7 +185,7 @@ def get_spatial_index(x, y, z, land_sea_mask, debug_level = 0, required_debug_le
     if y < METOS_Y_RANGE[0] or y > METOS_Y_RANGE[1]:
         raise ValueError('Value "' + str(y) + '" of y is not in range "' + str(METOS_Y_RANGE) + '".')
     if z < METOS_Z[0]:
-        raise ValueError('Value "' + str(z) + '" of z have ti be greater or equal to "' + str(METOS_Z[0]) + '".')
+        raise ValueError('Value "' + str(z) + '" of z have to be greater or equal to "' + str(METOS_Z[0]) + '".')
     
     ## linear interpolate time, x and y index
     (x_dim, y_dim) = land_sea_mask.shape
