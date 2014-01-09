@@ -7,8 +7,8 @@ from ndop.constants import BASE_DIR, MODEL_OUTPUTS_DIR
 JOB_OPTIONS_FILENAME = 'job_options.hdf5'
 JOB_MEMORY_GB = 4
 JOB_MIN_CPUS = 4 * 8
-JOB_NODES_MAX = (12, 13, 24, 3, 1, 0, 0)
-JOB_NODES_LEFT_FREE = (0, 0, 0, 3, 1, 0, 0)
+JOB_NODES_MAX = (12, 13, 12, 24, 3, 1, 0, 0)
+JOB_NODES_LEFT_FREE = (0, 0, 12, 24, 3, 1, 0, 0)
 
 
 MODEL_TIME_STEP_SIZE_MAX = 2880

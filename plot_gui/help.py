@@ -1,4 +1,4 @@
-import measurements.util
+import measurements.util.map
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 def plot_iterate_depth(data, file):
     ## prepare land sea mask
-    land_sea_mask_map = measurements.util.init_masked_map(default_value=1, dtype=np.float16)
+    land_sea_mask_map = measurements.util.map.init_masked_map(no_data_value=1, dtype=np.float16)
     land_sea_mask_map = land_sea_mask_map.swapaxes(-1, -2)
     land_sea_mask_map = land_sea_mask_map.swapaxes(-2, -3)
     

@@ -6,6 +6,9 @@ import stat
 import time
 import numpy as np
 
+import logging
+logger = logging.getLogger(__name__)
+
 import util.pattern
 import util.io
 from util.debug import Debug
@@ -13,12 +16,16 @@ from util.debug import Debug
 import ndop.metos3d.data
 from ndop.metos3d.job import Metos3D_Job
 
+
 class Model(Debug):
     
-    def __init__(self, debug_level=0, required_debug_level=1):
-        from .constants import  MODEL_PARAMETER_LOWER_BOUND, MODEL_PARAMETER_UPPER_BOUND
+    def __init__(self, max_nodes_file=None, debug_level=0, required_debug_level=1):
+        from .constants import MODEL_PARAMETER_LOWER_BOUND, MODEL_PARAMETER_UPPER_BOUND
         
         Debug.__init__(self, debug_level, required_debug_level-1, 'ndop.metos3d.model: ')
+        
+        self.max_nodes_file = max_nodes_file
+        logger.debug('Model initiated with max_nodes_file {}.'.format(max_nodes_file))
         
         self.parameters_lower_bound = MODEL_PARAMETER_LOWER_BOUND
         self.parameters_upper_bound = MODEL_PARAMETER_UPPER_BOUND
@@ -37,7 +44,7 @@ class Model(Debug):
             self.print_debug('Returning cached land-sea-mask.')
         ## otherwise load land-sea-mask and return it
         except AttributeError:
-            land_sea_mask = ndop.metos3d.data.load_land_sea_mask(self.debug_level, self.required_debug_level)
+            land_sea_mask = ndop.metos3d.data.load_land_sea_mask()
             self.__land_sea_mask = land_sea_mask
         
         self.print_debug_dec('Got land-sea-mask.')
@@ -67,19 +74,31 @@ class Model(Debug):
     
     
     
-    def run_job(self, model_parameters, output_path=os.getcwd(), years=1, tolerance=0, time_step_size=1, write_trajectory=False, tracer_input_path=None, pause_time_seconds=10):
+    def run_job(self, model_parameters, output_path=os.getcwd(), years=1, tolerance=0, time_step_size=1, write_trajectory=False, tracer_input_path=None, pause_time_seconds=10, make_readonly=True):
         
         self.print_debug_inc(('Running job with years = ', years, ' tolerance = ', tolerance, ' time_step_size = ', time_step_size, ' tracer_input_path = ', tracer_input_path))
         
         ## check parameters
         self.check_if_parameters_in_bounds(model_parameters)
         
+        ## load max nodes
+        max_nodes_file = self.max_nodes_file
+        if max_nodes_file is not None:
+            try:
+                max_nodes = np.loadtxt(max_nodes_file)
+            except (OSError, IOError):
+                warnings.warn('The max_nodes_file {} could not been read.'.format(max_nodes_file))
+                max_nodes = None
+        else:
+            max_nodes = None
+        
         ## execute job
-        with Metos3D_Job(output_path, pause_time_seconds, debug_level=self.debug_level, required_debug_level=self.required_debug_level+1) as job:
-            job.init(model_parameters, years=years, tolerance=tolerance, time_step_size=time_step_size, write_trajectory=write_trajectory, tracer_input_path=tracer_input_path)
+        with Metos3D_Job(output_path, pause_time_seconds) as job:
+            job.init(model_parameters, years=years, tolerance=tolerance, time_step_size=time_step_size, write_trajectory=write_trajectory, tracer_input_path=tracer_input_path, nodes_max=max_nodes)
             time.sleep(2)
             job.start()
-            job.make_readonly()
+            if make_readonly:
+                job.make_readonly()
             job.wait_until_finished()
         
         ## change access mode of files
@@ -250,7 +269,7 @@ class Model(Debug):
             # load last job finished
             if last_run_dir is not None:
                 try: 
-                    job = Metos3D_Job(last_run_dir, force_load=True, debug_level=self.debug_level, required_debug_level=self.required_debug_level+1)
+                    job = Metos3D_Job(last_run_dir, force_load=True)
                 except (OSError, IOError) as exception:
                     warnings.warn('Could not read the job options file from "' + last_run_dir + '": ' + str(exception))
                     job = None
@@ -266,20 +285,6 @@ class Model(Debug):
                 
                 if job is not None:
                     job.close()
-#                 with Metos3D_Job(output_dir, debug_level=self.debug_level, required_debug_level=self.required_debug_level+1) as job:
-#                     try:
-#                         job.load(last_run_dir)
-#                     except (OSError, IOError) as exception:
-#                         warnings.warn('Could not read the job options file from "' + last_run_dir + '": ' + str(exception))
-#                         last_run_dir = None
-#                     
-#                     # check if job is finished
-#                     if wait_until_finished and last_run_dir is not None:
-#                         try:
-#                             job.wait_until_finished()
-#                         except (OSError, IOError) as exception:
-#                             warnings.warn('Could not check if job ' + job.id + ' is finished: ' + str(exception))
-#                             last_run_dir = None
             
             last_run_index -= 1
         
@@ -324,8 +329,7 @@ class Model(Debug):
         total_years = 0
         
         while run_dir is not None:
-            with Metos3D_Job(run_dir, force_load=True, debug_level=self.debug_level, required_debug_level=self.required_debug_level+1) as run_job:
-#                 run_job.load(run_dir)
+            with Metos3D_Job(run_dir, force_load=True) as run_job:
                 run_years = run_job.last_year
             
             total_years += run_years
@@ -339,18 +343,15 @@ class Model(Debug):
     def get_time_step_size(self, run_dir):
         from .constants import MODEL_RUN_OPTIONS_FILENAME  
         
-        with Metos3D_Job(run_dir, force_load=True, debug_level=self.debug_level, required_debug_level=self.required_debug_level+1) as job:
-#             job.load(run_dir)
+        with Metos3D_Job(run_dir, force_load=True) as job:
             time_step = job.time_step
-        
         
         return time_step
     
     
     
     def get_real_tolerance(self, run_dir):
-        with Metos3D_Job(run_dir, force_load=True, debug_level=self.debug_level, required_debug_level=self.required_debug_level+1) as job:
-#             job.load(run_dir)
+        with Metos3D_Job(run_dir, force_load=True) as job:
             tolerance = job.last_tolerance     
         
         return tolerance
@@ -358,8 +359,7 @@ class Model(Debug):
     
     
     def get_tracer_input_dir(self, run_dir):
-        with Metos3D_Job(run_dir, force_load=True, debug_level=self.debug_level, required_debug_level=self.required_debug_level+1) as job:
-#             job.load(run_dir)
+        with Metos3D_Job(run_dir, force_load=True) as job:
             tracer_input_dir = job.tracer_input_path
         
         return tracer_input_dir
@@ -431,9 +431,6 @@ class Model(Debug):
             parameter_set_number += 1
         
         if closest_run_dir is not None:
-#             with Metos3D_Job(closest_run_dir, force_load=True, debug_level=self.debug_level, required_debug_level=self.required_debug_level+1) as job:
-# #                 job.load(closest_run_dir)
-#                 job.wait_until_finished()
             self.print_debug_dec(('Spinup run as close as possible found at "', closest_run_dir, '".'))
         else:
             self.print_debug_dec('No spinup run found.')
@@ -467,7 +464,7 @@ class Model(Debug):
             
             ## wait for last run to finish if necessary
             if spinup_dir == last_spinup_dir or start_from_closest_parameters:
-                with Metos3D_Job(last_run_dir, force_load=True, debug_level=self.debug_level, required_debug_level=self.required_debug_level+1) as job:
+                with Metos3D_Job(last_run_dir, force_load=True) as job:
                     job.wait_until_finished()
             
             ## complete last run with new configs if necessary
@@ -500,11 +497,11 @@ class Model(Debug):
         run_time_step_size = self.get_time_step_size(run_dir)
         
         with tempfile.TemporaryDirectory(dir=run_dir, prefix='trajectory_tmp_') as tmp_path:
-            self.run_job(parameters, output_path=tmp_path, tracer_input_path=run_dir, write_trajectory=True, years=1, tolerance=0, time_step_size=run_time_step_size, pause_time_seconds=10)
+            self.run_job(parameters, output_path=tmp_path, tracer_input_path=run_dir, write_trajectory=True, years=1, tolerance=0, time_step_size=run_time_step_size, pause_time_seconds=10, make_readonly=False)
             
             trajectory_path = os.path.join(tmp_path, 'trajectory')
             
-            trajectory = ndop.metos3d.data.load_trajectories(trajectory_path, t_dim, time_step_size, land_sea_mask=self.land_sea_mask, debug_level=self.debug_level, required_debug_level=self.required_debug_level + 1)
+            trajectory = ndop.metos3d.data.load_trajectories(trajectory_path, t_dim, time_step_size, land_sea_mask=self.land_sea_mask)
         
         return trajectory
     
@@ -711,4 +708,3 @@ class Model(Debug):
         self.print_debug_dec('Derivative found.')
         
         return df
-        

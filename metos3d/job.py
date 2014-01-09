@@ -5,14 +5,18 @@ import subprocess
 import re
 import numpy as np
 
+import logging
+logger = logging.getLogger(__name__)
+
 import util.rzcluster.interact
 from util.rzcluster.job import Job
 
 
+
 class Metos3D_Job(Job):
     
-    def __init__(self, output_path, pause_time_seconds=30, force_load=False, debug_level=0, required_debug_level=1):
-        Job.__init__(self, output_path, pause_time_seconds, force_load, debug_level, required_debug_level)
+    def __init__(self, output_path, pause_time_seconds=30, force_load=False):
+        Job.__init__(self, output_path, pause_time_seconds, force_load)
     
     
     
@@ -113,40 +117,15 @@ class Metos3D_Job(Job):
     
     
     
-    def init(self, model_parameters, years=1, tolerance=0, time_step_size=1, write_trajectory=False, tracer_input_path=None):
+    def init(self, model_parameters, years=1, tolerance=0, time_step_size=1, write_trajectory=False, tracer_input_path=None, nodes_max=None):
         from ndop.metos3d.constants import JOB_OPTIONS_FILENAME, JOB_MEMORY_GB, JOB_MIN_CPUS, JOB_NODES_MAX, JOB_NODES_LEFT_FREE, MODEL_PARAMETERS_FORMAT_STRING, MODEL_TIME_STEP_SIZE_MAX
 
-        self.print_debug_inc('Initialising job.')
+        logger.debug('Initialising job.')
         
         
         ## check input
         if MODEL_TIME_STEP_SIZE_MAX % time_step_size != 0:
             raise ValueError('Wrong time_step_size passed. ' + str(MODEL_TIME_STEP_SIZE_MAX) + ' has to be divisible by time_step_size. But time_step_size is ' + str(time_step_size) + '.')
-        
-        
-        ## init job with best cpu configurations
-        if years == 1:
-            cpus_total_min = 1
-            nodes_ub = ()
-            for i in JOB_NODES_MAX:
-                nodes_ub = nodes_ub + (min(i, 1),)
-        else:
-            cpus_total_min = JOB_MIN_CPUS
-            nodes_ub = JOB_NODES_MAX
-        
-        (cpu_kind, nodes, cpus) = util.rzcluster.interact.wait_for_needed_resources(JOB_MEMORY_GB, cpus_total_min=cpus_total_min, nodes_ub=nodes_ub, node_left_free=JOB_NODES_LEFT_FREE, debug_level=self.debug_level, required_debug_level=self.required_debug_level+1)
-        
-        if cpu_kind == 'f_ocean':
-            queue = 'f_ocean'
-        elif years == 1:
-            queue = 'express'
-            cpus = min(cpus, 8)
-            cpu_kind = 'all'
-        else:
-            queue = 'medium'
-        
-        job_name = '%i_%i' % (years, time_step_size)
-        Job.init(self, cpu_kind, nodes, cpus, JOB_MEMORY_GB, queue, job_name)
         
         
         
@@ -168,7 +147,6 @@ class Metos3D_Job(Job):
         time_step_count = int(MODEL_TIME_STEP_SIZE_MAX / time_step_size)
         opt['/model/time_step_count'] = time_step_count
         opt['/model/time_step'] = 1 / time_step_count
-        
         
         
         
@@ -212,43 +190,6 @@ class Metos3D_Job(Job):
                 model_parameters_string += ','
         
         opt['/metos3d/parameters_string'] = model_parameters_string
-        
-
-        
-        
-        ## write job file
-        f = open(opt['/job/option_file'], mode='w')
-        
-        f.write('#!/bin/bash \n\n')
-        
-        f.write('#PBS -N %s \n' % opt['/job/name'])
-        f.write('#PBS -j oe \n')
-        f.write('#PBS -o %s \n' % opt['/job/output_file'])
-        
-        try:
-            f.write('#PBS -l walltime=%02i:00:00 \n' % opt['/job/walltime_hours'])
-        except KeyError:
-            pass
-        
-        f.write('#PBS -l select=%i:%s=true:ncpus=%i:mpiprocs=%i:mem=%igb \n' % (opt['/job/nodes'], opt['/job/cpu_kind'], opt['/job/cpus'], opt['/job/cpus'], opt['/job/memory_gb']))
-        f.write('#PBS -q %s \n\n' % opt['/job/queue'])
-        
-        f.write('. /usr/local/Modules/3.2.6/init/bash \n\n')
-        
-        f.write('module load petsc3.3-gnu \n')
-        f.write('module list \n\n')
-        
-        f.write('cd $PBS_O_WORKDIR \n\n')
-        
-        f.write('mpirun -n %i -machinefile $PBS_NODEFILE %s %s \n\n' % (opt['/job/nodes'] * opt['/job/cpus'], opt['/metos3d/sim_file'], opt['/metos3d/option_file']))
-        
-        f.write('touch %s \n\n' % opt['/job/finished_file'])
-        
-        f.write('qstat -f $PBS_JOBID \n')
-        f.write('exit \n')
-        
-        f.flush()
-        f.close()
         
         
         
@@ -330,4 +271,39 @@ class Metos3D_Job(Job):
         f.flush()
         f.close()
         
-        self.print_debug_dec('Job initialised.')
+        
+        
+        ## init job with best cpu configurations
+        if years == 1:
+            cpus_total_min = 1
+            
+            if nodes_max is not None:
+                nodes_max = list(nodes_max)
+                for i in range(len(nodes_max)):
+                    nodes_max[i] = min(nodes_max[i], 1)
+            else:
+                nodes_max = (1,) * len(JOB_MIN_CPUS)
+        else:
+            cpus_total_min = JOB_MIN_CPUS
+        
+        (cpu_kind, nodes, cpus) = util.rzcluster.interact.wait_for_needed_resources(JOB_MEMORY_GB, cpus_total_min=cpus_total_min, nodes_max=nodes_max, node_left_free=JOB_NODES_LEFT_FREE)
+        
+        if cpu_kind == 'f_ocean':
+            queue = 'f_ocean'
+        elif years == 1:
+            queue = 'express'
+            cpus = min(cpus, 8)
+            cpu_kind = 'all'
+        else:
+            queue = 'medium'
+        
+        job_name = '%i_%i' % (years, time_step_size)
+        Job.init(self, nodes, cpus, JOB_MEMORY_GB, job_name, cpu_kind=cpu_kind, queue=queue)
+        
+        
+        
+        ## write job file
+        run_command = 'mpirun -n %i -machinefile $PBS_NODEFILE %s %s \n\n' % (opt['/job/nodes'] * opt['/job/cpus'], opt['/metos3d/sim_file'], opt['/metos3d/option_file'])
+        self.write_job_file(run_command, modules=('petsc3.3-gnu',))
+        
+        logger.debug('Job initialised.')

@@ -4,8 +4,8 @@ import argparse
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
-from ndop.plot.logic import Logic
-from ndop.plot.gui import Ui_Dialog
+from ndop.plot_gui.logic import Logic
+from ndop.plot_gui.gui import Ui_Dialog
 
 
 class MainWindow(QWidget, Logic, Ui_Dialog):

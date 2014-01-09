@@ -163,13 +163,13 @@ class Logic(Debug):
         
         if plot_index == MODEL_OUTPUT_PLOT_INDEX:
             self.print_debug('Drawing model output plot.')
-            map = ndop.metos3d.direct_access.get_f(parameter_set_dir)
+            map = ndop.metos3d.direct_access.f(parameter_set_dir)
         elif plot_index == MODEL_ACCURACY_PLOT_INDEX:
             self.print_debug('Drawing model accuracy plot.')
             map = self._accuracy_object.confidence_for_model(parameter_set_dir)
         elif plot_index == MODEL_DIFF_PLOT:
             self.print_debug('Drawing model diff plot.')
-            f = ndop.metos3d.direct_access.get_f(parameter_set_dir)
+            f = ndop.metos3d.direct_access.f(parameter_set_dir)
             y = self._accuracy_object.accuracy.means
             map = abs(y - f)
         elif plot_index == MEANS_PLOT_INDEX:
@@ -189,7 +189,7 @@ class Logic(Debug):
             map = self._accuracy_object.probability_of_observations(parameter_set_dir)
         else:
             self.print_debug('Drawing sensitivity plot.')
-            map = ndop.metos3d.direct_access.get_df(parameter_set_dir)
+            map = ndop.metos3d.direct_access.df(parameter_set_dir)
             map = np.abs(map)
             
             ## chose parameter for sensitivity plot

@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.stats
 
-import measurements.data
+import measurements.po4.woa.data
 from ndop.metos3d.model import Model
 
 from util.debug import Debug
@@ -15,10 +15,10 @@ class Accuracy(Debug):
         
         self.print_debug_inc('Initiating accuracy object.')
         
-        self.means = measurements.data.means(self.debug_level, self.required_debug_level + 1)
+        self.means = measurements.po4.woa.data.means(self.debug_level, self.required_debug_level + 1)
         
-        nobs = measurements.data.nobs(self.debug_level, self.required_debug_level + 1)
-        varis = measurements.data.varis(self.debug_level, self.required_debug_level + 1)
+        nobs = measurements.po4.woa.data.nobs(self.debug_level, self.required_debug_level + 1)
+        varis = measurements.po4.woa.data.varis(self.debug_level, self.required_debug_level + 1)
         self.nobs = nobs
         self.varis = varis
         self.nobs_per_vari = nobs / varis
@@ -27,36 +27,32 @@ class Accuracy(Debug):
         nobs_with_nans[nobs_with_nans == 0] = np.nan 
         self.vari_of_means = varis / nobs_with_nans
         
-#         p_dim = MODEL_PARAMETER_DIM
-        
         axis_sum = tuple(range(1, len(nobs.shape)))
-#         self.averaged_model_variance_axis_sum = axis_sum
         
         number_of_not_empty_boxes = np.sum((nobs > 0), axis=axis_sum)
         self.number_of_not_empty_boxes = number_of_not_empty_boxes
-#         self.averaged_model_variance_factors = 1 / (number_of_not_empty_boxes - MODEL_PARAMETER_DIM)
         
-        ## calculate averaged model variance
+        ## calculate averaged measurement variance
         model_out_dim = nobs.shape[0]
-        averaged_model_variance = np.empty(model_out_dim, dtype=np.float64)
+        averaged_measurement_variance = np.empty(model_out_dim, dtype=np.float64)
         
         for i in range(model_out_dim):
             varis_i = varis[i]
             nobs_i = nobs[i]
             number_of_not_empty_boxes_i = number_of_not_empty_boxes[i]
             
-            averaged_model_variance[i] = np.sum(varis_i[nobs_i > 0] / nobs_i[nobs_i > 0]) / number_of_not_empty_boxes_i
+            averaged_measurement_variance[i] = np.sum(varis_i[nobs_i > 0] / nobs_i[nobs_i > 0]) / number_of_not_empty_boxes_i
             
-        self._averaged_model_variance = averaged_model_variance
+        self._averaged_measurement_variance = averaged_measurement_variance
         
         self.print_debug_dec('Accuracy object initiated.')
     
     
 #     @property
-    def averaged_model_variance(self):
-        return self._averaged_model_variance
+    def averaged_measurement_variance(self):
+        return self._averaged_measurement_variance
     
-    def averaged_model_variance_estimation(self, model_f):
+    def averaged_measurement_variance_estimated_with_model(self, model_f):
         from ndop.metos3d.constants import MODEL_PARAMETER_DIM
         
         means = self.means
@@ -165,8 +161,6 @@ class Accuracy(Debug):
         means = self.means
         vari_of_means = self.vari_of_means
         
-#         probability = 2 * scipy.stats.norm.cdf(- np.abs(means - model_f), scale=(vari_of_means))
-#         probability = scipy.stats.norm.pdf(np.abs(means - model_f), scale=(vari_of_means))
         probability = scipy.stats.norm.logpdf(np.abs(means - model_f), scale=(vari_of_means))
         
         self.print_debug_dec('Probability of observations calculated.')
@@ -180,8 +174,5 @@ class Accuracy(Debug):
         
         axis_sum = tuple(range(1, len(model_f.shape)))
         average = np.nansum(probability, axis=axis_sum) / number_of_not_empty_boxes
-#         average = np.exp(average)
-#         probability[np.isnan(probability)] = 1
-#         average = probability.prod()
         
         return average

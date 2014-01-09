@@ -20,11 +20,11 @@ class Accuracy_Cached(Debug):
         self.nobs_per_vari = accuracy.nobs_per_vari
         self.vari_of_means = accuracy.vari_of_means
         self.number_of_not_empty_boxes = accuracy.number_of_not_empty_boxes
-        self.averaged_model_variance = accuracy.averaged_model_variance
+        self.averaged_measurement_variance = accuracy.averaged_measurement_variance
     
     
     def calculate_confidence_for_parameters(self, parameter_set_dir):
-        df = ndop.metos3d.direct_access.get_df(parameter_set_dir, debug_level=self.debug_level, required_debug_level=self.required_debug_level+1)
+        df = ndop.metos3d.direct_access.df(parameter_set_dir)
         confidence = self.accuracy.confidence_for_parameters(df)
         
         return confidence
@@ -43,7 +43,7 @@ class Accuracy_Cached(Debug):
     
     
     def calculate_confidence_for_model(self, parameter_set_dir):
-        df = ndop.metos3d.direct_access.get_df(parameter_set_dir, debug_level=self.debug_level, required_debug_level=self.required_debug_level+1)
+        df = ndop.metos3d.direct_access.df(parameter_set_dir)
         confidence = self.accuracy.confidence_for_model(df)
         
         return confidence
@@ -61,15 +61,15 @@ class Accuracy_Cached(Debug):
     
     
     
-    def calculate_averaged_model_variance(self):
-        return self.accuracy.averaged_model_variance()
+    def calculate_averaged_measurement_variance(self):
+        return self.accuracy.averaged_measurement_variance()
     
     
-    def averaged_model_variance(self, parameter_set_dir):
-        from ndop.analysis.constants import ANALYSIS_OUTPUT_DIRNAME, AVERAGED_MODEL_VARIANCE_FILENAME
+    def averaged_measurement_variance(self, parameter_set_dir):
+        from ndop.analysis.constants import ANALYSIS_OUTPUT_DIRNAME, AVERAGED_MEASUREMENT_VARIANCE_FILENAME
         
-        variance_file = os.path.join(parameter_set_dir, ANALYSIS_OUTPUT_DIRNAME, AVERAGED_MODEL_VARIANCE_FILENAME)
-        calculate_method = lambda : self.calculate_averaged_model_variance()
+        variance_file = os.path.join(parameter_set_dir, ANALYSIS_OUTPUT_DIRNAME, AVERAGED_MEASUREMENT_VARIANCE_FILENAME)
+        calculate_method = lambda : self.calculate_averaged_measurement_variance()
         
         variance = util.cache.load_or_calculate(variance_file, calculate_method, debug_level=self.debug_level, required_debug_level=self.required_debug_level+1)
         
@@ -77,19 +77,19 @@ class Accuracy_Cached(Debug):
     
     
     
-    def calculate_averaged_model_variance_estimation(self, parameter_set_dir):
-        f = ndop.metos3d.direct_access.get_f(parameter_set_dir, debug_level=self.debug_level, required_debug_level=self.required_debug_level+1)
+    def calculate_averaged_measurement_variance_estimated_with_model(self, parameter_set_dir):
+        f = ndop.metos3d.direct_access.f(parameter_set_dir)
         
-        variance_estimation = self.accuracy.averaged_model_variance_estimation(f)
+        variance_estimation = self.accuracy.averaged_measurement_variance_estimated_with_model(f)
         
         return variance_estimation
     
     
-    def averaged_model_variance_estimation(self, parameter_set_dir):
-        from ndop.analysis.constants import ANALYSIS_OUTPUT_DIRNAME, AVERAGED_MODEL_VARIANCE_ESTIMATION_FILENAME
+    def averaged_measurement_variance_estimated_with_model(self, parameter_set_dir):
+        from ndop.analysis.constants import ANALYSIS_OUTPUT_DIRNAME, AVERAGED_MEASUREMENT_VARIANCE_ESTIMATED_WITH_MODEL_FILENAME
         
-        variance_file = os.path.join(parameter_set_dir, ANALYSIS_OUTPUT_DIRNAME, AVERAGED_MODEL_VARIANCE_ESTIMATION_FILENAME)
-        calculate_method = lambda : self.calculate_averaged_model_variance_estimation(parameter_set_dir)
+        variance_file = os.path.join(parameter_set_dir, ANALYSIS_OUTPUT_DIRNAME, AVERAGED_MEASUREMENT_VARIANCE_ESTIMATED_WITH_MODEL_FILENAME)
+        calculate_method = lambda : self.calculate_averaged_measurement_variance_estimated_with_model(parameter_set_dir)
         
         variance = util.cache.load_or_calculate(variance_file, calculate_method, debug_level=self.debug_level, required_debug_level=self.required_debug_level+1)
         
@@ -98,7 +98,7 @@ class Accuracy_Cached(Debug):
     
     
     def calculate_probability_of_observations(self, parameter_set_dir):
-        f = ndop.metos3d.direct_access.get_f(parameter_set_dir, debug_level=self.debug_level, required_debug_level=self.required_debug_level+1)
+        f = ndop.metos3d.direct_access.f(parameter_set_dir)
         
         probability = self.accuracy.probability_of_observations(f)
         
@@ -118,7 +118,7 @@ class Accuracy_Cached(Debug):
     
     
     def calculate_averaged_probability_of_observations(self, parameter_set_dir):
-        f = ndop.metos3d.direct_access.get_f(parameter_set_dir, debug_level=self.debug_level, required_debug_level=self.required_debug_level+1)
+        f = ndop.metos3d.direct_access.f(parameter_set_dir)
         
         probability = self.accuracy.averaged_probability_of_observations(f)
         
