@@ -5,9 +5,9 @@ import signal
 import os
 import numpy as np
 
-from ndop.metos3d.model import Model
+from ndop.model.eval import Model
 
-import util.pattern
+# import util.pattern
 import util.io
 from util.debug import print_debug
 
@@ -24,14 +24,15 @@ class Continue():
 
 
     def continue_parameter_sets(self, years, tolerance, time_step, parameter_set_numbers=None, debug_level=0, required_debug_level=1):
-        from ndop.metos3d.constants import MODEL_OUTPUTS_DIR, MODEL_TIME_STEP_DIRNAME, MODEL_PARAMETERS_SET_DIRNAME, MODEL_PARAMETERS_FILENAME
+        from ndop.model.constants import MODEL_OUTPUT_DIR, MODEL_TIME_STEP_DIRNAME, MODEL_PARAMETERS_SET_DIRNAME, MODEL_PARAMETERS_FILENAME
         
         print_debug(('Continue runs with years=', years, ' tolerance=', tolerance, 'and time_step=', time_step, '.'), debug_level, required_debug_level)
         
         model = Model(debug_level, required_debug_level+1)
         
-        time_step_dirname = util.pattern.replace_int_pattern(MODEL_TIME_STEP_DIRNAME, time_step)
-        time_step_dir = os.path.join(MODEL_OUTPUTS_DIR, time_step_dirname)
+#         time_step_dirname = util.pattern.replace_int_pattern(MODEL_TIME_STEP_DIRNAME, time_step)
+        time_step_dirname = MODEL_TIME_STEP_DIRNAME.format(time_step)
+        time_step_dir = os.path.join(MODEL_OUTPUT_DIR, time_step_dirname)
         
         if parameter_set_numbers is None:
             parameter_set_dirs = util.io.get_dirs(time_step_dir)
@@ -43,7 +44,8 @@ class Continue():
             if self.continue_execution:
                 print_debug(('Continue run for parameter set with number ', parameter_set_number, '.'), debug_level, required_debug_level)
                 
-                parameter_set_dirname = util.pattern.replace_int_pattern(MODEL_PARAMETERS_SET_DIRNAME, parameter_set_number)
+#                 parameter_set_dirname = util.pattern.replace_int_pattern(MODEL_PARAMETERS_SET_DIRNAME, parameter_set_number)
+                parameter_set_dirname = MODEL_PARAMETERS_SET_DIRNAME.format(parameter_set_number)
                 parameter_set_dir = os.path.join(time_step_dir, parameter_set_dirname)
                 
                 parameters_file = os.path.join(parameter_set_dir, MODEL_PARAMETERS_FILENAME)

@@ -8,10 +8,10 @@ logger = logging.getLogger(__name__)
 
 
 def f(parameter_set_dir, t_dim=12):
-    from ndop.metos3d.constants import MODEL_F_FILENAME
+    from ndop.model.constants import MODEL_F_FILENAME
     
     f_filepattern = os.path.join(parameter_set_dir, MODEL_F_FILENAME)
-    f_file = util.pattern.replace_int_pattern(f_filepattern, t_dim)
+    f_file = f_filepattern.format(t_dim)
     
     logger.debug('Try to load F from %s.' % f_file)
     try:
@@ -26,14 +26,14 @@ def f(parameter_set_dir, t_dim=12):
 
 
 def df(parameter_set_dir, t_dim=12):
-    from ndop.metos3d.constants import MODEL_DF_FILENAME
+    from ndop.model.constants import MODEL_DF_FILENAME
     
     df = None
     accuracy_order = 2
     
     while df is None and accuracy_order > 0:
         df_filepattern = os.path.join(parameter_set_dir, MODEL_DF_FILENAME)
-        df_file = util.pattern.replace_int_pattern(df_filepattern, (t_dim, accuracy_order))
+        df_file = df_filepattern.format(t_dim, accuracy_order)
         
         logger.debug('Try to load DF from %s.' % df_file)
         try:

@@ -9,8 +9,8 @@ import multiprocessing
 
 from time import strptime
 
-import ndop.metos3d.data
-import ndop.metos3d.direct_access
+import ndop.model.data
+import ndop.model.direct_access
 from ndop.analysis.accuracy_cached import Accuracy_Cached
 
 import util.pattern
@@ -40,7 +40,7 @@ class Logic(Debug):
         
 #         # plot lsm
 # #         lsm = np.load(LSM_FILE)
-#         lsm = ndop.metos3d.data.load_land_sea_mask(self.debug_level, self.required_debug_level)
+#         lsm = ndop.model.data.load_land_sea_mask(self.debug_level, self.required_debug_level)
 #         lsm = lsm.view(dtype=np.float)
 #         lsm[np.where(lsm == 0)] = np.nan
 # #         lsm = lsm * 0
@@ -57,9 +57,9 @@ class Logic(Debug):
     
 #     @parameter_set.setter
     def set_parameter_set(self, parameter_set):
-        from ndop.metos3d.constants import MODEL_OUTPUTS_DIR, MODEL_PARAMETERS_SET_DIRNAME
+        from ndop.model.constants import MODEL_OUTPUT_DIR, MODEL_PARAMETERS_SET_DIRNAME
         
-        parameter_set_dir_pattern = os.path.join(MODEL_OUTPUTS_DIR, MODEL_PARAMETERS_SET_DIRNAME)
+        parameter_set_dir_pattern = os.path.join(MODEL_OUTPUT_DIR, MODEL_PARAMETERS_SET_DIRNAME)
         parameter_set_dir = util.pattern.replace_int_pattern(parameter_set_dir_pattern, parameter_set)
         self._parameter_set_dir = parameter_set_dir
         
@@ -127,7 +127,7 @@ class Logic(Debug):
 
 
     def get_parameters_strings(self):
-        from ndop.metos3d.constants import MODEL_PARAMETERS_FILENAME
+        from ndop.model.constants import MODEL_PARAMETERS_FILENAME
         
         parameter_set_dir = self.get_parameter_set_dir()
         parameter_file = os.path.join(parameter_set_dir, MODEL_PARAMETERS_FILENAME)
@@ -163,13 +163,13 @@ class Logic(Debug):
         
         if plot_index == MODEL_OUTPUT_PLOT_INDEX:
             self.print_debug('Drawing model output plot.')
-            map = ndop.metos3d.direct_access.f(parameter_set_dir)
+            map = ndop.model.direct_access.f(parameter_set_dir)
         elif plot_index == MODEL_ACCURACY_PLOT_INDEX:
             self.print_debug('Drawing model accuracy plot.')
             map = self._accuracy_object.confidence_for_model(parameter_set_dir)
         elif plot_index == MODEL_DIFF_PLOT:
             self.print_debug('Drawing model diff plot.')
-            f = ndop.metos3d.direct_access.f(parameter_set_dir)
+            f = ndop.model.direct_access.f(parameter_set_dir)
             y = self._accuracy_object.accuracy.means
             map = abs(y - f)
         elif plot_index == MEANS_PLOT_INDEX:
@@ -189,7 +189,7 @@ class Logic(Debug):
             map = self._accuracy_object.probability_of_observations(parameter_set_dir)
         else:
             self.print_debug('Drawing sensitivity plot.')
-            map = ndop.metos3d.direct_access.df(parameter_set_dir)
+            map = ndop.model.direct_access.df(parameter_set_dir)
             map = np.abs(map)
             
             ## chose parameter for sensitivity plot

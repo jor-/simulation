@@ -1,6 +1,6 @@
 import os.path
 
-import ndop.metos3d.direct_access
+import ndop.model.direct_access
 from ndop.analysis.accuracy import Accuracy
 
 import util.cache
@@ -24,7 +24,7 @@ class Accuracy_Cached(Debug):
     
     
     def calculate_confidence_for_parameters(self, parameter_set_dir):
-        df = ndop.metos3d.direct_access.df(parameter_set_dir)
+        df = ndop.model.direct_access.df(parameter_set_dir)
         confidence = self.accuracy.confidence_for_parameters(df)
         
         return confidence
@@ -43,7 +43,7 @@ class Accuracy_Cached(Debug):
     
     
     def calculate_confidence_for_model(self, parameter_set_dir):
-        df = ndop.metos3d.direct_access.df(parameter_set_dir)
+        df = ndop.model.direct_access.df(parameter_set_dir)
         confidence = self.accuracy.confidence_for_model(df)
         
         return confidence
@@ -78,7 +78,7 @@ class Accuracy_Cached(Debug):
     
     
     def calculate_averaged_measurement_variance_estimated_with_model(self, parameter_set_dir):
-        f = ndop.metos3d.direct_access.f(parameter_set_dir)
+        f = ndop.model.direct_access.f(parameter_set_dir)
         
         variance_estimation = self.accuracy.averaged_measurement_variance_estimated_with_model(f)
         
@@ -98,7 +98,7 @@ class Accuracy_Cached(Debug):
     
     
     def calculate_probability_of_observations(self, parameter_set_dir):
-        f = ndop.metos3d.direct_access.f(parameter_set_dir)
+        f = ndop.model.direct_access.f(parameter_set_dir)
         
         probability = self.accuracy.probability_of_observations(f)
         
@@ -118,7 +118,7 @@ class Accuracy_Cached(Debug):
     
     
     def calculate_averaged_probability_of_observations(self, parameter_set_dir):
-        f = ndop.metos3d.direct_access.f(parameter_set_dir)
+        f = ndop.model.direct_access.f(parameter_set_dir)
         
         probability = self.accuracy.averaged_probability_of_observations(f)
         

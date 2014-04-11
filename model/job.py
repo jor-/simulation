@@ -1,5 +1,4 @@
 import os
-import os.path as path
 import time
 import subprocess
 import re
@@ -10,6 +9,7 @@ logger = logging.getLogger(__name__)
 
 import util.rzcluster.interact
 from util.rzcluster.job import Job
+import util.io
 
 
 
@@ -69,7 +69,7 @@ class Metos3D_Job(Job):
     
     @property
     def time_step(self):
-        from ndop.metos3d.constants import MODEL_TIME_STEP_SIZE_MAX
+        from ndop.model.constants import MODEL_TIME_STEP_SIZE_MAX
         
         opt = self.options
         metos3d_opt_file = opt['/metos3d/option_file']
@@ -79,8 +79,9 @@ class Metos3D_Job(Job):
         for metos3d_opt_line in metos3d_opt_lines:
             if re.search('Metos3DTimeStepCount', metos3d_opt_line) is not None:
                 time_step_count = int(re.findall('\d+', metos3d_opt_line)[1])
-                time_step = MODEL_TIME_STEP_SIZE_MAX / time_step_count
-                return time_step
+                time_step = int(MODEL_TIME_STEP_SIZE_MAX / time_step_count)
+        
+        return time_step
     
     
     @property
@@ -117,21 +118,21 @@ class Metos3D_Job(Job):
     
     
     
-    def init(self, model_parameters, years=1, tolerance=0, time_step_size=1, write_trajectory=False, tracer_input_path=None, nodes_max=None):
-        from ndop.metos3d.constants import JOB_OPTIONS_FILENAME, JOB_MEMORY_GB, JOB_MIN_CPUS, JOB_NODES_MAX, JOB_NODES_LEFT_FREE, MODEL_PARAMETERS_FORMAT_STRING, MODEL_TIME_STEP_SIZE_MAX
+    def init(self, model_parameters, years, tolerance, time_step=1, write_trajectory=False, tracer_input_path=None, nodes_max=None, job_name_prefix=''):
+        from ndop.model.constants import JOB_OPTIONS_FILENAME, JOB_MEMORY_GB, JOB_MIN_CPUS, JOB_NODES_MAX, JOB_NODES_LEFT_FREE, MODEL_PARAMETERS_FORMAT_STRING, MODEL_TIME_STEP_SIZE_MAX, METOS_PATH
 
         logger.debug('Initialising job.')
         
         
         ## check input
-        if MODEL_TIME_STEP_SIZE_MAX % time_step_size != 0:
-            raise ValueError('Wrong time_step_size passed. ' + str(MODEL_TIME_STEP_SIZE_MAX) + ' has to be divisible by time_step_size. But time_step_size is ' + str(time_step_size) + '.')
+        if MODEL_TIME_STEP_SIZE_MAX % time_step != 0:
+            raise ValueError('Wrong time_step passed. ' + str(MODEL_TIME_STEP_SIZE_MAX) + ' has to be divisible by time_step. But time_step is ' + str(time_step) + '.')
         
         
         
         ## get output path
-        output_path = path.abspath(self.output_dir)
-        output_path = path.join(output_path, "") # ending with separator
+        output_path = os.path.abspath(self.output_dir)
+        output_path = os.path.join(output_path, "") # ending with separator
         
         
         
@@ -140,33 +141,31 @@ class Metos3D_Job(Job):
         
         model_parameters = np.array(model_parameters, dtype=np.float64)
         opt['/model/parameters'] = model_parameters
-        opt['/model/parameters_file'] = path.join(output_path, 'model_parameter.txt')
+        opt['/model/parameters_file'] = os.path.join(output_path, 'model_parameter.txt')
         np.savetxt(opt['/model/parameters_file'], opt['/model/parameters'], fmt=MODEL_PARAMETERS_FORMAT_STRING)
         
-        opt['/model/time_step_size'] = time_step_size
-        time_step_count = int(MODEL_TIME_STEP_SIZE_MAX / time_step_size)
+        time_step_count = int(MODEL_TIME_STEP_SIZE_MAX / time_step)
         opt['/model/time_step_count'] = time_step_count
         opt['/model/time_step'] = 1 / time_step_count
         
         
         
         ## set metos3d options
-        metos3d_path = '/work_j2/sunip229/NDOP/metos3d/v0.2'
-        opt['/metos3d/path'] = metos3d_path
-        opt['/metos3d/data_path'] = path.join(metos3d_path, 'data/Metos3DData')
-        opt['/metos3d/sim_file'] = path.join(metos3d_path, 'simpack/metos3d-simpack-MITgcm-PO4-DOP.exe')
+        opt['/metos3d/path'] = METOS_PATH
+        opt['/metos3d/data_path'] = os.path.join(METOS_PATH, 'data/Metos3DData')
+        opt['/metos3d/sim_file'] = os.path.join(METOS_PATH, 'simpack/metos3d-simpack-MITgcm-PO4-DOP.exe')
         opt['/metos3d/years'] = years
         opt['/metos3d/write_trajectory'] = write_trajectory
         if tolerance is not None:
             opt['/metos3d/tolerance'] = tolerance
         
         if write_trajectory:
-            tracer_output_path = path.join(output_path, 'trajectory/')
+            tracer_output_path = os.path.join(output_path, 'trajectory/')
             os.makedirs(tracer_output_path, exist_ok=True)
             opt['/metos3d/tracer_output_path'] = tracer_output_path
         
         opt['/metos3d/output_path'] = output_path
-        opt['/metos3d/option_file'] = path.join(output_path, 'metos3d_options.txt')
+        opt['/metos3d/option_file'] = os.path.join(output_path, 'metos3d_options.txt')
         opt['/metos3d/debuglevel'] = 1
         opt['/metos3d/po4_output_filename'] = 'po4_output.petsc'
         opt['/metos3d/dop_output_filename'] = 'dop_output.petsc'
@@ -175,10 +174,10 @@ class Metos3D_Job(Job):
             opt['/metos3d/po4_input_filename'] = 'po4_input.petsc'
             opt['/metos3d/dop_input_filename'] = 'dop_input.petsc'
             
-            tracer_input_path = path.relpath(tracer_input_path, start=output_path)
+            tracer_input_path = os.path.relpath(tracer_input_path, start=output_path)
             
-            os.symlink(path.join(tracer_input_path, opt['metos3d/po4_output_filename']), path.join(output_path, opt['/metos3d/po4_input_filename']))
-            os.symlink(path.join(tracer_input_path, opt['metos3d/dop_output_filename']), path.join(output_path, opt['/metos3d/dop_input_filename']))
+            os.symlink(os.path.join(tracer_input_path, opt['metos3d/po4_output_filename']), os.path.join(output_path, opt['/metos3d/po4_input_filename']))
+            os.symlink(os.path.join(tracer_input_path, opt['metos3d/dop_output_filename']), os.path.join(output_path, opt['/metos3d/dop_input_filename']))
             
             opt['/metos3d/tracer_input_path'] = output_path
         
@@ -268,8 +267,7 @@ class Metos3D_Job(Job):
             f.write('-Metos3DSpinupMonitorFileFormatPrefix   sp$0004d-,ts$0004d- \n')
             f.write('-Metos3DSpinupMonitorModuloStep         1,1 \n')
         
-        f.flush()
-        f.close()
+        util.io.flush_and_close(f)
         
         
         
@@ -282,14 +280,14 @@ class Metos3D_Job(Job):
                 for i in range(len(nodes_max)):
                     nodes_max[i] = min(nodes_max[i], 1)
             else:
-                nodes_max = (1,) * len(JOB_MIN_CPUS)
+                nodes_max = (1,) * len(JOB_NODES_LEFT_FREE)
         else:
             cpus_total_min = JOB_MIN_CPUS
         
         (cpu_kind, nodes, cpus) = util.rzcluster.interact.wait_for_needed_resources(JOB_MEMORY_GB, cpus_total_min=cpus_total_min, nodes_max=nodes_max, node_left_free=JOB_NODES_LEFT_FREE)
         
-        if cpu_kind == 'f_ocean':
-            queue = 'f_ocean'
+        if cpu_kind in ('f_ocean', 'f_ocean2'):
+            queue = cpu_kind
         elif years == 1:
             queue = 'express'
             cpus = min(cpus, 8)
@@ -297,13 +295,15 @@ class Metos3D_Job(Job):
         else:
             queue = 'medium'
         
-        job_name = '%i_%i' % (years, time_step_size)
+        job_name = job_name_prefix + '{}_{}'
+        job_name = job_name.format(years, time_step)
         Job.init(self, nodes, cpus, JOB_MEMORY_GB, job_name, cpu_kind=cpu_kind, queue=queue)
         
         
         
         ## write job file
         run_command = 'mpirun -n %i -machinefile $PBS_NODEFILE %s %s \n\n' % (opt['/job/nodes'] * opt['/job/cpus'], opt['/metos3d/sim_file'], opt['/metos3d/option_file'])
-        self.write_job_file(run_command, modules=('petsc3.3-gnu',))
+        #self.write_job_file(run_command, modules=('hdf5_1.8.8, python3, petsc3.3-gnu',), login_node='rzcluster')
+        self.write_job_file(run_command, modules=('hdf5_1.8.8', 'python3', 'petsc'))
         
         logger.debug('Job initialised.')

@@ -1,14 +1,18 @@
 import os
 import warnings
 
-from ndop.metos3d.job import Metos3D_Job
+import logging
+logger = logging.getLogger(__name__)
 
-import util.pattern
+from ndop.model.job import Metos3D_Job
+
+# import util.pattern
 import util.io
-from util.debug import print_debug
 
+#TODO check read only for finished jobs
+#TODO grep ERROR on job output
 
-def check_job_file_integrity_spinup(spinup_dir, debug_level=0, required_debug_level=1):
+def check_job_file_integrity_spinup(spinup_dir):
     run_dirs = util.io.get_dirs(spinup_dir)
         
     for run_dir in run_dirs:
@@ -17,8 +21,8 @@ def check_job_file_integrity_spinup(spinup_dir, debug_level=0, required_debug_le
             with Metos3D_Job(run_dir, force_load=True) as job:
                 if not job.is_started():
                     warnings.warn('Job in ' + run_dir + ' is not started.')
-            print_debug(('Job file in ', run_dir, ' is okay.'), debug_level, required_debug_level)
-        except:
+            logger.debug('Job file in {} is okay.'.format(run_dir))
+        except (OSError, IOError):
             warnings.warn('Job file in ' + run_dir + ' is not okay.')
         
         ## check if trajectory dir exist
@@ -42,26 +46,27 @@ def check_job_file_integrity_spinup(spinup_dir, debug_level=0, required_debug_le
     
 
 
-def check_job_file_integrity(time_step_size=1, debug_level=0, required_debug_level=1):
-    from ndop.metos3d.constants import MODEL_OUTPUTS_DIR, MODEL_TIME_STEP_DIRNAME, MODEL_SPINUP_DIRNAME, MODEL_DERIVATIVE_DIRNAME, JOB_OPTIONS_FILENAME
+def check_job_file_integrity(time_step_size=1):
+    from ndop.model.constants import MODEL_OUTPUT_DIR, MODEL_TIME_STEP_DIRNAME, MODEL_SPINUP_DIRNAME, MODEL_DERIVATIVE_DIRNAME, JOB_OPTIONS_FILENAME
     
-    time_step_dirname = util.pattern.replace_int_pattern(MODEL_TIME_STEP_DIRNAME, time_step_size)
-    time_step_dir = os.path.join(MODEL_OUTPUTS_DIR, time_step_dirname)
+#     time_step_dirname = util.pattern.replace_int_pattern(MODEL_TIME_STEP_DIRNAME, time_step_size)
+    time_step_dirname = MODEL_TIME_STEP_DIRNAME.format(time_step_size)
+    time_step_dir = os.path.join(MODEL_OUTPUT_DIR, time_step_dirname)
     
     parameter_set_dirs = util.io.get_dirs(time_step_dir)
     
     for parameter_set_dir in parameter_set_dirs:
         
         spinup_dir = os.path.join(parameter_set_dir, MODEL_SPINUP_DIRNAME)
-        check_job_file_integrity_spinup(spinup_dir, debug_level, required_debug_level+1)
+        check_job_file_integrity_spinup(spinup_dir)
         
         derivative_dir = os.path.join(parameter_set_dir, MODEL_DERIVATIVE_DIRNAME)
         partial_derivative_dirs = util.io.get_dirs(derivative_dir)
         for partial_derivative_dir in partial_derivative_dirs:
-            check_job_file_integrity_spinup(partial_derivative_dir, debug_level, required_debug_level+1)
+            check_job_file_integrity_spinup(partial_derivative_dir)
         
 
 
 if __name__ == "__main__":
-    check_job_file_integrity(debug_level=0)
+    check_job_file_integrity()
     print('Check completed.')

@@ -2,14 +2,14 @@ import numpy as np
 import scipy.stats
 
 import measurements.po4.woa.data
-from ndop.metos3d.model import Model
+from ndop.model.eval import Model
 
 from util.debug import Debug
 
 class Accuracy(Debug):
     
     def __init__(self, debug_level=0, required_debug_level=1):
-        from ndop.metos3d.constants import MODEL_PARAMETER_DIM
+        from ndop.model.constants import MODEL_PARAMETER_DIM
         
         Debug.__init__(self, debug_level, required_debug_level-1, 'ndop.optimization.accuracy: ')
         
@@ -53,7 +53,7 @@ class Accuracy(Debug):
         return self._averaged_measurement_variance
     
     def averaged_measurement_variance_estimated_with_model(self, model_f):
-        from ndop.metos3d.constants import MODEL_PARAMETER_DIM
+        from ndop.model.constants import MODEL_PARAMETER_DIM
         
         means = self.means
         number_of_not_empty_boxes = self.number_of_not_empty_boxes

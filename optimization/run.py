@@ -7,7 +7,7 @@ import util.io
 from util.debug import print_debug
 
 def optimize(p0, years=7000, tolerance=0, time_step_size=1, maxiter=None, debug_level=0, required_debug_level=1):
-    from ndop.metos3d.constants import  MODEL_PARAMETER_LOWER_BOUND, MODEL_PARAMETER_UPPER_BOUND
+    from ndop.model.constants import  MODEL_PARAMETER_LOWER_BOUND, MODEL_PARAMETER_UPPER_BOUND
     from ndop.optimization.constants import P_FILE, F_FILE, F_EVAL_FILE, DF_FILE, DF_EVAL_FILE, RES_FILE
     
     ## construct fun and jac
