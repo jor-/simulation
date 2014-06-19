@@ -1,0 +1,8 @@
+CACHE_DIRNAME = 'accuracy'
+INFORMATION_MATRIX_FILENAME = 'information_matrix.npy'
+COVARIANCE_MATRIX_FILENAME = 'covariance_matrix.npy'
+PARAMETER_CONFIDENCE_FILENAME = 'parameter_confidence.npy'
+MODEL_CONFIDENCE_FILENAME = 'model_confidence.npy'
+AVERAGE_MODEL_CONFIDENCE_FILENAME = 'average_model_confidence.npy'
+AVERAGE_MODEL_CONFIDENCE_INCREASE_FILENAME = 'average_model_confidence_increase.npy'
+PROJECTED_DF_FILENAME = 'projected_DF.npy'

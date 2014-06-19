@@ -1,13 +1,13 @@
 import argparse
 import os.path
 import scipy.io
+import numpy as np
 
 import ndop.optimization.cost_function
 import util.logging
 
-from ndop.optimization.matlab.constants import MATLAB_PARAMETER_FILENAME, MATLAB_F_FILENAME, MATLAB_DF_FILENAME, MAX_NODES_FILENAME
+from ndop.optimization.matlab.constants import MATLAB_PARAMETER_FILENAME, MATLAB_F_FILENAME, MATLAB_DF_FILENAME, NODES_MAX_FILENAME, KIND_OF_COST_FUNCTIONS
 
-KIND_OF_COST_FUNCTIONS=('WOA_LS', 'WOA_WLS', 'WOD_LS', 'WOD_WLS', 'WOD_GLS')
 
 ## parse arguments
 parser = argparse.ArgumentParser(description='Evaluating cost function for matlab.')
@@ -34,46 +34,57 @@ if args['and_combination']:
     combination='and'
 else:
     combination='or'
-    
 
-# if len(debug_logging_file) > 0:
-#     logging.basicConfig(filename=debug_logging_file,level=logging.DEBUG)
 
 
 with util.logging.Logger(logging_file=logging_file):
+    with np.errstate(invalid='ignore'):
     
-    ## calculate file locations
-    p_file = os.path.join(exchange_dir, MATLAB_PARAMETER_FILENAME)
-    f_file = os.path.join(exchange_dir, MATLAB_F_FILENAME)
-    df_file = os.path.join(exchange_dir, MATLAB_DF_FILENAME)
-    max_nodes_file = os.path.join(exchange_dir, MAX_NODES_FILENAME)
-    
-    
-    ## choose cost function
-    df_accuracy_order = 2
-    if kind_of_cost_function == 'WOA_LS':
-        cf = ndop.optimization.cost_function.WOA_Family(ndop.optimization.cost_function.WOA_LS, years=years, tolerance=tolerance, combination=combination, max_nodes_file=max_nodes_file, df_accuracy_order=df_accuracy_order)
-    elif kind_of_cost_function == 'WOA_WLS':
-        cf = ndop.optimization.cost_function.WOA_Family(ndop.optimization.cost_function.WOA_WLS, years=years, tolerance=tolerance, combination=combination, max_nodes_file=max_nodes_file, df_accuracy_order=df_accuracy_order)
-    elif kind_of_cost_function == 'WOD_LS':
-        cf = ndop.optimization.cost_function.WOD_Family(ndop.optimization.cost_function.WOD_LS, years=years, tolerance=tolerance, combination=combination, max_nodes_file=max_nodes_file, df_accuracy_order=df_accuracy_order)
-    elif kind_of_cost_function == 'WOD_WLS':
-        cf = ndop.optimization.cost_function.WOD_Family(ndop.optimization.cost_function.WOD_WLS, years=years, tolerance=tolerance, combination=combination, max_nodes_file=max_nodes_file, df_accuracy_order=df_accuracy_order)
-    elif kind_of_cost_function == 'WOD_GLS':
-        cf = ndop.optimization.cost_function.WOD_Family(ndop.optimization.cost_function.WOD_GLS, years=years, tolerance=tolerance, combination=combination, max_nodes_file=max_nodes_file, df_accuracy_order=df_accuracy_order)
-#     cf = Cost_Function(years=years, tolerance=tolerance, max_nodes_file=max_nodes_file)
-    
-    
-    ## eval cost function
-    p = scipy.io.loadmat(p_file, squeeze_me=True)
-    p = p['p']
-    
-    if eval_grad_value:
-        df = {}
-        df['df'] = cf.get_df(p)
-        scipy.io.savemat(df_file, df, oned_as='column')
-    
-    if eval_function_value:
-        f = {}
-        f['f'] = cf.get_f(p)
-        scipy.io.savemat(f_file, f, oned_as='column')
+        ## calculate file locations
+        p_file = os.path.join(exchange_dir, MATLAB_PARAMETER_FILENAME)
+        f_file = os.path.join(exchange_dir, MATLAB_F_FILENAME)
+        df_file = os.path.join(exchange_dir, MATLAB_DF_FILENAME)
+        job_nodes_max_file = os.path.join(exchange_dir, NODES_MAX_FILENAME)
+        
+        
+        ## choose cost function
+        df_accuracy_order = 2
+#         if kind_of_cost_function == 'WOA_OLS':
+#             cf = ndop.optimization.cost_function.WOA_Family(ndop.optimization.cost_function.WOA_OLS, years=years, tolerance=tolerance, combination=combination, job_nodes_max_file=job_nodes_max_file, df_accuracy_order=df_accuracy_order)
+#         elif kind_of_cost_function == 'WOA_WLS':
+#             cf = ndop.optimization.cost_function.WOA_Family(ndop.optimization.cost_function.WOA_WLS, years=years, tolerance=tolerance, combination=combination, job_nodes_max_file=job_nodes_max_file, df_accuracy_order=df_accuracy_order)
+#         elif kind_of_cost_function == 'WOD_OLS':
+#             cf = ndop.optimization.cost_function.WOD_Family(ndop.optimization.cost_function.WOD_OLS, years=years, tolerance=tolerance, combination=combination, job_nodes_max_file=job_nodes_max_file, df_accuracy_order=df_accuracy_order)
+#         elif kind_of_cost_function == 'WOD_WLS':
+#             cf = ndop.optimization.cost_function.WOD_Family(ndop.optimization.cost_function.WOD_WLS, years=years, tolerance=tolerance, combination=combination, job_nodes_max_file=job_nodes_max_file, df_accuracy_order=df_accuracy_order)
+#         elif kind_of_cost_function == 'WOD_GLS':
+#             cf = ndop.optimization.cost_function.WOD_Family(ndop.optimization.cost_function.WOD_GLS, years=years, tolerance=tolerance, combination=combination, job_nodes_max_file=job_nodes_max_file, df_accuracy_order=df_accuracy_order)
+        
+        if kind_of_cost_function == 'WOA_OLS':
+            main_member_class = ndop.optimization.cost_function.OLS
+            data_kind = 'WOA'
+        elif kind_of_cost_function == 'WOA_WLS':
+            main_member_class = ndop.optimization.cost_function.WLS
+            data_kind = 'WOA'
+        elif kind_of_cost_function == 'WOD_OLS':
+            main_member_class = ndop.optimization.cost_function.OLS
+            data_kind = 'WOD'
+        elif kind_of_cost_function == 'WOD_WLS':
+            main_member_class = ndop.optimization.cost_function.WLS
+            data_kind = 'WOD'
+        elif kind_of_cost_function == 'WOD_GLS':
+            main_member_class = ndop.optimization.cost_function.GLS
+            data_kind = 'WOD'
+        cf = ndop.optimization.cost_function.Family(main_member_class, data_kind, years=years, tolerance=tolerance, combination=combination, time_step=1, df_accuracy_order=df_accuracy_order, job_setup=None)
+        
+        
+        ## eval cost function
+        p = scipy.io.loadmat(p_file, squeeze_me=True)
+        p = p['p']
+        if eval_grad_value:
+            df = {'df': cf.df(p)}
+            scipy.io.savemat(df_file, df, oned_as='column')
+        
+        if eval_function_value:
+            f = {'f': cf.f(p)}
+            scipy.io.savemat(f_file, f, oned_as='column')

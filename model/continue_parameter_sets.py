@@ -1,15 +1,14 @@
 import sys
 import argparse
 import signal
-
 import os
+import logging
 import numpy as np
 
 from ndop.model.eval import Model
 
 # import util.pattern
 import util.io
-from util.debug import print_debug
 
 
 class Continue():
@@ -23,12 +22,12 @@ class Continue():
     
 
 
-    def continue_parameter_sets(self, years, tolerance, time_step, parameter_set_numbers=None, debug_level=0, required_debug_level=1):
+    def continue_parameter_sets(self, years, tolerance, time_step, parameter_set_numbers=None):
         from ndop.model.constants import MODEL_OUTPUT_DIR, MODEL_TIME_STEP_DIRNAME, MODEL_PARAMETERS_SET_DIRNAME, MODEL_PARAMETERS_FILENAME
         
-        print_debug(('Continue runs with years=', years, ' tolerance=', tolerance, 'and time_step=', time_step, '.'), debug_level, required_debug_level)
+        logging.debug('Continue runs with years={} tolerance={} and time_step={}.'.format(years, tolerance, time_step))
         
-        model = Model(debug_level, required_debug_level+1)
+        model = Model()
         
 #         time_step_dirname = util.pattern.replace_int_pattern(MODEL_TIME_STEP_DIRNAME, time_step)
         time_step_dirname = MODEL_TIME_STEP_DIRNAME.format(time_step)
@@ -38,11 +37,11 @@ class Continue():
             parameter_set_dirs = util.io.get_dirs(time_step_dir)
             parameter_set_numbers = range(len(parameter_set_dirs))
         
-        print_debug(('Continue runs for parameter set with number ', parameter_set_numbers, '.'), debug_level, required_debug_level)
+        logging.debug('Continue runs for parameter set with number {}.'.format(parameter_set_numbers))
         
         for parameter_set_number in parameter_set_numbers:
             if self.continue_execution:
-                print_debug(('Continue run for parameter set with number ', parameter_set_number, '.'), debug_level, required_debug_level)
+                logging.debug('Continue runs for parameter set with number {}.'.format(parameter_set_numbers))
                 
 #                 parameter_set_dirname = util.pattern.replace_int_pattern(MODEL_PARAMETERS_SET_DIRNAME, parameter_set_number)
                 parameter_set_dirname = MODEL_PARAMETERS_SET_DIRNAME.format(parameter_set_number)
@@ -65,7 +64,6 @@ if __name__ == "__main__":
     parser.add_argument('-T', '--tolerance', default=10**(-5), type=float, help='the tolerance')
     parser.add_argument('-m', '--min', default=0, type=int, help='the minimal parameter set number to use')
     parser.add_argument('-M', '--max', default=10000, type=int, help='the minimal parameter set number to use')
-    parser.add_argument('-d', '--debug_level', default=0, type=int, help='Increase the debug level for more debug informations.')
     parser.add_argument('--version', action='version', version='%(prog)s 0.1')
     args = vars(parser.parse_args())
     
@@ -73,6 +71,6 @@ if __name__ == "__main__":
     
     continue_object = Continue()
     
-    continue_object.continue_parameter_sets(years=args['years'], tolerance=args['tolerance'], time_step=args['time_step'], parameter_set_numbers=parameter_set_numbers, debug_level=args['debug_level'])
+    continue_object.continue_parameter_sets(years=args['years'], tolerance=args['tolerance'], time_step=args['time_step'], parameter_set_numbers=parameter_set_numbers)
     
     sys.exit(0)

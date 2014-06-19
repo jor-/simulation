@@ -7,7 +7,6 @@ import numpy as np
 import logging
 logger = logging.getLogger(__name__)
 
-import util.rzcluster.interact
 from util.rzcluster.job import Job
 import util.io
 
@@ -15,8 +14,8 @@ import util.io
 
 class Metos3D_Job(Job):
     
-    def __init__(self, output_path, pause_time_seconds=30, force_load=False):
-        Job.__init__(self, output_path, pause_time_seconds, force_load)
+    def __init__(self, output_path, wait_pause_seconds=30, force_load=False):
+        Job.__init__(self, output_path, wait_pause_seconds, force_load)
     
     
     
@@ -118,15 +117,93 @@ class Metos3D_Job(Job):
     
     
     
-    def init(self, model_parameters, years, tolerance, time_step=1, write_trajectory=False, tracer_input_path=None, nodes_max=None, job_name_prefix=''):
-        from ndop.model.constants import JOB_OPTIONS_FILENAME, JOB_MEMORY_GB, JOB_MIN_CPUS, JOB_NODES_MAX, JOB_NODES_LEFT_FREE, MODEL_PARAMETERS_FORMAT_STRING, MODEL_TIME_STEP_SIZE_MAX, METOS_PATH
+#     def init(self, model_parameters, years, tolerance, time_step=1, write_trajectory=False, tracer_input_path=None, nodes_setup=None, nodes_max=None, job_name_prefix=''):
+    def init(self, model_parameters, years, tolerance, time_step=1, write_trajectory=False, tracer_input_path=None, job_setup=None):
+        from ndop.model.constants import JOB_OPTIONS_FILENAME, JOB_MEMORY_GB, JOB_MIN_CPUS, MODEL_PARAMETERS_FORMAT_STRING, MODEL_TIME_STEP_SIZE_MAX, METOS_PATH_1, METOS_PATH_2
+        from util.rzcluster.constants import NODES_MAX
 
-        logger.debug('Initialising job.')
+        logger.debug('Initialising job with job_setup {}.'.format(job_setup))
         
         
         ## check input
         if MODEL_TIME_STEP_SIZE_MAX % time_step != 0:
             raise ValueError('Wrong time_step passed. ' + str(MODEL_TIME_STEP_SIZE_MAX) + ' has to be divisible by time_step. But time_step is ' + str(time_step) + '.')
+        
+        
+        ## unpack job setup
+        if job_setup is not None:
+            try:
+                job_name = job_setup['name']
+            except KeyError:
+                job_name = ''
+            try:
+                nodes_setup = job_setup['nodes_setup']
+            except KeyError:
+                nodes_setup = None
+            try:
+                nodes_max = job_setup['nodes_max']
+            except KeyError:
+                nodes_max = None
+        else:
+            job_name = ''
+            nodes_setup = None
+            nodes_max = None
+        
+        ## prepare job name
+        if len(job_name) > 0:
+            job_name += '_'
+        job_name += '{}_{}'.format(years, time_step)
+        
+        ## chose walltime
+        max_years_express = 250
+        if years <= max_years_express:
+            walltime_hours = 3
+        else:
+            walltime_hours = 240
+        
+        
+        ## used passed nodes setup
+        if nodes_setup is not None:
+#             (cpu_kind, nodes, cpus) = nodes_setup
+            Job.init(self, job_name, JOB_MEMORY_GB, nodes_setup, walltime_hours=walltime_hours)
+        
+        ## init job with best node setup, if non passed
+        else:
+            if years == 1:
+                cpus_min = 1
+                
+                ## max one node
+                if nodes_max is not None:
+                    nodes_max = util.io.get_sequence_from_values_or_file(nodes_max)
+                    nodes_max = list(nodes_max)
+                    for i in range(len(nodes_max)):
+                        nodes_max[i] = min(nodes_max[i], 1)
+                else:
+                    nodes_max = (1,) * len(NODES_MAX)
+            elif years <= max_years_express:
+                cpus_min = 16
+            else:
+                cpus_min = JOB_MIN_CPUS
+                
+            Job.init_best(self, job_name, JOB_MEMORY_GB, cpus_min=cpus_min, nodes_max=nodes_max, walltime_hours=walltime_hours)
+            
+#             (cpu_kind, nodes, cpus) = util.rzcluster.interact.wait_for_needed_resources(JOB_MEMORY_GB, cpus_min=cpus_min, nodes_max=nodes_max, node_left_free=JOB_NODES_LEFT_FREE)
+#         
+#         
+#         ## chose queue
+#         if cpu_kind in ('f_ocean', 'f_ocean2'):
+#             queue = cpu_kind
+#         elif years <= 100:
+#             queue = 'express'
+# #             cpus = min(cpus, 8)
+# #             cpu_kind = 'all'
+#             cpu_kind = 'westmere'
+#         else:
+#             queue = 'medium'
+#         
+#         
+#         ## super init
+#         Job.init(self, job_name, JOB_MEMORY_GB, nodes, cpus, cpu_kind=cpu_kind, queue=queue)
         
         
         
@@ -151,6 +228,11 @@ class Metos3D_Job(Job):
         
         
         ## set metos3d options
+        new_environment = opt['/job/queue'] in ('f_ocean', 'f_ocean2')
+        if new_environment:
+            METOS_PATH = METOS_PATH_2
+        else:
+            METOS_PATH = METOS_PATH_1
         opt['/metos3d/path'] = METOS_PATH
         opt['/metos3d/data_path'] = os.path.join(METOS_PATH, 'data/Metos3DData')
         opt['/metos3d/sim_file'] = os.path.join(METOS_PATH, 'simpack/metos3d-simpack-MITgcm-PO4-DOP.exe')
@@ -271,39 +353,16 @@ class Metos3D_Job(Job):
         
         
         
-        ## init job with best cpu configurations
-        if years == 1:
-            cpus_total_min = 1
-            
-            if nodes_max is not None:
-                nodes_max = list(nodes_max)
-                for i in range(len(nodes_max)):
-                    nodes_max[i] = min(nodes_max[i], 1)
-            else:
-                nodes_max = (1,) * len(JOB_NODES_LEFT_FREE)
-        else:
-            cpus_total_min = JOB_MIN_CPUS
-        
-        (cpu_kind, nodes, cpus) = util.rzcluster.interact.wait_for_needed_resources(JOB_MEMORY_GB, cpus_total_min=cpus_total_min, nodes_max=nodes_max, node_left_free=JOB_NODES_LEFT_FREE)
-        
-        if cpu_kind in ('f_ocean', 'f_ocean2'):
-            queue = cpu_kind
-        elif years == 1:
-            queue = 'express'
-            cpus = min(cpus, 8)
-            cpu_kind = 'all'
-        else:
-            queue = 'medium'
-        
-        job_name = job_name_prefix + '{}_{}'
-        job_name = job_name.format(years, time_step)
-        Job.init(self, nodes, cpus, JOB_MEMORY_GB, job_name, cpu_kind=cpu_kind, queue=queue)
-        
-        
         
         ## write job file
-        run_command = 'mpirun -n %i -machinefile $PBS_NODEFILE %s %s \n\n' % (opt['/job/nodes'] * opt['/job/cpus'], opt['/metos3d/sim_file'], opt['/metos3d/option_file'])
-        #self.write_job_file(run_command, modules=('hdf5_1.8.8, python3, petsc3.3-gnu',), login_node='rzcluster')
-        self.write_job_file(run_command, modules=('hdf5_1.8.8', 'python3', 'petsc'))
+        if new_environment:
+            run_command = 'mpirun -n {} -machinefile $PBS_NODEFILE -r rsh {} {} \n\n'
+        else:
+            run_command = 'mpirun -n {} -machinefile $PBS_NODEFILE {} {} \n\n'
+        
+        run_command = run_command.format(opt['/job/nodes'] * opt['/job/cpus'], opt['/metos3d/sim_file'], opt['/metos3d/option_file'])
+#         
+#         self.write_job_file(run_command, modules=('hdf5_1.8.8', 'petsc', 'python3'))
+        self.write_job_file(run_command, modules=['petsc'])
         
         logger.debug('Job initialised.')

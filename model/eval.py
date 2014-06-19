@@ -2,6 +2,7 @@ import os
 import warnings
 import tempfile
 import stat
+import time
 import numpy as np
 import multiprocessing
 import multiprocessing.pool
@@ -11,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 import util.io
 import util.pattern
-import util.interpolate
+import util.math.interpolate
 import measurements.util.interpolate
 
 import ndop.model.data
@@ -20,19 +21,23 @@ from ndop.model.job import Metos3D_Job
 
 class Model():
     
-    def __init__(self, max_nodes_file=None, job_name_prefix=''):
+    # TODO run setup (years, tolerance=0, combination='or', time_step=1, df_accuracy_order=2) zusammenfassen
+#     def __init__(self, job_name_prefix='', job_nodes_setup=None, job_nodes_max_file=None):
+    def __init__(self, job_setup=None):
         from .constants import MODEL_PARAMETER_LOWER_BOUND, MODEL_PARAMETER_UPPER_BOUND, MODEL_OUTPUT_DIR, METOS_TRACER_DIM
         
-        self.max_nodes_file = max_nodes_file
-        logger.debug('Model initiated with max_nodes_file {}.'.format(max_nodes_file))
+        logger.debug('Model initiated with job_setup {}.'.format(job_setup))
+        
+#         self.job_name_prefix = job_name_prefix
+#         self.job_nodes_setup = job_nodes_setup
+#         self.job_nodes_max_file = job_nodes_max_file
+        self.job_setup = job_setup
         
         self.parameters_lower_bound = MODEL_PARAMETER_LOWER_BOUND
         self.parameters_upper_bound = MODEL_PARAMETER_UPPER_BOUND
         self.model_output_dir = MODEL_OUTPUT_DIR
         
-        self._interpolator_cached = [None] * METOS_TRACER_DIM
-        
-        self.job_name_prefix = job_name_prefix
+        self._interpolator_cached = None
     
     
     @property
@@ -61,8 +66,8 @@ class Model():
             indices = np.where(parameters < self.parameters_lower_bound)
             string = ''
             for i in indices:
-                string += str(parameters[i]) + '<' + str(parameters_lower_bound[i])
-                if i < len(indices - 1):
+                string += str(parameters[i]) + '<' + str(self.parameters_lower_bound[i])
+                if i < len(indices) - 1:
                     string += ', '
             raise ValueError('Some parameters are lower than the lower bound: ' + string)
         
@@ -70,8 +75,8 @@ class Model():
             indices = np.where(parameters > self.parameters_upper_bound)
             string = ''
             for i in indices:
-                string += str(parameters[i]) + '>' + str(parameters_upper_bound[i])
-                if i < len(indices - 1):
+                string += str(parameters[i]) + '>' + str(self.parameters_upper_bound[i])
+                if i < len(indices) - 1:
                     string += ', '
             raise ValueError('Some parameters are upper than the upper bound: ' + string)
     
@@ -278,17 +283,19 @@ class Model():
         
         data_points = data[:,:-1]
         data_values = data[:,-1]
-        interpolator_file = MODEL_INTERPOLATOR_FILE.format(tracer_index)
+#         interpolator_file = MODEL_INTERPOLATOR_FILE.format(tracer_index)
+        interpolator_file = MODEL_INTERPOLATOR_FILE
         
         ## try to get cached interpolator
-        interpolator = self._interpolator_cached[tracer_index]
+#         interpolator = self._interpolators_cached[tracer_index]
+        interpolator = self._interpolator_cached
         if interpolator is not None:
             interpolator.data_values = data_values
             logger.debug('Returning cached interpolator.')
         else:
             ## otherwise try to get saved interpolator
             if use_cache and os.path.exists(interpolator_file):
-                interpolator = util.interpolate.Interpolator_Base.load(interpolator_file)
+                interpolator = util.math.interpolate.Interpolator_Base.load(interpolator_file)
                 interpolator.data_values = data_values
                 logger.debug('Returning interpolator loaded from {}.'.format(interpolator_file))
             ## if no interpolator exists, create new interpolator
@@ -296,7 +303,8 @@ class Model():
                 interpolator = measurements.util.interpolate.Time_Periodic_Earth_Interpolater(data_points=data_points, data_values=data_values, t_len=1, wrap_around_amount=MODEL_INTERPOLATOR_AMOUNT_OF_WRAP_AROUND, number_of_linear_interpolators=MODEL_INTERPOLATOR_NUMBER_OF_LINEAR_INTERPOLATOR, total_overlapping_linear_interpolators=MODEL_INTERPOLATOR_TOTAL_OVERLAPPING_OF_LINEAR_INTERPOLATOR)
                 logger.debug('Returning new created interpolator.')
             
-            self._interpolator_cached[tracer_index] = interpolator
+#             self._interpolators_cached[tracer_index] = interpolator
+            self._interpolator_cached = interpolator
         
         ## interpolate
         interpolated_values = interpolator.interpolate(interpolation_points)
@@ -306,7 +314,7 @@ class Model():
             interpolator.save(interpolator_file)
         
         ## return interpolated values
-        assert self._interpolator_cached[tracer_index] is interpolator
+#         assert self._interpolators_cached[tracer_index] is interpolator
         assert not np.any(np.isnan(interpolated_values))
 #         assert np.all(interpolator.data_points == data_points)
 #         assert np.all(interpolator.data_values == data_values)
@@ -314,18 +322,6 @@ class Model():
         return interpolated_values
     
     
-#     def _create_interpolator(self, data):
-#         from .constants import MODEL_INTERPOLATOR_FILE, MODEL_INTERPOLATOR_AMOUNT_OF_WRAP_AROUND, MODEL_INTERPOLATOR_NUMBER_OF_LINEAR_INTERPOLATOR, MODEL_INTERPOLATOR_TOTAL_OVERLAPPING_OF_LINEAR_INTERPOLATOR
-#         
-#         logger.debug('Creating interpolator.')
-#         
-#         interpolator = util.interpolate.Time_Periodic_Earth_Interpolater(data_points=data[:,:-1], data_values=data[:,-1], t_len=1, wrap_around_amount=MODEL_INTERPOLATOR_AMOUNT_OF_WRAP_AROUND, number_of_linear_interpolators=MODEL_INTERPOLATOR_NUMBER_OF_LINEAR_INTERPOLATOR, total_overlapping_linear_interpolatorsMODEL_INTERPOLATOR_TOTAL_OVERLAPPING_OF_LINEAR_INTERPOLATOR)
-#         interpolator.interpolate(data[0,:-1])
-#         interpolator.save(MODEL_INTERPOLATOR_FILE)
-#         
-#         self._interpolator_cached = interpolator
-#         
-#         return interpolator
     
     
     ## access to dirs
@@ -492,15 +488,6 @@ class Model():
                 closest_spinup_dir = os.path.join(closest_parameter_set_dir, MODEL_SPINUP_DIRNAME)
                 last_run_dir = self.get_last_run_dir(closest_spinup_dir)
             
-#             ## if last run continue from this run
-#             if last_run_dir is not None:
-#                 with Metos3D_Job(last_run_dir, force_load=True) as job:
-#                     job.wait_until_finished()
-#                 run_dir = self.make_run(spinup_dir, parameters, years, tolerance, combination, time_step, tracer_input_path=last_run_dir)
-#             ## if no last run start new run
-#             else:
-#                 run_dir = self.make_run(spinup_dir, parameters, years, tolerance, combination, time_step)
-            
             ## finish last run
             if last_run_dir is not None:
                 with Metos3D_Job(last_run_dir, force_load=True) as job:
@@ -553,14 +540,13 @@ class Model():
         else:
             last_years = 0
             
-        self.run_job(parameters, output_path=run_dir, tracer_input_path=tracer_input_path, years=years-last_years, tolerance=tolerance, time_step=time_step, pause_time_seconds=150)
+        self.run_job(parameters, output_path=run_dir, tracer_input_path=tracer_input_path, years=years-last_years, tolerance=tolerance, time_step=time_step, wait_pause_seconds=150)
         
         return run_dir
     
     
     
-    def run_job(self, model_parameters, output_path, years, tolerance, time_step, write_trajectory=False, tracer_input_path=None, pause_time_seconds=10, make_read_only=True):
-        
+    def run_job(self, model_parameters, output_path, years, tolerance, time_step, write_trajectory=False, tracer_input_path=None, wait_pause_seconds=10, make_read_only=True):
         logger.debug('Running job with years {} tolerance {} time_step {} tracer_input_path {}'.format(years, tolerance, time_step, tracer_input_path))
         assert years >= 0
         assert tolerance >= 0
@@ -570,19 +556,29 @@ class Model():
         self.check_if_parameters_in_bounds(model_parameters)
         
         ## load max nodes
-        max_nodes_file = self.max_nodes_file
-        if max_nodes_file is not None:
-            try:
-                max_nodes = np.loadtxt(max_nodes_file)
-            except (OSError, IOError):
-                warnings.warn('The max_nodes_file {} could not been read.'.format(max_nodes_file))
-                max_nodes = None
-        else:
-            max_nodes = None
+#         nodes_max_file = self.job_nodes_max_file
+#         if nodes_max_file is not None:
+#             try:
+#                 nodes_max = np.loadtxt(nodes_max_file)
+#             except (OSError, IOError):
+#                 warnings.warn('The nodes_max_file {} could not been read.'.format(nodes_max_file))
+#                 nodes_max = None
+#         else:
+#             nodes_max = None
+#         nodes_max = self.job_nodes_max_file
+#         
+#         nodes_setup = self.job_nodes_setup
         
         ## execute job
-        with Metos3D_Job(output_path, pause_time_seconds) as job:
-            job.init(model_parameters, years=years, tolerance=tolerance, time_step=time_step, write_trajectory=write_trajectory, tracer_input_path=tracer_input_path, nodes_max=max_nodes, job_name_prefix=self.job_name_prefix)
+        job_setup = self.job_setup
+        if job_setup is not None:
+            job_setup = job_setup.copy()
+            if years <= 250:
+                job_setup['nodes_setup'] = None
+#             nodes_setup = None
+        with Metos3D_Job(output_path, wait_pause_seconds) as job:
+#             job.init(model_parameters, years=years, tolerance=tolerance, time_step=time_step, write_trajectory=write_trajectory, tracer_input_path=tracer_input_path, nodes_setup=nodes_setup, nodes_max=nodes_max, job_name_prefix=self.job_name_prefix)
+            job.init(model_parameters, years=years, tolerance=tolerance, time_step=time_step, write_trajectory=write_trajectory, tracer_input_path=tracer_input_path, job_setup=job_setup)
             job.start()
             if make_read_only:
                 job.make_read_only()
@@ -591,8 +587,6 @@ class Model():
         ## change access mode of files
         if make_read_only:
             util.io.make_read_only_recursively(output_path, exclude_dir=True)
-        
-        logger.debug('Job finished.')
     
     
     
@@ -625,6 +619,8 @@ class Model():
                     warnings.warn('The run {} does not match the desired tolerance {}, but the max spinup years {} are reached.'.format(run_dir, tolerance, MODEL_SPINUP_MAX_YEARS))
             elif combination == 'or':
                 is_matching = (run_years >= years or run_tolerance <= tolerance)
+            else:
+                raise ValueError('Combination "{}" unknown.'.format(combination))
                 
         else:
             is_matching = False
@@ -648,7 +644,7 @@ class Model():
     
     
     def get_last_run_dir(self, search_path, wait_until_finished=True):
-        logger.debug('Searching for last run in {}.'.format(search_path))
+        logger.debug('Searching for last run in {} with wait_until_finished {}.'.format(search_path, wait_until_finished))
         
         run_dirs = self.get_run_dirs(search_path)
         
@@ -681,7 +677,7 @@ class Model():
             
             last_run_index -= 1
         
-        logger.debug('Run found.')
+        logger.debug('Run {} found.'.format(last_run_dir))
         
         return last_run_dir
     
@@ -746,97 +742,10 @@ class Model():
     
     
     
-    
-#     def search_closest_spinup_run(self, path, parameters):
-#         from .constants import MODEL_SPINUP_DIRNAME
-#         self.print_debug_inc(('Searching for spinup run as close as possible to parameters "', parameters, '" in "', path, '".'))
-#         
-#         ## search for parameter set directories with matching parameters
-#         closest_run_dir = None
-#         parameter_set_number = 0
-#         parameters_diff = float('inf')
-#         
-#         parameter_set_dirs = util.io.get_dirs(path)
-#         while parameters_diff > 0 and parameter_set_number < len(parameter_set_dirs):
-#             current_parameter_set_dir = parameter_set_dirs[parameter_set_number]
-#             try:
-#                 current_parameters_diff = self.get_parameters_diff(parameters, current_parameter_set_dir)
-#             except (OSError, IOError):
-#                 warnings.warn('Could not read the parameters file "' + current_parameters_file + '"!')
-#                 current_parameters_diff = float('inf')
-#             
-#             current_spinup_dir = os.path.join(current_parameter_set_dir, MODEL_SPINUP_DIRNAME)
-#             last_run_dir = self.get_last_run_dir(current_spinup_dir, wait_until_finished=False)
-#             if last_run_dir is not None and current_parameters_diff < parameters_diff:
-#                 closest_run_dir = last_run_dir
-#                 parameters_diff = current_parameters_diff
-#             
-#             parameter_set_number += 1
-#         
-#         if closest_run_dir is not None:
-#             self.print_debug_dec(('Spinup run as close as possible found at "', closest_run_dir, '".'))
-#         else:
-#             self.print_debug_dec('No spinup run found.')
-#         
-#         return closest_run_dir
-#     
-#     
-#     
-#     def search_or_make_spinup(self, parameter_set_dir, parameters, years, tolerance, time_step, start_from_closest_parameters=False):
-#         from .constants import MODEL_SPINUP_DIRNAME, MODEL_PARAMETERS_FILENAME
-#         
-#         spinup_dir = os.path.join(parameter_set_dir, MODEL_SPINUP_DIRNAME)
-#         
-#         self.print_debug_inc(('Searching for spinup with "', years, '" years, "', tolerance, '" tolerance and "', time_step, '" time step size in "', spinup_dir, '".'))
-#         
-#         last_run_dir = self.get_last_run_dir(spinup_dir)
-#         
-#         ## matching spinup found
-#         if self.is_run_matching_options(last_run_dir, years, tolerance, time_step):
-#             run_dir = last_run_dir
-#             self.print_debug(('Matching spinup at ', last_run_dir, ' found.'))
-#             
-#         ## create new spinup
-#         else:
-#             self.print_debug(('No matching spinup found.'))
-#             
-#             ## get spinup run for closest parameters
-#             time_step_dir = os.path.dirname(parameter_set_dir)
-#             last_run_dir = self.search_closest_spinup_run(time_step_dir, parameters)
-#             last_spinup_dir = os.path.dirname(last_run_dir)
-#             
-#             ## wait for last run to finish if necessary
-#             if spinup_dir == last_spinup_dir or start_from_closest_parameters:
-#                 with Metos3D_Job(last_run_dir, force_load=True) as job:
-#                     job.wait_until_finished()
-#             
-#             ## complete last run with new configs if necessary
-#             if spinup_dir != last_spinup_dir and start_from_closest_parameters:
-#                 last_parameter_set_dir = os.path.dirname(last_spinup_dir)
-#                 last_parameter_file = os.path.join(last_parameter_set_dir, MODEL_PARAMETERS_FILENAME)
-#                 last_parameters = np.loadtxt(last_parameter_file)
-#                 
-#                 self.f(last_parameters, t_dim=12, years=years, tolerance=tolerance, time_step=time_step)
-#             
-#             ## make new run
-#             if spinup_dir == last_spinup_dir or start_from_closest_parameters:
-#                 run_dir = self.make_run(spinup_dir, parameters, years, tolerance, time_step, tracer_input_path=last_run_dir)
-#             else:
-#                 run_dir = self.make_run(spinup_dir, parameters, years, tolerance, time_step)
-#             
-#             self.print_debug(('Spinup directory ', run_dir, ' created.'))
-#             
-#             self.remove_f(parameter_set_dir)
-#         
-#         self.print_debug_dec('Spinup found.')
-#         
-#         return run_dir
-    
-    
     ## access to model values
     
     def _get_trajectory(self, load_trajectory_function, run_dir, parameters):
-        from .constants import METOS_TRACER_DIM
+        from .constants import MODEL_TMP_DIR, METOS_TRACER_DIM
         
         assert callable(load_trajectory_function)
         
@@ -844,14 +753,18 @@ class Model():
         trajectory_values = ()
         
         ## create trajectory
-        with tempfile.TemporaryDirectory(dir=run_dir, prefix='trajectory_tmp_') as tmp_path:
-            self.run_job(parameters, output_path=tmp_path, tracer_input_path=run_dir, write_trajectory=True, years=1, tolerance=0, time_step=run_time_step, pause_time_seconds=10, make_read_only=False)
+        if MODEL_TMP_DIR is not None:
+            tmp_dir = MODEL_TMP_DIR
+        else:
+            tmp_dir = run_dir
+        with tempfile.TemporaryDirectory(dir=tmp_dir, prefix='trajectory_tmp_') as trajectory_dir:
+            self.run_job(parameters, output_path=trajectory_dir, tracer_input_path=run_dir, write_trajectory=True, years=1, tolerance=0, time_step=run_time_step, wait_pause_seconds=10, make_read_only=False)
             
-            trajectory_path = os.path.join(tmp_path, 'trajectory')
+            trajectory_output_dir = os.path.join(trajectory_dir, 'trajectory')
             
             ## for each tracer read trajectory
             for tracer_index in range(METOS_TRACER_DIM):
-                tracer_trajectory_values = load_trajectory_function(trajectory_path, tracer_index)
+                tracer_trajectory_values = load_trajectory_function(trajectory_output_dir, tracer_index)
                 trajectory_values += (tracer_trajectory_values,)
         
         assert len(trajectory_values) == METOS_TRACER_DIM
@@ -860,27 +773,26 @@ class Model():
     
     
     def _get_load_trajectory_function_for_all(self, time_dim_desired):
+        
+#         def load_trajectory_function(trajectory_path, tracer_index):
+#             retry_count = 5
+#             tracer_trajectory = None
+#             while retry_count >= 1 and tracer_trajectory is None:
+#                 try:
+#                     trajectory = ndop.model.data.load_trajectories_to_index_array(trajectory_path, tracer_index=tracer_index, land_sea_mask=self.land_sea_mask, time_dim_desired=time_dim_desired)
+#                 except FileNotFoundError as e:
+#                     if retry_count > 0:
+#                         warnings.warn('PETSc vectors in {} not found. Waiting.'.format(trajectory_path))
+#                         retry_count -= 1
+#                         time.sleep(30)
+#                     else:
+#                         raise e
+#             return trajectory
+        
+        
         load_trajectory_function = lambda trajectory_path, tracer_index : ndop.model.data.load_trajectories_to_index_array(trajectory_path, tracer_index, land_sea_mask=self.land_sea_mask, time_dim_desired=time_dim_desired)
         return load_trajectory_function
     
-    
-#     def get_trajectory_for_all(self, run_dir, parameters, time_dim_desired):
-# #         load_trajectory_function = lambda trajectory_path, tracer_index : ndop.model.data.load_trajectories_to_index_array(trajectory_path, tracer_index, land_sea_mask=self.land_sea_mask, time_dim_desired=t_dim)
-#         
-#         trajectory_values = self._get_trajectory(self._get_load_trajectory_function_for_all(time_dim_desired), run_dir, parameters)
-#         
-#         return trajectory_values
-        
-        
-        
-#         with tempfile.TemporaryDirectory(dir=run_dir, prefix='trajectory_tmp_') as tmp_path:
-#             self.run_job(parameters, output_path=tmp_path, tracer_input_path=run_dir, write_trajectory=True, years=1, tolerance=0, time_step=run_time_step, pause_time_seconds=10, make_read_only=False)
-#             
-#             trajectory_path = os.path.join(tmp_path, 'trajectory')
-#             
-#             trajectory = ndop.model.data.load_trajectories_to_index_array(trajectory_path, land_sea_mask=self.land_sea_mask, time_dim_desired=t_dim, time_step_size=run_time_step)
-#         
-#         return trajectory
     
     
     def _get_load_trajectory_function_for_points(self, points):
@@ -891,120 +803,58 @@ class Model():
             tracer_interpolation_points[:, 0] = tracer_interpolation_points[:, 0] % 1
             interpolation_points.append(tracer_interpolation_points)
         
-        ## load fucntion
+        ## load function
         def load_trajectory_function(trajectory_path, tracer_index):
             tracer_trajectory = ndop.model.data.load_trajectories_to_point_array(trajectory_path, tracer_index=tracer_index, land_sea_mask=self.land_sea_mask)
-#             interpolator = self._get_interpolator(tracer_index, tracer_trajectory) #TODO use_cache pickle problem
-#             interpolated_values_for_tracer = interpolator.interpolate(interpolation_points[tracer_index])
             interpolated_values_for_tracer = self._interpolate(tracer_index, tracer_trajectory, interpolation_points[tracer_index])
             return interpolated_values_for_tracer
+#         def load_trajectory_function(trajectory_path, tracer_index):
+#             retry_count = 5
+#             tracer_trajectory = None
+#             logger.info('Okay?={}'.format(retry_count >= 1 and tracer_trajectory is None))
+#             while retry_count >= 1 and tracer_trajectory is None:
+#                 try:
+#                     tracer_trajectory = ndop.model.data.load_trajectories_to_point_array(trajectory_path, tracer_index=tracer_index, land_sea_mask=self.land_sea_mask)
+#                     logger.info('tracer_trajectory={}'.format(tracer_trajectory))
+#                 except FileNotFoundError as e:
+#                     logger.info('error retry_count={}'.format(retry_count))
+#                     if retry_count > 0:
+#                         warnings.warn('PETSc vectors in {} not found. Waiting.'.format(trajectory_path))
+#                         retry_count -= 1
+#                         time.sleep(30)
+#                     else:
+#                         raise e
+#             interpolated_values_for_tracer = self._interpolate(tracer_index, tracer_trajectory, interpolation_points[tracer_index])
+#             return interpolated_values_for_tracer
         return load_trajectory_function
     
     
-#     def get_trajectory_for_points(self, run_dir, parameters, points):
-# #         def load_trajectory_function(trajectory_path, tracer_index):
-# #             tracer_trajectory = ndop.model.data.load_trajectories_to_point_array(trajectory_path, tracer_index=tracer_index, land_sea_mask=self.land_sea_mask)
-# #             interpolator = self._get_interpolator(tracer_index, tracer_trajectory)
-# #             interpolated_values_for_tracer = interpolator.interpolate(points[tracer_index])
-# #             return interpolated_values_for_tracer
-# #         
-# #         trajectory_values = self._get_trajectory(run_dir, parameters, load_trajectory_function)
-#         
-#         trajectory_values = self._get_trajectory(self._get_load_trajectory_function_for_points(points), run_dir, parameters)
-#         
-#         return trajectory_values
+    
+    def _f(self, load_trajectory_function, parameters, years, tolerance=0, combination='or', time_step=1):
+        from .constants import MODEL_START_FROM_CLOSEST_PARAMETER_SET
         
+        logger.debug('Calculating f values with {} time_step, {} years, {} tolerance and combination "{}" as spinup  options.'.format(time_step, years, tolerance, combination))
         
-        
-        
-#         run_time_step = self.get_time_step(run_dir)
-#         tracer_count = len(points)
-#         interpolated_values = ()
-#         
-#         ## create trajectory
-#         with tempfile.TemporaryDirectory(dir=run_dir, prefix='trajectory_tmp_') as tmp_path:
-#             self.run_job(parameters, output_path=tmp_path, tracer_input_path=run_dir, write_trajectory=True, years=1, tolerance=0, time_step=run_time_step, pause_time_seconds=10, make_read_only=False)
-#             
-#             trajectory_path = os.path.join(tmp_path, 'trajectory')
-#             
-#             ## for each tracer read trajectory and interpolate values
-#             for tracer_index in range(tracer_count):
-#                 tracer_trajectory = ndop.model.data.load_trajectories_to_point_array(trajectory_path, land_sea_mask=self.land_sea_mask, tracer_index=tracer_index, time_step_size=run_time_step)
-#                 
-#                 interpolator = self._get_interpolator(tracer_index, tracer_trajectory)
-#                 interpolated_values_for_tracer = interpolator.interpolate(points[tracer_index])
-#                 interpolated_values += (interpolated_values_for_tracer,)
-#         
-#         assert tuple(map(len, points)) == tuple(map(len, interpolated_values))
-#         
-#         return interpolated_values
-    
-    
-#     
-#     def get_trajectory_for_points(self, run_dir, parameters, points):
-#         run_time_step = self.get_time_step(run_dir)
-#         tracer_count = len(points)
-#         interpolated_values = ()
-#         
-#         ## create trajectory
-#         with tempfile.TemporaryDirectory(dir=run_dir, prefix='trajectory_tmp_') as tmp_path:
-#             self.run_job(parameters, output_path=tmp_path, tracer_input_path=run_dir, write_trajectory=True, years=1, tolerance=0, time_step=run_time_step, pause_time_seconds=10, make_read_only=False)
-#             
-#             trajectory_path = os.path.join(tmp_path, 'trajectory')
-#             
-#             ## for each tracer read trajectory and interpolate values
-#             for tracer_index in range(tracer_count):
-#                 tracer_trajectory = ndop.model.data.load_trajectories_to_point_array(trajectory_path, land_sea_mask=self.land_sea_mask, tracer_index=tracer_index, time_step_size=run_time_step)
-#                 
-#                 interpolator = self._get_interpolator(tracer_index, tracer_trajectory)
-#                 interpolated_values_for_tracer = interpolator.interpolate(points[tracer_index])
-#                 interpolated_values += (interpolated_values_for_tracer,)
-#         
-#         assert tuple(map(len, points)) == tuple(map(len, interpolated_values))
-#         
-#         return interpolated_values
-    
-    
-    
-    
-    
-#     def _get_f(self, parameters, get_trajectory_function, years, tolerance=0, time_step=1, t_dim=12):
-#         logger.debug('Calculating all f values for parameters {} with time dimension {}.'.format(parameters, t_dim))
-#         
-#         parameter_set_dir = self.get_parameter_set_dir(time_step, parameters, create=True)
-#         spinup_run_dir = self.get_spinup_run_dir(parameter_set_dir, years, tolerance, start_from_closest_parameters=True)
-#         f = self.get_trajectory_for_t_dim(spinup_run_dir, parameters, t_dim)
-#         
-#         return f
-    
-    def _get_f(self, load_trajectory_function, parameters, years, tolerance=0, combination='or', time_step=1):
-        logger.debug('Calculating f values with {} years, {} tolerance and combination "{}" as spinup  options.'.format(years, tolerance, combination))
         parameter_set_dir = self.get_parameter_set_dir(time_step, parameters, create=True)
-        spinup_run_dir = self.get_spinup_run_dir(parameter_set_dir, years, tolerance, combination=combination, start_from_closest_parameters=True)
+        spinup_run_dir = self.get_spinup_run_dir(parameter_set_dir, years, tolerance, combination=combination, start_from_closest_parameters=MODEL_START_FROM_CLOSEST_PARAMETER_SET)
         f = self._get_trajectory(load_trajectory_function, spinup_run_dir, parameters)
+        
         return f
     
     
-    def get_f_for_all(self, parameters, time_dim_desired, years, tolerance=0, combination='or', time_step=1):
+    def f_all(self, parameters, time_dim_desired, years, tolerance=0, combination='or', time_step=1):
         logger.debug('Calculating all f values for parameters {} with time dimension {}.'.format(parameters, time_dim_desired))
         
-#         parameter_set_dir = self.get_parameter_set_dir(time_step, parameters, create=True)
-#         spinup_run_dir = self.get_spinup_run_dir(parameter_set_dir, years, tolerance, start_from_closest_parameters=True)
-#         f = self.get_trajectory_for_all(spinup_run_dir, parameters, t_dim)
-        f = self._get_f(self._get_load_trajectory_function_for_all(time_dim_desired), parameters, years, tolerance=tolerance, combination=combination, time_step=time_step)
+        f = self._f(self._get_load_trajectory_function_for_all(time_dim_desired), parameters, years, tolerance=tolerance, combination=combination, time_step=time_step)
         
         assert len(f) == 2
         return f
     
     
-    def get_f_for_points(self, parameters, points, years, tolerance=0, combination='or', time_step=1):
+    def f_points(self, parameters, points, years, tolerance=0, combination='or', time_step=1):
         logger.debug('Calculating f values for parameters {} at {} points.'.format(parameters, tuple(map(len, points))))
         
-#         parameter_set_dir = self.get_parameter_set_dir(time_step, parameters, create=True)
-#         spinup_run_dir = self.get_spinup_run_dir(parameter_set_dir, years, tolerance, start_from_closest_parameters=True)
-#         f = self.get_trajectory_for_points(spinup_run_dir, parameters, points)
-        
-        f = self._get_f(self._get_load_trajectory_function_for_points(points), parameters, years, tolerance=tolerance, combination=combination, time_step=time_step)
+        f = self._f(self._get_load_trajectory_function_for_points(points), parameters, years, tolerance=tolerance, combination=combination, time_step=time_step)
         
         assert len(f) == 2
         assert (not np.any(np.isnan(f[0]))) and (not np.any(np.isnan(f[1])))
@@ -1013,8 +863,10 @@ class Model():
     
     
     
-    def _get_df(self, load_trajectory_function, parameters, years, tolerance=0, combination='or', time_step=1, accuracy_order=1):
-        from .constants import MODEL_OUTPUT_DIR, MODEL_DERIVATIVE_DIRNAME, MODEL_SPINUP_DIRNAME, MODEL_PARTIAL_DERIVATIVE_DIRNAME, MODEL_DERIVATIVE_SPINUP_YEARS, METOS_TRACER_DIM
+    def _df(self, load_trajectory_function, parameters, years, tolerance=0, combination='or', time_step=1, accuracy_order=2):
+        from .constants import MODEL_OUTPUT_DIR, MODEL_DERIVATIVE_DIRNAME, MODEL_SPINUP_DIRNAME, MODEL_PARTIAL_DERIVATIVE_DIRNAME, MODEL_DERIVATIVE_SPINUP_YEARS, METOS_TRACER_DIM, MODEL_START_FROM_CLOSEST_PARAMETER_SET
+        
+        logger.debug('Calculating df values with {} time_step, {} years, {} tolerance and combination "{}" as spinup  options.'.format(time_step, years, tolerance, combination))
         
         ## chose h factors
         if accuracy_order == 1:
@@ -1029,7 +881,7 @@ class Model():
         derivative_dir = os.path.join(parameter_set_dir, MODEL_DERIVATIVE_DIRNAME)
         
         ## get spinup run
-        spinup_run_dir = self.get_spinup_run_dir(parameter_set_dir, years - MODEL_DERIVATIVE_SPINUP_YEARS, tolerance, combination, start_from_closest_parameters=True)
+        spinup_run_dir = self.get_spinup_run_dir(parameter_set_dir, years - MODEL_DERIVATIVE_SPINUP_YEARS, tolerance, combination, start_from_closest_parameters=MODEL_START_FROM_CLOSEST_PARAMETER_SET)
         spinup_run_years = self.get_total_years(spinup_run_dir)
         
         ## get f if accuracy_order is 1
@@ -1040,7 +892,7 @@ class Model():
                 spinup_run_dir = previous_spinup_run_dir
                 spinup_run_years = previous_spinup_run_years
             
-            f = self._get_f(load_trajectory_function, parameters, spinup_run_years + MODEL_DERIVATIVE_SPINUP_YEARS, 0, time_step)
+            f = self._f(load_trajectory_function, parameters, spinup_run_years + MODEL_DERIVATIVE_SPINUP_YEARS, tolerance=0, time_step=time_step)
         
         ## init df
         df = [None] * METOS_TRACER_DIM
@@ -1122,307 +974,19 @@ class Model():
         return df
     
     
-    def get_df_for_all(self, parameters, time_dim_desired, years, tolerance=0, time_step=1, combination='or', accuracy_order=1):
+    def df_all(self, parameters, time_dim_desired, years, tolerance=0, time_step=1, combination='or', accuracy_order=2):
         logger.debug('Calculating all df values for parameters {} and accuracy order {} with time dimension {}.'.format(parameters, accuracy_order, time_dim_desired))
-        df = self._get_df(self._get_load_trajectory_function_for_all(time_dim_desired=time_dim_desired), parameters, years, tolerance=tolerance, combination=combination, time_step=time_step, accuracy_order=accuracy_order)
+        df = self._df(self._get_load_trajectory_function_for_all(time_dim_desired=time_dim_desired), parameters, years, tolerance=tolerance, combination=combination, time_step=time_step, accuracy_order=accuracy_order)
         
         assert len(df) == 2
         return df
     
     
-    def get_df_for_points(self, parameters, points, years, tolerance=0, time_step=1, combination='or', accuracy_order=1):
+    def df_points(self, parameters, points, years, tolerance=0, time_step=1, combination='or', accuracy_order=2):
         logger.debug('Calculating all df values for parameters {} and accuracy order {} at {} points.'.format(parameters, accuracy_order, tuple(map(len, points))))
-        df = self._get_df(self._get_load_trajectory_function_for_points(points), parameters, years, tolerance=tolerance, combination=combination, time_step=time_step, accuracy_order=accuracy_order)
+        df = self._df(self._get_load_trajectory_function_for_points(points), parameters, years, tolerance=tolerance, combination=combination, time_step=time_step, accuracy_order=accuracy_order)
         
         assert len(df) == 2
         assert (not np.any(np.isnan(df[0]))) and (not np.any(np.isnan(df[1])))
         return df
     
-    
-    
-#     def get_df_all(self, parameters, years, tolerance=0, time_step=1, t_dim=12, accuracy_order=1):
-#         from .constants import MODEL_OUTPUT_DIR, MODEL_DERIVATIVE_DIRNAME, MODEL_SPINUP_DIRNAME, MODEL_PARTIAL_DERIVATIVE_DIRNAME, MODEL_DERIVATIVE_SPINUP_YEARS, MODEL_DF_FILENAME
-#         
-#         logger.debug('Calculating all df values for parameters {} with time dimension {} and accuracy order {}.'.format(parameters, t_dim, accuracy_order))
-#         
-#         ## chose h factors
-#         if accuracy_order == 1:
-#             h_factors =(1,)
-#         elif accuracy_order == 2:
-#             h_factors =(1, -1)
-#         else:
-#             raise ValueError('Accuracy order ' + str(accuracy_order) + ' not supported.')
-#         
-#         ## search directories
-#         parameter_set_dir = self.get_parameter_set_dir(time_step, parameters, create=True)
-#         derivative_dir = os.path.join(parameter_set_dir, MODEL_DERIVATIVE_DIRNAME)
-#         
-#         ## get spinup run
-#         spinup_run_dir = self.get_spinup_run_dir(parameter_set_dir, years - MODEL_DERIVATIVE_SPINUP_YEARS, tolerance, start_from_closest_parameters=True)
-#         spinup_run_years = self.get_total_years(spinup_run_dir)
-#         
-#         ## get f if accuracy_order is 1
-#         if accuracy_order == 1:
-#             previous_spinup_run_dir = self.get_previous_run_dir(spinup_run_dir)
-#             previous_spinup_run_years = self.get_total_years(previous_spinup_run_dir)
-#             if previous_spinup_run_years == spinup_run_years - MODEL_DERIVATIVE_SPINUP_YEARS:
-#                 spinup_run_dir = previous_spinup_run_dir
-#                 spinup_run_years = previous_spinup_run_years
-#             
-#             f = self.get_f_all(parameters, spinup_run_years + MODEL_DERIVATIVE_SPINUP_YEARS, 0, time_step, t_dim)
-#         
-#         ## init df
-#         df = np.zeros(f.shape + (parameters_len,))
-#         
-#         eps = np.spacing(1)
-#         eps_sqrt = np.sqrt(eps)
-#         h = np.empty(parameters_len)
-#         
-#         ## calculate df for each parameter
-#         for i in range(parameters_len):
-#             h[i] = max(abs(parameters[i]), eps_sqrt * 2**8) * eps_sqrt
-#             
-#             for j in range(h_factors_len):
-#                 h_factor = h_factors[j]
-#                 partial_derivative_dirname = util.pattern.replace_int_pattern(MODEL_PARTIAL_DERIVATIVE_DIRNAME, (i, j))
-#                 partial_derivative_dir = os.path.join(derivative_dir, partial_derivative_dirname)
-#                 last_der_run_dir = self.get_last_run_dir(partial_derivative_dir)
-#                 
-#                 ## make new run if run not matching
-#                 if not self.is_run_matching_options(last_der_run_dir, MODEL_DERIVATIVE_SPINUP_YEARS, 0):
-#                     ## remove old runs
-#                     util.io.remove_dirs_in(partial_derivative_dir)
-#                     
-#                     ## prepare parameters
-#                     delta_p_i = h_factor * h[i]
-#                     
-#                     parameters_der = np.copy(parameters)
-#                     parameters_der[i] += delta_p_i
-#                     parameters_der[i] = min(parameters_der[i], self.parameters_upper_bound[i])
-#                     parameters_der[i] = max(parameters_der[i], self.parameters_lower_bound[i])
-#                     
-#                     ## make new run
-#                     last_der_run_dir = self.make_run(partial_derivative_dir, parameters_der, MODEL_DERIVATIVE_SPINUP_YEARS, 0, time_step, tracer_input_path=spinup_run_dir)
-#                     
-#                 df[..., i] += h_factor * self.get_trajectory_for_t_dim(last_der_run_dir, parameters, t_dim)
-#             
-#             if accuracy_order == 1:
-#                 df[..., i] -= f
-#                 df[..., i] /= h[i]
-#             else:
-#                 df[..., i] /= 2 * h[i]
-#         
-#         return df
-
-    
-    
-#     ## TRASH !!!!
-#     
-#     
-#     
-#     
-#     def search_or_make_f(self, search_path, spinup_dir, parameters, t_dim, time_step):
-#         from .constants import MODEL_F_FILENAME, MODEL_TIME_STEP_SIZE_MAX
-#         
-#         self.print_debug_inc(('Searching for F file with time dimension "', t_dim, '" in "', search_path, '".'))
-#         
-#         f = None
-#         
-#         ## searching for appropriate F file
-#         if os.path.exists(search_path):
-#             f_filename = util.pattern.replace_int_pattern(MODEL_F_FILENAME, t_dim)
-#             f_file = os.path.join(search_path, f_filename)
-#             try:
-#                 f = np.load(f_file)
-#                 self.print_debug(('Matching F file found: "', f_file, '".'))
-#             except (OSError, IOError): #FileNotFoundError:
-#                 pass
-#         else:
-#             os.makedirs(search_path)
-#         
-#         
-#         ## make new F file if appropriate F file is missing
-#         if f is None:
-#             self.print_debug('No matching F file found.')
-#             f = self.get_trajectory(spinup_dir, parameters, t_dim)
-#             np.save(f_file, f)
-#             self.print_debug(('F file ', f_file, ' created.'))
-#         
-#         self.print_debug_dec(('Got F file "', f_file, '".'))
-#         
-#         return f
-#     
-#     
-#     
-#     def remove_f(self, search_path):
-#         from .constants import MODEL_F_FILENAME
-#         
-#         self.print_debug_inc_dec(('Removing F files in "', search_path, '".'))
-#         
-#         f_file_condition = lambda file: os.path.isfile(file) and util.pattern.is_matching(os.path.basename(file), MODEL_F_FILENAME)
-#         f_files = util.io.filter_files(search_path, f_file_condition)
-#         for f_file in f_files:
-#             os.remove(f_file)
-#     
-#     
-#     
-#     
-#     def f(self, parameters, t_dim=12, years=7000, tolerance=0, time_step=1):
-#         from .constants import MODEL_OUTPUT_DIR
-#         
-#         self.print_debug_inc(('Searching for f value for parameters "', parameters, '" in "', MODEL_OUTPUT_DIR, '".'))
-#         
-# #         time_step_dir = self.search_or_make_time_step_dir(MODEL_OUTPUT_DIR, time_step)
-# #         parameter_set_dir = self.search_or_make_parameter_set_dir(time_step_dir, parameters)
-# #         spinup_run_dir = self.search_or_make_spinup(parameter_set_dir, parameters, years, tolerance, time_step, start_from_closest_parameters=True)
-#         parameter_set_dir = self.get_parameter_set_dir(time_step, parameters, create=True)
-#         spinup_run_dir = self.get_spinup_run_dir(parameter_set_dir, years, tolerance, start_from_closest_parameters=True)
-#         f = self.search_or_make_f(parameter_set_dir, spinup_run_dir, parameters, t_dim, time_step)
-#         
-#         self.print_debug_dec('F value found.')
-#         
-#         return f
-#     
-#     
-#     
-#     def remove_df(self, search_path):
-#         from .constants import MODEL_DF_FILENAME
-#         
-#         self.print_debug_inc_dec(('Removing DF files in "', search_path, '".'))
-#         
-#         file_condition = lambda file: os.path.isfile(file) and util.pattern.is_matching(os.path.basename(file), MODEL_DF_FILENAME)
-#         files = util.io.filter_files(search_path, file_condition)
-#         for file in files:
-#             os.remove(file)
-#     
-#     
-#     
-#     
-#     def df(self, parameters, t_dim=12, years=7000, tolerance=0, time_step=1, accuracy_order=1):
-#         from .constants import MODEL_OUTPUT_DIR, MODEL_DERIVATIVE_DIRNAME, MODEL_SPINUP_DIRNAME, MODEL_PARTIAL_DERIVATIVE_DIRNAME, MODEL_DERIVATIVE_SPINUP_YEARS, MODEL_DF_FILENAME
-#         
-#         self.print_debug_inc(('Searching for derivative for parameters "', parameters, '" in "', MODEL_OUTPUT_DIR, '".'))
-#         
-#         ## chose h factors
-#         if accuracy_order == 1:
-#             h_factors =(1,)
-#         elif accuracy_order == 2:
-#             h_factors =(1, -1)
-#         else:
-#             raise ValueError('Accuracy order ' + str(accuracy_order) + ' not supported.')
-#         
-#         ## search directories
-# #         time_step_dir = self.search_or_make_time_step_dir(MODEL_OUTPUT_DIR, time_step)
-# #         parameter_set_dir = self.search_or_make_parameter_set_dir(time_step_dir, parameters)
-#         parameter_set_dir = self.get_parameter_set_dir(time_step, parameters, create=True)
-#         derivative_dir = os.path.join(parameter_set_dir, MODEL_DERIVATIVE_DIRNAME)
-#         
-#         ## check if spinup runs for derivatives are matching the options
-#         parameters_len = len(parameters)
-#         h_factors_len = len(h_factors)
-#         
-#         self.print_debug(('Checking if derivative spinup runs are matching "', years, '" years, "', tolerance, '" tolerance and "', time_step, '" time step size in "', derivative_dir, '".'))
-#         i = 0
-#         is_matching = True
-#         while is_matching and i < parameters_len:
-#             j = 0
-#             while is_matching and j < h_factors_len:
-#                 ## check derivative spinup
-#                 partial_derivative_dirname = util.pattern.replace_int_pattern(MODEL_PARTIAL_DERIVATIVE_DIRNAME, (i, j))
-#                 partial_derivative_dir = os.path.join(derivative_dir, partial_derivative_dirname)
-#                 last_der_run_dir = self.get_last_run_dir(partial_derivative_dir)
-#                 is_matching = self.is_run_matching_options(last_der_run_dir, MODEL_DERIVATIVE_SPINUP_YEARS, 0)
-#                 
-#                 ## check normal input spinup
-#                 if is_matching:
-#                     tracer_input_dir = self.get_tracer_input_dir(last_der_run_dir)
-#                     is_matching = is_matching and self.is_run_matching_options(tracer_input_dir, years - MODEL_DERIVATIVE_SPINUP_YEARS, tolerance)
-#                 j += 1
-#             i += 1
-#         
-#         ## load DF File if available
-#         df = None
-#         if is_matching:
-#             self.print_debug('Existing derivative spinup runs are matching the options.')
-#             accuracy_order_i = 2
-#             while df is None and accuracy_order_i >= accuracy_order:
-#                 df_filename = util.pattern.replace_int_pattern(MODEL_DF_FILENAME, (t_dim, accuracy_order_i))
-#                 df_file = os.path.join(parameter_set_dir, df_filename)
-#                 try:
-#                     df = np.load(df_file)
-#                     self.print_debug(('DF file "', df_file, '" loaded.'))
-#                 except (OSError, IOError):
-#                     accuracy_order_i -= 1
-#         else:
-#             self.print_debug('Existing derivative spinup runs are not matching the options.')
-#         
-#         
-#         ## calculate DF if not available
-#         if df is None:
-#             self.print_debug('Calculating derivative.')
-#             self.remove_df(parameter_set_dir)
-#             
-# #             spinup_run_dir = self.search_or_make_spinup(parameter_set_dir, parameters, years - MODEL_DERIVATIVE_SPINUP_YEARS, tolerance, time_step)
-#             spinup_run_dir = self.get_spinup_run_dir(parameter_set_dir, years - MODEL_DERIVATIVE_SPINUP_YEARS, tolerance, start_from_closest_parameters=True)
-#             spinup_run_years = self.get_total_years(spinup_run_dir)
-#             previous_spinup_run_dir = self.get_previous_run_dir(spinup_run_dir)
-#             previous_spinup_run_years = self.get_total_years(previous_spinup_run_dir)
-#             
-#             if previous_spinup_run_years == spinup_run_years - MODEL_DERIVATIVE_SPINUP_YEARS:
-#                 spinup_run_dir = previous_spinup_run_dir
-#                 spinup_run_years = previous_spinup_run_years
-#             
-#             if accuracy_order == 1:
-#                 f = self.f(parameters, t_dim, spinup_run_years + MODEL_DERIVATIVE_SPINUP_YEARS, 0, time_step)
-#             else:
-#                 f = self.f(parameters, t_dim, spinup_run_years, tolerance, time_step)
-#             df = np.zeros(f.shape + (parameters_len,))
-#             
-#             eps = np.spacing(1)
-#             eps_sqrt = np.sqrt(eps)
-#             h = np.empty(parameters_len)
-#             
-#             for i in range(parameters_len):
-#                 h[i] = max(abs(parameters[i]), eps_sqrt * 2**8) * eps_sqrt
-#                 
-#                 for j in range(h_factors_len):
-#                     h_factor = h_factors[j]
-#                     partial_derivative_dirname = util.pattern.replace_int_pattern(MODEL_PARTIAL_DERIVATIVE_DIRNAME, (i, j))
-#                     partial_derivative_dir = os.path.join(derivative_dir, partial_derivative_dirname)
-#                     last_der_run_dir = self.get_last_run_dir(partial_derivative_dir)
-#                     
-#                     ## make new run if run not matching
-#                     if not self.is_run_matching_options(last_der_run_dir, MODEL_DERIVATIVE_SPINUP_YEARS, 0):
-#                         ## remove old runs
-#                         for run_dir in util.io.get_dirs(partial_derivative_dir):
-#                             util.io.remove_dir(run_dir, force=True)
-#                         
-#                         ## prepare parameters
-#                         delta_p_i = h_factor * h[i]
-#                         
-#                         parameters_der = np.copy(parameters)
-#                         parameters_der[i] += delta_p_i
-#                         parameters_der[i] = min(parameters_der[i], self.parameters_upper_bound[i])
-#                         parameters_der[i] = max(parameters_der[i], self.parameters_lower_bound[i])
-#                         
-#                         ## make new run
-#                         last_der_run_dir = self.make_run(partial_derivative_dir, parameters_der, MODEL_DERIVATIVE_SPINUP_YEARS, 0, time_step, tracer_input_path=spinup_run_dir)
-#                         
-#                     df[..., i] += h_factor * self.get_trajectory(last_der_run_dir, parameters, t_dim)
-#                 
-#                 if accuracy_order == 1:
-#                     df[..., i] -= f
-#                     df[..., i] /= h[i]
-#                 else:
-#                     df[..., i] /= 2 * h[i]
-#             
-#             self.print_debug('Derivative calculated.')
-#             
-#             df_filename = util.pattern.replace_int_pattern(MODEL_DF_FILENAME, (t_dim, accuracy_order))
-#             df_file = os.path.join(parameter_set_dir, df_filename)
-#             self.print_debug(('Saving derivative at file"', df_file, '".'))
-#             np.save(df_file, df)
-#             
-#         self.print_debug_dec('Derivative found.')
-#         
-#         return df

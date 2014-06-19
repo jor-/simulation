@@ -5,8 +5,9 @@ import itertools
 import numpy as np
 import logging
 
+import measurements.land_sea_mask.load
 # import util.pattern
-import util.interpolate
+import util.math.interpolate
 import util.petsc.universal
 
 
@@ -18,33 +19,35 @@ def _check_land_sea_mask(land_sea_mask):
     ## check input
     if land_sea_mask.ndim != 2:
         raise ValueError('The land sea mask must have 2 dimensions, but its shape is {}.'.format(land_sea_mask.shape))
-    if land_sea_mask.shape != METOS_DIM[0:2]:
-        raise ValueError('The land sea mask must have the shape {}, but its shape is {}.'.format(land_sea_mask.shape, METOS_DIM[0:2]))
+    metos_shape = tuple(METOS_DIM[0:2])
+    if land_sea_mask.shape != metos_shape:
+        raise ValueError('The land sea mask must have the shape {}, but its shape is {}.'.format(metos_shape, land_sea_mask.shape))
 #     assert land_sea_mask.ndim == 2
 #     assert land_sea_mask.shape == METOS_DIM[0:2]
 
 
 def load_land_sea_mask():
-    from ndop.model.constants import METOS_LAND_SEA_MASK_FILE_PETSC, METOS_LAND_SEA_MASK_FILE_NPY
-    
-    try:
-        land_sea_mask = np.load(METOS_LAND_SEA_MASK_FILE_NPY)
-        
-        logging.debug('Returning land-sea-mask loaded from {} file.'.format(METOS_LAND_SEA_MASK_FILE_NPY))
-        
-    except (OSError, IOError):
-        land_sea_mask = util.petsc.universal.load_petsc_mat_to_array(METOS_LAND_SEA_MASK_FILE_PETSC, dtype=int)
-        land_sea_mask = land_sea_mask.transpose() # metos3d: x and y are changed
-        
-        logging.debug('Saving land-sea-mask to {} file.'.format(METOS_LAND_SEA_MASK_FILE_NPY))
-        
-        np.save(METOS_LAND_SEA_MASK_FILE_NPY, land_sea_mask)
-        
-        logging.debug('Returning land-sea-mask loaded from petsc file.')
-    
-    _check_land_sea_mask(land_sea_mask)
-    
-    return land_sea_mask
+    return measurements.land_sea_mask.load.resolution_128x64x15()
+#     from ndop.model.constants import METOS_LAND_SEA_MASK_FILE_PETSC, METOS_LAND_SEA_MASK_FILE_NPY
+#     
+#     try:
+#         land_sea_mask = np.load(METOS_LAND_SEA_MASK_FILE_NPY)
+#         
+#         logging.debug('Returning land-sea-mask loaded from {} file.'.format(METOS_LAND_SEA_MASK_FILE_NPY))
+#         
+#     except (OSError, IOError):
+#         land_sea_mask = util.petsc.universal.load_petsc_mat_to_array(METOS_LAND_SEA_MASK_FILE_PETSC, dtype=int)
+#         land_sea_mask = land_sea_mask.transpose() # metos3d: x and y are changed
+#         
+#         logging.debug('Saving land-sea-mask to {} file.'.format(METOS_LAND_SEA_MASK_FILE_NPY))
+#         
+#         np.save(METOS_LAND_SEA_MASK_FILE_NPY, land_sea_mask)
+#         
+#         logging.debug('Returning land-sea-mask loaded from petsc file.')
+#     
+#     _check_land_sea_mask(land_sea_mask)
+#     
+#     return land_sea_mask
 
 
 
@@ -140,7 +143,7 @@ def load_trajectories_to_universal(path, convert_function=None, converted_result
             if number_of_petsc_vecs > 1:
                 number_of_petsc_vecs -= 1
             else:
-                raise Exception('No PETSc vectors found in {}.'.format(path))
+                raise FileNotFoundError('No PETSc vectors found in {}.'.format(path))
         else:
             number_of_petsc_vecs_found = True
     
@@ -340,8 +343,8 @@ def get_spatial_float_index(x, y, z, land_sea_mask):
     
     ## linear interpolate x and y index
     (x_dim, y_dim) = land_sea_mask.shape
-    x_index_float = util.interpolate.get_float_index_for_equidistant_values(x, METOS_X_RANGE, x_dim)
-    y_index_float = util.interpolate.get_float_index_for_equidistant_values(y, METOS_Y_RANGE, y_dim)
+    x_index_float = util.math.interpolate.get_float_index_for_equidistant_values(x, METOS_X_RANGE, x_dim)
+    y_index_float = util.math.interpolate.get_float_index_for_equidistant_values(y, METOS_Y_RANGE, y_dim)
     
     ## lockup z
     z_index = bisect.bisect(METOS_Z, z) - 1
@@ -370,7 +373,7 @@ def get_temporal_float_index(t, t_dim):
         raise ValueError('Value {} of t is not in range {}.'.format(t, METOS_T_RANGE))
     
     ## interpolate
-    t_index_float = util.interpolate.get_float_index_for_equidistant_values(t, METOS_T_RANGE, t_dim)
+    t_index_float = util.math.interpolate.get_float_index_for_equidistant_values(t, METOS_T_RANGE, t_dim)
     
     logging.debug('Temporal float index for {} is {}.'.format(t, t_index_float))
     
@@ -487,7 +490,7 @@ def get_nearest_water_box(land_sea_mask, x_index, y_index, z_index):
     water_boxes = get_all_water_boxes(land_sea_mask)
     
     index = [x_index, y_index, z_index]
-    nearest_water_box = util.interpolate.get_nearest_value_in_array(water_boxes, index)
+    nearest_water_box = util.math.interpolate.get_nearest_value_in_array(water_boxes, index)
     
     assert land_sea_mask[nearest_water_box[0], nearest_water_box[1]] >= nearest_water_box[2]
     
