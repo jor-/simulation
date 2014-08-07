@@ -1,7 +1,0 @@
-ANALYSIS_OUTPUT_DIRNAME = 'analysis'
-CONFIDENCE_FOR_PARAMETERS_FILENAME = 'confidence_for_parameters.npy'
-CONFIDENCE_FOR_MODEL_FILENAME = 'confidence_for_model.npy'
-AVERAGED_MEASUREMENT_VARIANCE_FILENAME = 'averaged_measurement_variance.npy'
-AVERAGED_MEASUREMENT_VARIANCE_ESTIMATED_WITH_MODEL_FILENAME = 'averaged_measurement_variance_estimated_with_model.npy'
-OBSERVATION_PROPERTY_FILENAME = 'oberservation_property.npy'
-AVERAGED_OBSERVATION_PROPERTY_FILENAME = 'averaged_probability_of_observations.npy'
