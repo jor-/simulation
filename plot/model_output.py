@@ -1,7 +1,7 @@
 import argparse
 
 from util.logging import Logger
-from interface import model_output
+from ndop.plot.interface import model_output
 
 
 if __name__ == "__main__":

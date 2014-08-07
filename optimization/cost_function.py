@@ -8,30 +8,48 @@ import ndop.util.data_base
 import util.math.optimize
 from util.math.matrix import SingularMatrixError
 
-from .constants import COST_FUNCTIONS_DIRNAME, COST_FUNCTION_F_FILENAME, COST_FUNCTION_DF_FILENAME, COST_FUNCTION_F_NORMALIZED_FILENAME, COST_FUNCTION_CORRELATION_PARAMETER_FILENAME, COST_FUNCTION_NODES_SETUP
+from .constants import COST_FUNCTIONS_DIRNAME, COST_FUNCTION_F_FILENAME, COST_FUNCTION_DF_FILENAME, COST_FUNCTION_F_NORMALIZED_FILENAME, COST_FUNCTION_CORRELATION_PARAMETER_FILENAME, COST_FUNCTION_NODES_SETUP_SPINUP, COST_FUNCTION_NODES_SETUP_DERIVATIVE
 
 
 
 class Base():
     
-    def __init__(self, data_kind, years, tolerance=0, combination='or', time_step=1, df_accuracy_order=2, job_setup=None):
+    def __init__(self, data_kind, spinup_options, time_step=1, df_accuracy_order=2, job_setup=None):
         cf_kind = self.__class__.__name__
         kind = data_kind + '_' + cf_kind
         
+        ## prepare job setup
         if job_setup is None:
             job_setup = {}
         try:
             job_setup['name']
         except KeyError:
             job_setup['name'] = 'O_' + kind
+        
         try:
             job_setup['nodes_setup']
         except KeyError:
-            job_setup['nodes_setup'] = COST_FUNCTION_NODES_SETUP
+            try:
+                job_setup['spinup']
+            except KeyError:
+                job_setup['spinup'] = {}
+            try:
+                job_setup['spinup']['nodes_setup']
+            except KeyError:
+                job_setup['spinup']['nodes_setup'] = COST_FUNCTION_NODES_SETUP_SPINUP
+            try:
+                job_setup['derivative']
+            except KeyError:
+                job_setup['derivative'] = {}
+            try:
+                job_setup['derivative']['nodes_setup']
+            except KeyError:
+                job_setup['derivative']['nodes_setup'] = COST_FUNCTION_NODES_SETUP_DERIVATIVE
         
+        ## prepare cache and data base
         cache_dirname = os.path.join(COST_FUNCTIONS_DIRNAME, kind)
-        self.cache = ndop.util.value_cache.Cache(years, tolerance, combination, time_step, df_accuracy_order=df_accuracy_order, cache_dirname=cache_dirname)
-        self.data_base = ndop.util.data_base.init_data_base(data_kind, years, tolerance, combination, time_step, df_accuracy_order=df_accuracy_order, job_setup=job_setup)
+        self.cache = ndop.util.value_cache.Cache(spinup_options, time_step, df_accuracy_order=df_accuracy_order, cache_dirname=cache_dirname)
+        self.data_base = ndop.util.data_base.init_data_base(data_kind, spinup_options, time_step, df_accuracy_order=df_accuracy_order, job_setup=job_setup)
     
     
     def f_calculate(self, parameters):
@@ -138,24 +156,25 @@ class WLS(Base):
 
 class GLS(Base):
     
-    def __init__(self, data_kind, years, tolerance=0, combination='or', time_step=1, df_accuracy_order=2, job_setup=None):
+    def __init__(self, data_kind, spinup_options, time_step=1, df_accuracy_order=2, job_setup=None):
         ## super init
         if data_kind.upper() != 'WOD':
             raise ValueError('Data_kind {} unknown. Must be "WOD".'.format(data_kind))
-        super().__init__(data_kind, years, tolerance=0, combination='or', time_step=1, df_accuracy_order=2, job_setup=None)
+        super().__init__(data_kind, spinup_options, time_step=1, df_accuracy_order=2, job_setup=job_setup)
         
         ## setup correlation bounds and last correlations
-#         dim = 3
-        dim = 2
-        upper_bound = 1 - 10**(-5)
+        dim = 3
+#         dim = 2
+        upper_bound = 1 - 10**(-4)
         lower_bound = 0
         bounds = ((lower_bound, upper_bound),) * dim
         self.correlation_parameters_bounds = bounds
         
-#         self.correlation_parameters_ineq_constraint = lambda x: x[0] * x[1] - x[2]**2 
-#         self.correlation_parameters_ineq_constraints_jac = lambda x: (x[1], x[0], -2 * x[2])
+        ineq_factor = 4/5
+        self.correlation_parameters_ineq_constraint = lambda x: ineq_factor * x[0] * x[1] - x[2]**2 
+        self.correlation_parameters_ineq_constraints_jac = lambda x: (ineq_factor * x[1], ineq_factor * x[0], -2 * x[2])
         
-        last = np.array((0.0,)*dim)
+        last = np.array([0.0]*dim)
         self.last_correlation_parameters = last
     
     
@@ -190,8 +209,8 @@ class GLS(Base):
         f = lambda correlation_parameters: self.f_calculate_with_diff_and_cp(diff_squared, diff_projected, correlation_parameters)
         last_correlation_parameters = self.last_correlation_parameters
         
-#         (opt_correlation_parameters, opt_f) = util.math.optimize.minimize(f, last_correlation_parameters, global_method='basin_hopping', global_iterations=100, bounds=self.correlation_parameters_bounds, ineq_constraints=self.correlation_parameters_ineq_constraint, ineq_constraints_jac=self.correlation_parameters_ineq_constraints_jac)
-        (correlation_parameters_opt, f_opt) = util.math.optimize.minimize(f, last_correlation_parameters, bounds=self.correlation_parameters_bounds, global_method='basin_hopping', global_iterations=200, global_stepsize=0.05, global_stepsize_update_interval=20)
+        (opt_correlation_parameters, opt_f) = util.math.optimize.minimize(f, last_correlation_parameters, bounds=self.correlation_parameters_bounds, ineq_constraints=self.correlation_parameters_ineq_constraint, ineq_constraints_jac=self.correlation_parameters_ineq_constraints_jac, global_method='basin_hopping', global_iterations=200, global_stepsize=0.05, global_stepsize_update_interval=20)
+#         (correlation_parameters_opt, f_opt) = util.math.optimize.minimize(f, last_correlation_parameters, bounds=self.correlation_parameters_bounds, global_method='basin_hopping', global_iterations=200, global_stepsize=0.05, global_stepsize_update_interval=20)
         
         ## save correlation parameters
         self.last_correlation_parameters = correlation_parameters_opt
@@ -309,7 +328,7 @@ class GLS(Base):
 
 
 class Family(ndop.util.data_base.Family):
-    def __init__(self, main_member_class, data_kind, years, tolerance=0, combination='or', time_step=1, df_accuracy_order=2, job_setup=None):
+    def __init__(self, main_member_class, data_kind, spinup_options, time_step=1, df_accuracy_order=2, job_setup=None):
         
         if data_kind.upper() == 'WOA':
             member_classes = (OLS, WLS)
@@ -318,7 +337,7 @@ class Family(ndop.util.data_base.Family):
         else:
             raise ValueError('Data_kind {} unknown. Must be "WOA" or "WOD".'.format(data_kind))
         
-        super().__init__(main_member_class, member_classes, data_kind, years, tolerance=tolerance, combination=combination, time_step=time_step, df_accuracy_order=df_accuracy_order, job_setup=job_setup)
+        super().__init__(main_member_class, member_classes, data_kind, spinup_options, time_step=time_step, df_accuracy_order=df_accuracy_order, job_setup=job_setup)
     
     def f(self, parameters):
         fun = lambda o: o.f(parameters) 

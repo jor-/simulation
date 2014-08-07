@@ -29,9 +29,10 @@ MODEL_RUN_OPTIONS_FILENAME = 'run_options.txt'
 # MODEL_TMP_DIR = os.environ['TMPDIR']
 MODEL_TMP_DIR = None
 
-MODEL_SPINUP_MAX_YEARS = 25000
+MODEL_SPINUP_MAX_YEARS = 50000
 MODEL_DERIVATIVE_SPINUP_YEARS = 100
 MODEL_START_FROM_CLOSEST_PARAMETER_SET = False
+
 
 MODEL_INTERPOLATOR_FILE = os.path.join(MODEL_OUTPUT_DIR, 'interpolator.ppy')
 MODEL_INTERPOLATOR_AMOUNT_OF_WRAP_AROUND = 1/2880
@@ -41,8 +42,6 @@ MODEL_INTERPOLATOR_TOTAL_OVERLAPPING_OF_LINEAR_INTERPOLATOR = 0
 
 METOS_PATH_1 = os.path.join(BASE_DIR, 'metos3d/v0.2')
 METOS_PATH_2 = os.path.join(BASE_DIR, 'metos3d/v_rz_2')
-# METOS_LAND_SEA_MASK_FILE_PETSC = os.path.join(BASE_DIR, 'metos3d/landSeaMask.petsc')
-# METOS_LAND_SEA_MASK_FILE_NPY = os.path.join(BASE_DIR, 'metos3d/landSeaMask.npy')
 
 METOS_TRAJECTORY_FILENAMES = ('sp0000-ts{:0>4}-dop_output.petsc', 'sp0000-ts{:0>4}-po4_output.petsc')
 METOS_TRACER_DIM = len(METOS_TRAJECTORY_FILENAMES)
@@ -50,13 +49,9 @@ METOS_TRACER_DIM = len(METOS_TRAJECTORY_FILENAMES)
 METOS_T_RANGE = (0, 1)
 METOS_X_RANGE = (0, 360)
 METOS_Y_RANGE = (-90, +90)
-from measurements.land_sea_mask.constants import LSM_128x64x15_Z_LEFT as METOS_Z
+from measurements.land_sea_mask.constants import LSM_128x64x15_Z_LEFT as METOS_Z_LEFT
 from measurements.land_sea_mask.constants import LSM_128x64x15_Z_CENTER as METOS_Z_CENTER
-# METOS_Z = [0, 50, 120, 220, 360, 550, 790, 1080, 1420, 1810, 2250, 2740, 3280, 3870, 4510]
-# # METOS_Z = [50, 120, 220, 360, 550, 790, 1080, 1420, 1810, 2250, 2740, 3280, 3870, 4510, 5200]
-# METOS_Z_CENTER = (np.array(METOS_Z[1:] + [9000]) + np.array(METOS_Z)) / 2
 from measurements.land_sea_mask.constants import LSM_128x64x15_DIM as METOS_DIM
-# METOS_DIM = (128, 64, len(METOS_Z))
 METOS_X_DIM = METOS_DIM[0]
 METOS_Y_DIM = METOS_DIM[1]
 METOS_Z_DIM = METOS_DIM[2]

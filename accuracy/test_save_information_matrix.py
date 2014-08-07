@@ -29,7 +29,7 @@ from util.logging import Logger
 
 
 with Logger():
-    p = np.loadtxt('/work_O2/sunip229/NDOP/model_output/time_step_0001/parameter_set_00000/parameters.txt')
+    p = np.loadtxt('/work_O2/sunip229/NDOP/model_output/time_step_0001/parameter_set_00184/parameters.txt')
     
 #     for data_kind in ('WOA', 'WOD'):
 #         family = Family(OLS, data_kind, 10000)

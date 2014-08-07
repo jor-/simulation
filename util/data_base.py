@@ -1,7 +1,8 @@
+import bisect
 import logging
 import numpy as np
 
-import measurements.all.woa.data
+import measurements.all.box.data
 import measurements.all.pw.data
 import ndop.util.value_cache
 from ndop.model.eval import Model
@@ -12,18 +13,16 @@ import util.math.matrix
 
 class Data_Base:
     
-    def __init__(self, years, tolerance=0, combination='or', time_step=1, df_accuracy_order=2, job_setup=None, F_cache_filename=None, DF_cache_filename=None):
+    def __init__(self, spinup_options, time_step=1, df_accuracy_order=2, job_setup=None, F_cache_filename=None, DF_cache_filename=None):
         from .constants import CACHE_DIRNAME, F_ALL_CACHE_FILENAME, DF_ALL_CACHE_FILENAME
         
-        logging.debug('Initiating {} with {} years, {} tolerance, combination "{}", time step {}, df_accuracy_order {}, job_setup {}, F_cache_filename {} and DF_cache_filename {}.'.format(self.__class__.__name__, years, tolerance, combination, time_step, df_accuracy_order, job_setup, F_cache_filename, DF_cache_filename))
+        logging.debug('Initiating {} with spinup_options {}, time step {}, df_accuracy_order {}, job_setup {}, F_cache_filename {} and DF_cache_filename {}.'.format(self.__class__.__name__, spinup_options, time_step, df_accuracy_order, job_setup, F_cache_filename, DF_cache_filename))
         
-        self.years = years
-        self.tolerance = tolerance
-        self.combination = combination
+        self.spinup_options = spinup_options
         self.time_step = time_step
         self.df_accuracy_order = df_accuracy_order
         
-        self.cache = ndop.util.value_cache.Cache(years, tolerance, combination, time_step, df_accuracy_order=df_accuracy_order, cache_dirname=CACHE_DIRNAME)
+        self.cache = ndop.util.value_cache.Cache(spinup_options, time_step, df_accuracy_order=df_accuracy_order, cache_dirname=CACHE_DIRNAME)
         self.f_all_cache_filename = F_ALL_CACHE_FILENAME
         self.df_all_cache_filename = DF_ALL_CACHE_FILENAME
         self.F_cache_filename = F_cache_filename
@@ -35,7 +34,7 @@ class Data_Base:
             job_setup['name']
         except KeyError:
             job_setup['name'] = self.__class__.__name__
-        self.model = Model(job_setup)
+        self.model = Model(job_setup=job_setup)
         
         self.last_parameters_f = None
         self.last_parameters_df = None
@@ -49,18 +48,26 @@ class Data_Base:
     
     ## access to model
     @property
+    def variances_all(self):
+        try:
+            return self._variances_all
+        except AttributeError:
+            self._variances_all = measurements.all.box.data.varis() / measurements.all.box.data.nobs()
+            return self._variances_all
+    
+    @property
     def inverse_variances_all(self):
         try:
             return self._inverse_variances_all
         except AttributeError:
-            self._inverse_variances_all = measurements.all.woa.data.nobs() / measurements.all.woa.data.varis()
+            self._inverse_variances_all = measurements.all.box.data.nobs() / measurements.all.box.data.varis()
             return self._inverse_variances_all
     
     
     
     def f_all_calculate(self, parameters):
         logging.debug('Calculating new model f_all for {}.'.format(self.__class__.__name__))
-        f_all = self.model.f_all(parameters, time_dim_desired=12, years=self.years, tolerance=self.tolerance, combination=self.combination, time_step=self.time_step)
+        f_all = self.model.f_all(parameters, time_dim_desired=12, spinup_options=self.spinup_options, time_step=self.time_step)
         f_all = np.asanyarray(f_all)
         return f_all
     
@@ -84,7 +91,7 @@ class Data_Base:
     
     def df_all_calculate(self, parameters):
         logging.debug('Calculating new df_all for {}.'.format(self.__class__.__name__))
-        df_all = self.model.df_all(parameters, time_dim_desired=12, years=self.years, tolerance=self.tolerance, combination=self.combination, time_step=self.time_step, accuracy_order=self.df_accuracy_order)
+        df_all = self.model.df_all(parameters, time_dim_desired=12, spinup_options=self.spinup_options, time_step=self.time_step, accuracy_order=self.df_accuracy_order)
         df_all = np.asanyarray(df_all)
         for i in range(1, df_all.ndim-1):
             df_all = np.swapaxes(df_all, i, i+1)
@@ -160,19 +167,30 @@ class Data_Base:
 
 class WOA(Data_Base):
     
-    def __init__(self, years, tolerance=0, combination='or', time_step=1, df_accuracy_order=2, job_setup=None, cache_dirname=None):
+    def __init__(self, spinup_options, time_step=1, df_accuracy_order=2, job_setup=None, cache_dirname=None):
+        ## super constructor
         from .constants import F_WOA_CACHE_FILENAME, DF_WOA_CACHE_FILENAME
-        super().__init__(years, tolerance=tolerance, combination=combination, time_step=time_step, df_accuracy_order=df_accuracy_order, job_setup=job_setup, F_cache_filename=F_WOA_CACHE_FILENAME, DF_cache_filename=DF_WOA_CACHE_FILENAME)
+        super().__init__(spinup_options, time_step=time_step, df_accuracy_order=df_accuracy_order, job_setup=job_setup, F_cache_filename=F_WOA_CACHE_FILENAME, DF_cache_filename=DF_WOA_CACHE_FILENAME)
+        
+        ## compute annual box index
+        from measurements.po4.woa.data13.constants import ANNUAL_THRESHOLD
+        from ndop.model.constants import METOS_Z_LEFT
+        self.ANNUAL_THRESHOLD_INDEX = bisect.bisect_right(METOS_Z_LEFT, ANNUAL_THRESHOLD)
     
     
     ## measurements
+    def _get_data_with_annual_averaged(self, data, annual_factor=1):
+        data_monthly = data[:,:,:,:,:self.ANNUAL_THRESHOLD_INDEX][self.mask[:,:,:,:,:self.ANNUAL_THRESHOLD_INDEX]]
+        data_annual = np.average(data[:,:,:,:,self.ANNUAL_THRESHOLD_INDEX:], axis=1)[self.mask[:,0,:,:,self.ANNUAL_THRESHOLD_INDEX:]] * annual_factor
+        return np.concatenate([data_monthly, data_annual], axis=0)
+        
     
     @property
     def mask(self):
         try:
             return self._mask
         except AttributeError:
-            self._mask = measurements.all.woa.data.nobs() > 0
+            self._mask = measurements.all.box.data.nobs() > 0
             self._m_dop = (self._mask[0]).sum()
             self._m_po4 = (self._mask[1]).sum()
             return self._mask 
@@ -182,7 +200,7 @@ class WOA(Data_Base):
         try:
             return self._results_all
         except AttributeError:
-            self._results_all = measurements.all.woa.data.means()
+            self._results_all = measurements.all.box.data.means()
             return self._results_all
     
     @property
@@ -190,24 +208,28 @@ class WOA(Data_Base):
         try:
             return self._results
         except AttributeError:
-            self._results = self.results_all[self.mask]
+#             self._results = self.results_all[self.mask]
+#             results_monthly = self.results_all[:,:,:,:,:self.ANNUAL_THRESHOLD_INDEX][self.mask[:,:,:,:,:self.ANNUAL_THRESHOLD_INDEX]]
+#             results_annual = self.results_all[:,0,:,:,self.ANNUAL_THRESHOLD_INDEX:][self.mask[:,0,:,:,self.ANNUAL_THRESHOLD_INDEX:]]
+#             self._results = np.concatenate([results_monthly, results_annual])
+            self._results = self._get_data_with_annual_averaged(self.results_all)
             return self._results
     
-    @property
-    def m_dop(self):
-        try:
-            return self._m_dop
-        except AttributeError:
-            self.mask
-            return self._m_dop
-    
-    @property
-    def m_po4(self):
-        try:
-            return self._m_po4
-        except AttributeError:
-            self.mask
-            return self._m_po4
+#     @property
+#     def m_dop(self):
+#         try:
+#             return self._m_dop
+#         except AttributeError:
+#             self.mask
+#             return self._m_dop
+#     
+#     @property
+#     def m_po4(self):
+#         try:
+#             return self._m_po4
+#         except AttributeError:
+#             self.mask
+#             return self._m_po4
     
     @property
     def m(self):
@@ -221,11 +243,24 @@ class WOA(Data_Base):
     ## devitation
     
     @property
+    def variances(self):
+        try:
+            return self._variances
+        except AttributeError:
+#             self._variances = self.inverse_variances_all[self.mask]
+#             variances_monthly = self.variances_all[:,:,:,:,:self.ANNUAL_THRESHOLD_INDEX][self.mask[:,:,:,:,:self.ANNUAL_THRESHOLD_INDEX]]
+#             variances_annual = np.average(self.variances_all[:,:,:,:,self.ANNUAL_THRESHOLD_INDEX:], axis=1)[self.mask[:,0,:,:,self.ANNUAL_THRESHOLD_INDEX:]] / 12
+#             self._variances = np.concatenate([variances_monthly, variances_annual])
+            self._variances = self._get_data_with_annual_averaged(self.variances_all, annual_factor=1/12)
+            return self._variances
+    
+    @property
     def inverse_variances(self):
         try:
             return self._inverse_variances
         except AttributeError:
-            self._inverse_variances = self.inverse_variances_all[self.mask]
+#             self._inverse_variances = self.inverse_variances_all[self.mask]
+            self._inverse_variances = 1 / self.variances
             return self._inverse_variances
     
     @property
@@ -241,13 +276,15 @@ class WOA(Data_Base):
     
     def F_calculate(self, parameters):
         f_all = self.f_all(parameters)
-        F = f_all[self.mask]
+#         F = f_all[self.mask]
+        F = self._get_data_with_annual_averaged(f_all)
         return F
     
     
     def DF_calculate(self, parameters):
         df_all = self.df_all(parameters)
-        DF = df_all[self.mask]
+#         DF = df_all[self.mask]
+        DF = self._get_data_with_annual_averaged(df_all)
         return DF
     
     
@@ -272,9 +309,9 @@ class WOA(Data_Base):
 
 class WOD(Data_Base):
     
-    def __init__(self, years, tolerance=0, combination='or', time_step=1, df_accuracy_order=2, job_setup=None, cache_dirname=None):
+    def __init__(self, spinup_options, time_step=1, df_accuracy_order=2, job_setup=None, cache_dirname=None):
         from .constants import F_WOD_CACHE_FILENAME, DF_WOD_CACHE_FILENAME
-        super().__init__(years, tolerance=tolerance, combination=combination, time_step=time_step, df_accuracy_order=df_accuracy_order, job_setup=job_setup, F_cache_filename=F_WOD_CACHE_FILENAME, DF_cache_filename=DF_WOD_CACHE_FILENAME)
+        super().__init__(spinup_options, time_step=time_step, df_accuracy_order=df_accuracy_order, job_setup=job_setup, F_cache_filename=F_WOD_CACHE_FILENAME, DF_cache_filename=DF_WOD_CACHE_FILENAME)
     
     
     ## measurements
@@ -286,7 +323,6 @@ class WOD(Data_Base):
         except AttributeError:
             points, results = measurements.all.pw.data.get_points_and_values()
             [[points_dop, points_po4], [results_dop, results_po4]] = measurements.all.pw.data.get_points_and_values()
-#             self._points = np.concatenate([points_dop, points_po4])
             self._points = [points_dop, points_po4]
             self._results = np.concatenate([results_dop, results_po4])
             self._m_dop = len(results_dop)
@@ -532,13 +568,13 @@ class WOD(Data_Base):
     ## model output
     
     def F_calculate(self, parameters):
-        (f_dop, f_po4) = self.model.f_points(parameters, self.points, years=self.years, tolerance=self.tolerance, combination=self.combination, time_step=self.time_step)
+        (f_dop, f_po4) = self.model.f_points(parameters, self.points, spinup_options=self.spinup_options, time_step=self.time_step)
         F = np.concatenate([f_dop, f_po4])
         return F
     
     
     def DF_calculate(self, parameters):
-        (df_dop, df_po4) = self.model.df_points(parameters, self.points, years=self.years, tolerance=self.tolerance, combination=self.combination, time_step=self.time_step, accuracy_order=self.df_accuracy_order)
+        (df_dop, df_po4) = self.model.df_points(parameters, self.points, spinup_options=self.spinup_options, time_step=self.time_step, accuracy_order=self.df_accuracy_order)
         DF = np.concatenate([df_dop, df_po4], axis=-1)
         DF = np.swapaxes(DF, 0, 1)
         return DF
@@ -592,7 +628,7 @@ class WOD(Data_Base):
 #         return self.data_bases[data_kind]
 
 
-def init_data_base(data_kind, years=1, tolerance=0, combination='or', time_step=1, df_accuracy_order=2, job_setup=None):
+def init_data_base(data_kind, spinup_options=None, time_step=1, df_accuracy_order=2, job_setup=None):
     if data_kind.upper() == 'WOA':
         data_base_class = WOA
     elif data_kind.upper() == 'WOD':
@@ -600,7 +636,7 @@ def init_data_base(data_kind, years=1, tolerance=0, combination='or', time_step=
     else:
         raise ValueError('Data_kind {} unknown. Must be "WOA" or "WOD".'.format(data_kind))
     
-    data_base = data_base_class(years, tolerance, combination, time_step, df_accuracy_order=df_accuracy_order, job_setup=job_setup)
+    data_base = data_base_class(spinup_options, time_step, df_accuracy_order=df_accuracy_order, job_setup=job_setup)
     
     return data_base
 
@@ -609,20 +645,20 @@ def init_data_base(data_kind, years=1, tolerance=0, combination='or', time_step=
 
 class Family:
     
-    def __init__(self, main_member_class, member_classes, data_kind, years, tolerance=0, combination='or', time_step=1, df_accuracy_order=2, job_setup=None):
+    def __init__(self, main_member_class, member_classes, data_kind, spinup_options, time_step=1, df_accuracy_order=2, job_setup=None):
         
         logging.debug('Initiating cost function family for data kind {} with main member {} and members {}.'.format(data_kind, main_member_class.__name__, list(map(lambda x: x.__name__, member_classes))))
         
         if main_member_class not in member_classes:
             raise ValueError('The main member class has to be in {}, but its {}.'.format(member_classes__name__, main_member_class))
         
-        main_member = main_member_class(data_kind, years, tolerance=tolerance, combination=combination, time_step=time_step, df_accuracy_order=df_accuracy_order, job_setup=job_setup)
+        main_member = main_member_class(data_kind, spinup_options, time_step=time_step, df_accuracy_order=df_accuracy_order, job_setup=job_setup)
         self.main_member = main_member
         
         family = []
         for member_class in member_classes:
             if member_class is not main_member_class:
-                member = member_class(data_kind, years, tolerance=tolerance, combination=combination, time_step=time_step, df_accuracy_order=df_accuracy_order, job_setup=job_setup)
+                member = member_class(data_kind, spinup_options, time_step=time_step, df_accuracy_order=df_accuracy_order, job_setup=job_setup)
                 member.data_base = main_member.data_base
                 family.append(member)
         

@@ -27,5 +27,6 @@ if __name__ == "__main__":
 #         combination='or'
         
         job_setup = {'name':'NDOP', 'nodes_setup':('f_ocean2', 3, 16)}
+        spinup_setup = {'years':years, 'tolerance':tolerance, 'combination':combination}
         model = ndop.model.eval.Model(job_setup)
-        model.f_all(p, 12, years=years, tolerance=tolerance, combination=combination)
+        model.f_all(p, 12, spinup_setup)

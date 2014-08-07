@@ -23,17 +23,18 @@ parser.add_argument('-d', '--debug_logging_file', default='', help='File to stor
 parser.add_argument('--version', action='version', version='%(prog)s 0.1')
 
 args = vars(parser.parse_args())
-years = args['years']
-tolerance = args['tolerance']
 eval_function_value = args['eval_function_value']
 eval_grad_value = args['eval_grad_value']
 exchange_dir = args['exchange_dir']
 logging_file = args['debug_logging_file']
 kind_of_cost_function = args['kind_of_cost_function']
+years = args['years']
+tolerance = args['tolerance']
 if args['and_combination']:
     combination='and'
 else:
     combination='or'
+spinup_options = {'years':years, 'tolerance':tolerance, 'combination':combination}
 
 
 
@@ -61,21 +62,22 @@ with util.logging.Logger(logging_file=logging_file):
 #             cf = ndop.optimization.cost_function.WOD_Family(ndop.optimization.cost_function.WOD_GLS, years=years, tolerance=tolerance, combination=combination, job_nodes_max_file=job_nodes_max_file, df_accuracy_order=df_accuracy_order)
         
         if kind_of_cost_function == 'WOA_OLS':
-            main_member_class = ndop.optimization.cost_function.OLS
+            cf_class = ndop.optimization.cost_function.OLS
             data_kind = 'WOA'
         elif kind_of_cost_function == 'WOA_WLS':
-            main_member_class = ndop.optimization.cost_function.WLS
+            cf_class = ndop.optimization.cost_function.WLS
             data_kind = 'WOA'
         elif kind_of_cost_function == 'WOD_OLS':
-            main_member_class = ndop.optimization.cost_function.OLS
+            cf_class = ndop.optimization.cost_function.OLS
             data_kind = 'WOD'
         elif kind_of_cost_function == 'WOD_WLS':
-            main_member_class = ndop.optimization.cost_function.WLS
+            cf_class = ndop.optimization.cost_function.WLS
             data_kind = 'WOD'
         elif kind_of_cost_function == 'WOD_GLS':
-            main_member_class = ndop.optimization.cost_function.GLS
+            cf_class = ndop.optimization.cost_function.GLS
             data_kind = 'WOD'
-        cf = ndop.optimization.cost_function.Family(main_member_class, data_kind, years=years, tolerance=tolerance, combination=combination, time_step=1, df_accuracy_order=df_accuracy_order, job_setup=None)
+#         cf = ndop.optimization.cost_function.Family(cf_class, data_kind, spinup_options, time_step=1, df_accuracy_order=df_accuracy_order, job_setup=None)
+        cf = cf_class(data_kind, spinup_options, time_step=1, df_accuracy_order=df_accuracy_order, job_setup=None)
         
         
         ## eval cost function

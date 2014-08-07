@@ -9,7 +9,7 @@ from measurements.po4.wod.data.results import Measurements_Unsorted
 from measurements.po4.wod.deviation.model import Deviation_Model
 import measurements.util.map
 
-from ndop.model.constants import METOS_X_DIM, METOS_Y_DIM, METOS_Z
+from ndop.model.constants import METOS_X_DIM, METOS_Y_DIM, METOS_Z_LEFT
 from .constants import MEASUREMENTS_BOXES_DICT_FILE, MEASUREMENTS_BOXES_DEVIATIONS_INTERPOLATION_FILE, T_DIM
 
 
@@ -17,7 +17,7 @@ from .constants import MEASUREMENTS_BOXES_DICT_FILE, MEASUREMENTS_BOXES_DEVIATIO
 def save_measurement_boxes_dict(measurement_box_file=MEASUREMENTS_BOXES_DICT_FILE):
     m = measurements.po4.wod.data.io.load_measurement_dict_unsorted()
     m.categorize_indices((1./2880,))
-    m.transform_indices_to_boxes(METOS_X_DIM, METOS_Y_DIM, METOS_Z)
+    m.transform_indices_to_boxes(METOS_X_DIM, METOS_Y_DIM, METOS_Z_LEFT)
     m.save(measurement_box_file)
     logger.debug('Measurement box dict saved at {].'.format(measurement_box_file))
 

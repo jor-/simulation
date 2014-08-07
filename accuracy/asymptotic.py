@@ -15,7 +15,7 @@ from .constants import CACHE_DIRNAME, INFORMATION_MATRIX_FILENAME, COVARIANCE_MA
 
 class Base():
     
-    def __init__(self, data_kind, years, tolerance=0, combination='or', time_step=1, df_accuracy_order=2, job_setup=None):
+    def __init__(self, data_kind, spinup_options, time_step=1, df_accuracy_order=2, job_setup=None):
         cf_kind = self.__class__.__name__
         kind = data_kind + '_' + cf_kind
         
@@ -27,8 +27,8 @@ class Base():
             job_setup['name'] = 'A_' + kind
         
         cache_dirname = os.path.join(CACHE_DIRNAME, kind)
-        self.cache = ndop.util.value_cache.Cache(years, tolerance, combination, time_step, df_accuracy_order=df_accuracy_order, cache_dirname=cache_dirname)
-        self.data_base = ndop.util.data_base.init_data_base(data_kind, years, tolerance=tolerance, combination=combination, time_step=time_step, df_accuracy_order=df_accuracy_order, job_setup=job_setup)
+        self.cache = ndop.util.value_cache.Cache(spinup_options, time_step, df_accuracy_order=df_accuracy_order, cache_dirname=cache_dirname)
+        self.data_base = ndop.util.data_base.init_data_base(data_kind, spinup_options, time_step=time_step, df_accuracy_order=df_accuracy_order, job_setup=job_setup)
     
     
     
@@ -305,7 +305,7 @@ class GLS(Base):
 
 
 class Family(ndop.util.data_base.Family):
-    def __init__(self, main_member_class, data_kind, years, tolerance=0, combination='or', time_step=1, df_accuracy_order=2, job_setup=None):
+    def __init__(self, main_member_class, data_kind, spinup_options, time_step=1, df_accuracy_order=2, job_setup=None):
         
         if data_kind.upper() == 'WOA':
             member_classes = (OLS, WLS)
@@ -314,7 +314,7 @@ class Family(ndop.util.data_base.Family):
         else:
             raise ValueError('Data_kind {} unknown. Must be "WOA" or "WOD".'.format(data_kind))
         
-        super().__init__(main_member_class, member_classes, data_kind, years, tolerance=tolerance, combination=combination, time_step=time_step, df_accuracy_order=df_accuracy_order, job_setup=job_setup)
+        super().__init__(main_member_class, member_classes, data_kind, spinup_options, time_step=time_step, df_accuracy_order=df_accuracy_order, job_setup=job_setup)
     
     
     def information_matrix(self, parameters):

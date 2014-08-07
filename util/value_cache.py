@@ -10,7 +10,7 @@ import util.io
 
 class Cache:
     
-    def __init__(self, years, tolerance=0, combination='or', time_step=1, df_accuracy_order=2, cache_dirname=None):
+    def __init__(self, spinup_options, time_step=1, df_accuracy_order=2, cache_dirname=None):
         logging.debug('Initiating {} with cache dirname {} and time step {}.'.format(self.__class__.__name__, cache_dirname, time_step))
         
         if cache_dirname is None:
@@ -21,6 +21,7 @@ class Cache:
         
         self.time_step = time_step
         
+        (years, tolerance, combination) = self.model.all_spinup_options(spinup_options)
         if combination == 'and':
             combination = True
         elif combination == 'or':
@@ -29,10 +30,6 @@ class Cache:
             raise ValueError('Combination "{}" unknown.'.format(combination))
         spinup_options = (years, tolerance, combination, df_accuracy_order)
         self.spinup_options = spinup_options
-#         self.years = years
-#         self.tolerance = tolerance
-#         self.combination = combination
-#         self.df_accuracy_order = df_accuracy_order
     
     
     ## access to cache
@@ -65,6 +62,7 @@ class Cache:
         else:
             logging.debug('Saving value to {} and corresponding text file.'.format(file))
             util.io.save_npy(values, file)
+        util.io.make_read_only(file)
     
     
     def matches_spinup_options(self, parameters, spinup_options_filename):

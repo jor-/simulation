@@ -6,7 +6,6 @@ import util.io
 import util.rzcluster.interact
 
 #TODO check read only for finished jobs
-#TODO check job output file exists
 
 def check_job_file_integrity_spinup(spinup_dir, is_spinup_dir):
     run_dirs = util.io.get_dirs(spinup_dir)
@@ -87,6 +86,11 @@ def check_job_file_integrity_spinup(spinup_dir, is_spinup_dir):
                     print('Output files in {} do not exist!'.format(run_dir))
                     break
             
+            
+            ## check job output file exists
+            if not is_running and not os.path.exists(job_output_file):
+                print('Job output file {} does not exist!'.format(job_output_file))
+                
             
             ## check job output file for errors
             if job_output_file is not None:
