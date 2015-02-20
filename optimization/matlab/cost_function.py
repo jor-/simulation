@@ -1,10 +1,12 @@
 import argparse
+import sys
 import os.path
 import scipy.io
 import numpy as np
 
 import ndop.optimization.cost_function
 import util.logging
+logger = util.logging.get_logger()
 
 from ndop.optimization.matlab.constants import MATLAB_PARAMETER_FILENAME, MATLAB_F_FILENAME, MATLAB_DF_FILENAME, NODES_MAX_FILENAME, KIND_OF_COST_FUNCTIONS
 
@@ -26,7 +28,7 @@ args = vars(parser.parse_args())
 eval_function_value = args['eval_function_value']
 eval_grad_value = args['eval_grad_value']
 exchange_dir = args['exchange_dir']
-logging_file = args['debug_logging_file']
+log_file = args['debug_logging_file']
 kind_of_cost_function = args['kind_of_cost_function']
 years = args['years']
 tolerance = args['tolerance']
@@ -38,9 +40,9 @@ spinup_options = {'years':years, 'tolerance':tolerance, 'combination':combinatio
 
 
 
-with util.logging.Logger(logging_file=logging_file):
+with util.logging.Logger(log_file=log_file, disp_stdout=False):
     with np.errstate(invalid='ignore'):
-    
+        
         ## calculate file locations
         p_file = os.path.join(exchange_dir, MATLAB_PARAMETER_FILENAME)
         f_file = os.path.join(exchange_dir, MATLAB_F_FILENAME)
@@ -50,34 +52,31 @@ with util.logging.Logger(logging_file=logging_file):
         
         ## choose cost function
         df_accuracy_order = 2
-#         if kind_of_cost_function == 'WOA_OLS':
-#             cf = ndop.optimization.cost_function.WOA_Family(ndop.optimization.cost_function.WOA_OLS, years=years, tolerance=tolerance, combination=combination, job_nodes_max_file=job_nodes_max_file, df_accuracy_order=df_accuracy_order)
-#         elif kind_of_cost_function == 'WOA_WLS':
-#             cf = ndop.optimization.cost_function.WOA_Family(ndop.optimization.cost_function.WOA_WLS, years=years, tolerance=tolerance, combination=combination, job_nodes_max_file=job_nodes_max_file, df_accuracy_order=df_accuracy_order)
-#         elif kind_of_cost_function == 'WOD_OLS':
-#             cf = ndop.optimization.cost_function.WOD_Family(ndop.optimization.cost_function.WOD_OLS, years=years, tolerance=tolerance, combination=combination, job_nodes_max_file=job_nodes_max_file, df_accuracy_order=df_accuracy_order)
-#         elif kind_of_cost_function == 'WOD_WLS':
-#             cf = ndop.optimization.cost_function.WOD_Family(ndop.optimization.cost_function.WOD_WLS, years=years, tolerance=tolerance, combination=combination, job_nodes_max_file=job_nodes_max_file, df_accuracy_order=df_accuracy_order)
-#         elif kind_of_cost_function == 'WOD_GLS':
-#             cf = ndop.optimization.cost_function.WOD_Family(ndop.optimization.cost_function.WOD_GLS, years=years, tolerance=tolerance, combination=combination, job_nodes_max_file=job_nodes_max_file, df_accuracy_order=df_accuracy_order)
         
-        if kind_of_cost_function == 'WOA_OLS':
+        data_kind = kind_of_cost_function[:3]
+        cf_kind = kind_of_cost_function[4:]
+        if kind_of_cost_function[:3] == 'OLD':
+            data_kind = kind_of_cost_function[:7]
+            cf_kind = kind_of_cost_function[8:]
+#             job_setup = {}
+#             job_setup['spinup'] = {}
+#             job_setup['spinup']['nodes_setup'] = ('westmere', 8, 12)
+#             job_setup['derivative'] = {}
+#             job_setup['derivative']['nodes_setup'] = ('westmere', 4, 12)
+            job_setup=None
+        else:
+            job_setup=None
+        if cf_kind == 'OLS':
             cf_class = ndop.optimization.cost_function.OLS
-            data_kind = 'WOA'
-        elif kind_of_cost_function == 'WOA_WLS':
+        elif cf_kind == 'WLS':
             cf_class = ndop.optimization.cost_function.WLS
-            data_kind = 'WOA'
-        elif kind_of_cost_function == 'WOD_OLS':
-            cf_class = ndop.optimization.cost_function.OLS
-            data_kind = 'WOD'
-        elif kind_of_cost_function == 'WOD_WLS':
-            cf_class = ndop.optimization.cost_function.WLS
-            data_kind = 'WOD'
-        elif kind_of_cost_function == 'WOD_GLS':
+        elif cf_kind == 'GLS':
             cf_class = ndop.optimization.cost_function.GLS
-            data_kind = 'WOD'
-#         cf = ndop.optimization.cost_function.Family(cf_class, data_kind, spinup_options, time_step=1, df_accuracy_order=df_accuracy_order, job_setup=None)
-        cf = cf_class(data_kind, spinup_options, time_step=1, df_accuracy_order=df_accuracy_order, job_setup=None)
+        elif cf_kind == 'LWLS':
+            cf_class = ndop.optimization.cost_function.LWLS
+        else:
+            raise ValueError('Unknown cf kind {}.'.format(cf_kind))
+        cf = cf_class(data_kind, spinup_options, time_step=1, df_accuracy_order=df_accuracy_order, job_setup=job_setup)
         
         
         ## eval cost function

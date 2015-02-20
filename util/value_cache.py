@@ -1,26 +1,33 @@
 import os
-import logging
 import numpy as np
 
 from ndop.model.eval import Model
 
 import util.io
+import util.logging
+logger = util.logging.get_logger()
+
+import util.parallel.with_multiprocessing
 
 
 
 class Cache:
     
-    def __init__(self, spinup_options, time_step=1, df_accuracy_order=2, cache_dirname=None):
-        logging.debug('Initiating {} with cache dirname {} and time step {}.'.format(self.__class__.__name__, cache_dirname, time_step))
+    def __init__(self, spinup_options, time_step=1, df_accuracy_order=2, cache_dirname=None, use_memory_cache=True):
+        logger.debug('Initiating {} with cache dirname {}, spinup_options {} time step {}, df_accuracy_order {} and use_memory_cache {}.'.format(self.__class__.__name__, cache_dirname, spinup_options, time_step, df_accuracy_order, use_memory_cache))
         
+        ## prepare cache dirname
         if cache_dirname is None:
             cache_dirname = ''
         self.cache_dirname = cache_dirname
         
+        ## prepare model
         self.model = Model()
         
+        ## prepare time step
         self.time_step = time_step
         
+        ## prepare spinup options
         (years, tolerance, combination) = self.model.all_spinup_options(spinup_options)
         if combination == 'and':
             combination = True
@@ -30,6 +37,38 @@ class Cache:
             raise ValueError('Combination "{}" unknown.'.format(combination))
         spinup_options = (years, tolerance, combination, df_accuracy_order)
         self.spinup_options = spinup_options
+        
+        ## prepare memory cache
+        if use_memory_cache:
+            self.memory_cache = {}
+        else:
+            self.memory_cache = None
+        self.last_parameters = None
+    
+    
+    
+    ## access to memory cache
+    def load_memory_cache(self, parameters, filename):
+        if self.memory_cache is not None and self.last_parameters is not None and np.all(parameters == self.last_parameters):
+            try:
+                logger.debug('Loading value for {} from memory cache.'.format(filename))
+                value = self.memory_cache[filename]
+                return value
+            except KeyError:
+                logger.debug('Value for {} not found in memory cache.'.format(filename))
+                return None
+        else:
+            return None
+    
+    
+    def save_memory_cache(self, parameters, filename, value):
+        if self.memory_cache is not None:
+            logger.debug('Saving value for {} in memory cache.'.format(filename))
+            if self.last_parameters is None or np.any(parameters != self.last_parameters):
+                self.last_parameters = parameters
+                self.memory_cache = {}
+            self.memory_cache[filename] = value
+    
     
     
     ## access to cache
@@ -45,23 +84,33 @@ class Cache:
         
         return file
     
-    def load_file(self, parameters, filename):
+    
+    def load_file(self, parameters, filename, use_memmap=False, as_shared_array=False):
         file = self.get_file(parameters, filename)
         if file is not None and os.path.exists(file):
-            values = np.load(file)
-            logging.debug('Got values from {}.'.format(file))
+            if use_memmap or as_shared_array:
+                mem_map_mode = 'r'
+            else:
+                mem_map_mode = None
+            logger.debug('Loading value from {} with mem_map_mode {} and as_shared_array {}.'.format(file, mem_map_mode, as_shared_array))
+            value = np.load(file, mmap_mode=mem_map_mode)
+            if as_shared_array:
+                value = util.parallel.with_multiprocessing.shared_array(value)
         else:
-            values = None
-        return values
+            value = None
+        return value
     
-    def save_file(self, parameters, filename, values, save_also_txt=True):
+    
+    def save_file(self, parameters, filename, value, save_also_txt=True):
         file = self.get_file(parameters, filename)
+        if os.path.exists(file):
+            util.io.make_writable(file)
         if save_also_txt:
-            logging.debug('Saving value to {}.'.format(file))
-            util.io.save_npy_and_txt(values, file)
+            logger.debug('Saving value to {} and corresponding text file.'.format(file))
+            util.io.save_npy_and_txt(value, file)
         else:
-            logging.debug('Saving value to {} and corresponding text file.'.format(file))
-            util.io.save_npy(values, file)
+            logger.debug('Saving value to {}.'.format(file))
+            util.io.save_npy(value, file)
         util.io.make_read_only(file)
     
     
@@ -81,33 +130,46 @@ class Cache:
         else:
             matches = False
         
-        logging.debug('Needed spinup options {} match loaded spinup options {} is {}.'.format(needed_options, loaded_options, matches))
+        logger.debug('Needed spinup options {} match loaded spinup options {} is {}.'.format(needed_options, loaded_options, matches))
         
         return matches
     
     
     ## value
-    def get_value(self, parameters, filename, calculate_function, derivative_used=True, save_also_txt=True):
+    def get_value(self, parameters, filename, calculate_function, derivative_used=True, save_also_txt=True, use_memmap=False, as_shared_array=False):
         from .constants import OPTION_FILE_SUFFIX
         
         assert callable(calculate_function)
         
-        filename_root, filename_ext = os.path.splitext(filename)
-        option_filename = filename_root + OPTION_FILE_SUFFIX + filename_ext
+        ## try to load from memory cache
+        value = self.load_memory_cache(parameters, filename)
         
-        ## if matching load value
-        if self.matches_spinup_options(parameters, option_filename):
-            logging.debug('Value loading from {}.'.format(filename))
-            value = self.load_file(parameters, filename)
-        ## else calculate and save value
-        else:
-            logging.debug('Calculating value with {} and saving with filename {} with derivative_used {}.'.format(calculate_function, filename, derivative_used))
-            value = calculate_function(parameters)
-            self.save_file(parameters, filename, value, save_also_txt=save_also_txt)
-            spinup_options = self.spinup_options
-            if not derivative_used:
-                spinup_options = spinup_options[:-1]
-            self.save_file(parameters, option_filename, spinup_options, save_also_txt=True)
+        ## if not found try to load from file or calculate
+        if value is None:
+            filename_root, filename_ext = os.path.splitext(filename)
+            option_filename = filename_root + OPTION_FILE_SUFFIX + filename_ext
+            
+            is_matchig = self.matches_spinup_options(parameters, option_filename)
+            
+            ## if not matching calculate and save value
+            if not is_matchig:
+                ## calculating and saving value
+                logger.debug('Calculating value with {} and saving with filename {} with derivative_used {}.'.format(calculate_function, filename, derivative_used))
+                value = calculate_function(parameters)
+                self.save_file(parameters, filename, value, save_also_txt=save_also_txt)
+                
+                ## saving options
+                spinup_options = self.spinup_options
+                if not derivative_used:
+                    spinup_options = spinup_options[:-1]
+                self.save_file(parameters, option_filename, spinup_options, save_also_txt=True)
+            
+            ## load value if matching or memmap used
+            if is_matchig or use_memmap or as_shared_array:
+                value = self.load_file(parameters, filename, use_memmap=use_memmap, as_shared_array=as_shared_array)
+            
+            ## update memory cache
+            self.save_memory_cache(parameters, filename, value)
         
         return value
 

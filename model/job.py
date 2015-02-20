@@ -68,7 +68,7 @@ class Metos3D_Job(Job):
     
     @property
     def time_step(self):
-        from ndop.model.constants import MODEL_TIME_STEP_SIZE_MAX
+        from ndop.model.constants import METOS_T_DIM
         
         opt = self.options
         metos3d_opt_file = opt['/metos3d/option_file']
@@ -78,7 +78,7 @@ class Metos3D_Job(Job):
         for metos3d_opt_line in metos3d_opt_lines:
             if re.search('Metos3DTimeStepCount', metos3d_opt_line) is not None:
                 time_step_count = int(re.findall('\d+', metos3d_opt_line)[1])
-                time_step = int(MODEL_TIME_STEP_SIZE_MAX / time_step_count)
+                time_step = int(METOS_T_DIM / time_step_count)
         
         return time_step
     
@@ -101,6 +101,48 @@ class Metos3D_Job(Job):
             tracer_input_path = None
         
         return tracer_input_path
+    
+    
+    
+    @property
+    def metos3d_option_file(self):
+        return self.options['/metos3d/option_file']
+    
+    @property
+    def model_parameters_file(self):
+        return self.options['/model/parameters_file']
+    
+    @property
+    def dop_output_file(self):
+        try:
+            output_path = self.options['/metos3d/tracer_output_path']
+        except KeyError:
+            output_path = self.options['/metos3d/output_path']
+        return os.path.join(output_path, self.options['/metos3d/dop_output_filename'])
+    
+    @property
+    def po4_output_file(self):
+        try:
+            output_path = self.options['/metos3d/tracer_output_path']
+        except KeyError:
+            output_path = self.options['/metos3d/output_path']
+        return os.path.join(output_path, self.options['/metos3d/po4_output_filename'])
+    
+    
+    
+    def make_read_only_input(self, read_only=True):
+        super().make_read_only_input(read_only=read_only)
+        if read_only:
+            util.io.make_read_only(self.metos3d_option_file)
+            util.io.make_read_only(self.model_parameters_file)
+    
+    def make_read_only_output(self, read_only=True):
+        super().make_read_only_output(read_only=read_only)
+        if read_only:
+            util.io.make_read_only(self.dop_output_file)
+            util.io.make_read_only(self.po4_output_file)
+    
+    
     
     
     
@@ -146,16 +188,16 @@ class Metos3D_Job(Job):
     
 #     def init(self, model_parameters, years, tolerance, time_step=1, write_trajectory=False, tracer_input_path=None, nodes_setup=None, nodes_max=None, job_name_prefix=''):
     def init(self, model_parameters, years, tolerance, time_step=1, write_trajectory=False, tracer_input_path=None, job_setup=None):
-#         from ndop.model.constants import JOB_OPTIONS_FILENAME, JOB_MEMORY_GB, JOB_MIN_CPUS, MODEL_PARAMETERS_FORMAT_STRING, MODEL_TIME_STEP_SIZE_MAX, METOS_PATH_1, METOS_PATH_2
+#         from ndop.model.constants import JOB_OPTIONS_FILENAME, JOB_MEMORY_GB, JOB_MIN_CPUS, MODEL_PARAMETERS_FORMAT_STRING, METOS_T_DIM, METOS_PATH_1, METOS_PATH_2
 #         from util.rzcluster.constants import NODES_MAX
-        from ndop.model.constants import JOB_OPTIONS_FILENAME, JOB_MEMORY_GB, MODEL_PARAMETERS_FORMAT_STRING, MODEL_TIME_STEP_SIZE_MAX, METOS_PATH_1, METOS_PATH_2
+        from ndop.model.constants import JOB_OPTIONS_FILENAME, JOB_MEMORY_GB, MODEL_PARAMETERS_FORMAT_STRING, METOS_T_DIM, METOS_DATA_DIR, METOS_SIM_FILE# METOS_PATH_1, METOS_PATH_2
 
         logger.debug('Initialising job with job_setup {}.'.format(job_setup))
         
         
         ## check input
-        if MODEL_TIME_STEP_SIZE_MAX % time_step != 0:
-            raise ValueError('Wrong time_step passed. ' + str(MODEL_TIME_STEP_SIZE_MAX) + ' has to be divisible by time_step. But time_step is ' + str(time_step) + '.')
+        if METOS_T_DIM % time_step != 0:
+            raise ValueError('Wrong time_step passed. ' + str(METOS_T_DIM) + ' has to be divisible by time_step. But time_step is ' + str(time_step) + '.')
         
         
         ## unpack job setup
@@ -215,17 +257,12 @@ class Metos3D_Job(Job):
             nodes_setup = self.best_nodes_setup(years, nodes_max=nodes_max)
         
         ## chose walltime
-#         if years == 1:
-#             walltime_hours = 1
-#         elif years <= 250:
-#             walltime_hours = 3
-#         else:
-#             walltime_hours = 240
-        
         (best_kind, best_nodes, best_cpus) = nodes_setup
-        walltime_hours = np.ceil(years / (10 * best_nodes * best_cpus))
-        if best_kind != 'f_ocean2':
-            walltime_hours *= 4
+        if best_kind in ('f_ocean2', 'foexpress'):
+            factor = 1
+        else:
+            factor = 4
+        walltime_hours = np.ceil(factor * years / (10 * best_nodes * best_cpus))
         
         ## init job
         Job.init(self, job_name, JOB_MEMORY_GB, nodes_setup, walltime_hours=walltime_hours)
@@ -245,21 +282,23 @@ class Metos3D_Job(Job):
         opt['/model/parameters_file'] = os.path.join(output_path, 'model_parameter.txt')
         np.savetxt(opt['/model/parameters_file'], opt['/model/parameters'], fmt=MODEL_PARAMETERS_FORMAT_STRING)
         
-        time_step_count = int(MODEL_TIME_STEP_SIZE_MAX / time_step)
+        time_step_count = int(METOS_T_DIM / time_step)
         opt['/model/time_step_count'] = time_step_count
         opt['/model/time_step'] = 1 / time_step_count
         
         
         
         ## set metos3d options
-#         new_environment = True #self.queue in ('f_ocean', 'f_ocean2') or self.cpu_kind == 'amd256'
-#         if new_environment:
-        METOS_PATH = METOS_PATH_2
-#         else:
-#             METOS_PATH = METOS_PATH_1
-        opt['/metos3d/path'] = METOS_PATH
-        opt['/metos3d/data_path'] = os.path.join(METOS_PATH, 'data/Metos3DData')
-        opt['/metos3d/sim_file'] = os.path.join(METOS_PATH, 'simpack/metos3d-simpack-MITgcm-PO4-DOP.exe')
+# #         new_environment = True #self.queue in ('f_ocean', 'f_ocean2') or self.cpu_kind == 'amd256'
+# #         if new_environment:
+#         METOS_PATH = METOS_PATH_2
+# #         else:
+# #             METOS_PATH = METOS_PATH_1
+#         opt['/metos3d/path'] = METOS_PATH
+# #         opt['/metos3d/data_path'] = os.path.join(METOS_PATH, 'data/Metos3DData')
+# #         opt['/metos3d/sim_file'] = os.path.join(METOS_PATH, 'simpack/metos3d-simpack-MITgcm-PO4-DOP.exe')
+        opt['/metos3d/data_path'] = METOS_DATA_DIR
+        opt['/metos3d/sim_file'] = METOS_SIM_FILE
         opt['/metos3d/years'] = years
         opt['/metos3d/write_trajectory'] = write_trajectory
         if tolerance is not None:
@@ -306,7 +345,8 @@ class Metos3D_Job(Job):
     
         f.write('# geometry \n')
         f.write('-Metos3DGeometryType                    Profile \n')
-        f.write('-Metos3DProfileInputDirectory           %s/2.8/Geometry/ \n' % opt['/metos3d/data_path'])
+#         f.write('-Metos3DProfileInputDirectory           %s/2.8/Geometry/ \n' % opt['/metos3d/data_path'])
+        f.write('-Metos3DProfileInputDirectory           %s/Geometry/ \n' % opt['/metos3d/data_path'])
         f.write('-Metos3DProfileIndexStartFile           gStartIndices.bin \n')
         f.write('-Metos3DProfileIndexEndFile             gEndIndices.bin \n\n')
     
@@ -332,7 +372,8 @@ class Metos3D_Job(Job):
     
         f.write('# bgc boundary conditions \n')
         f.write('-Metos3DBoundaryConditionCount          2 \n')
-        f.write('-Metos3DBoundaryConditionInputDirectory %s/2.8/Forcing/BoundaryCondition/ \n' % opt['/metos3d/data_path'])
+#         f.write('-Metos3DBoundaryConditionInputDirectory %s/2.8/Forcing/BoundaryCondition/ \n' % opt['/metos3d/data_path'])
+        f.write('-Metos3DBoundaryConditionInputDirectory %s/Forcing/BoundaryCondition/ \n' % opt['/metos3d/data_path'])
         f.write('-Metos3DBoundaryConditionName           Latitude,IceCover \n')
         f.write('-Metos3DLatitudeCount                   1 \n')
         f.write('-Metos3DLatitudeFileFormat              latitude.petsc \n')
@@ -341,7 +382,8 @@ class Metos3D_Job(Job):
     
         f.write('# bgc domain conditions \n')
         f.write('-Metos3DDomainConditionCount            2 \n')
-        f.write('-Metos3DDomainConditionInputDirectory   %s/2.8/Forcing/DomainCondition/ \n' % opt['/metos3d/data_path'])
+#         f.write('-Metos3DDomainConditionInputDirectory   %s/2.8/Forcing/DomainCondition/ \n' % opt['/metos3d/data_path'])
+        f.write('-Metos3DDomainConditionInputDirectory   %s/Forcing/DomainCondition/ \n' % opt['/metos3d/data_path'])
         f.write('-Metos3DDomainConditionName             LayerDepth,LayerHeight \n')
         f.write('-Metos3DLayerDepthCount                 1 \n')
         f.write('-Metos3DLayerDepthFileFormat            z.petsc \n\n')
@@ -350,7 +392,8 @@ class Metos3D_Job(Job):
     
         f.write('# transport \n')
         f.write('-Metos3DTransportType                   Matrix \n')
-        f.write('-Metos3DMatrixInputDirectory            %s/2.8/Transport/Matrix5_4/1dt/ \n' % opt['/metos3d/data_path'])
+#         f.write('-Metos3DMatrixInputDirectory            %s/2.8/Transport/Matrix5_4/1dt/ \n' % opt['/metos3d/data_path'])
+        f.write('-Metos3DMatrixInputDirectory            %s/Transport/Matrix5_4/1dt/ \n' % opt['/metos3d/data_path'])
         f.write('-Metos3DMatrixCount                     12 \n')
         f.write('-Metos3DMatrixExplicitFileFormat        Ae_$02d.petsc \n')
         f.write('-Metos3DMatrixImplicitFileFormat        Ai_$02d.petsc \n\n')

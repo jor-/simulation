@@ -23,7 +23,7 @@ from ndop.model.job import Metos3D_Job
 
 class Model():
     
-    def __init__(self, job_setup=None, default_spinup_options={'years':10000, 'tolerance':0.0, 'combination':'or'}):
+    def __init__(self, job_setup=None, default_spinup_options={'years':10000, 'tolerance':0.0, 'combination':'or'}, df_options= {'years':100, 'step_size': 10**(-7)}):
         from .constants import MODEL_PARAMETER_LOWER_BOUND, MODEL_PARAMETER_UPPER_BOUND, MODEL_OUTPUT_DIR, METOS_TRACER_DIM
         
         logger.debug('Model initiated with job setup {} and default spinup options {}.'.format(job_setup, default_spinup_options))
@@ -90,6 +90,9 @@ class Model():
         ## default spinup options
         self.default_spinup_options = default_spinup_options
         
+        ## df options
+        self.df_options = df_options
+        
         ## parameter bounds
         self.parameters_lower_bound = MODEL_PARAMETER_LOWER_BOUND
         self.parameters_upper_bound = MODEL_PARAMETER_UPPER_BOUND
@@ -106,24 +109,24 @@ class Model():
         self._interpolator_cached = None
     
     
-    @property
-    def land_sea_mask(self):
-        """The land-sea-mask from metos3d as numpy array."""
-        
-        logger.debug('Getting land-sea-mask.')
-        
-        ## return land-sea-mask if loaded
-        try:
-            land_sea_mask = self.__land_sea_mask
-            logger.debug('Returning cached land-sea-mask.')
-        ## otherwise load land-sea-mask and return it
-        except AttributeError:
-            land_sea_mask = ndop.model.data.load_land_sea_mask()
-            self.__land_sea_mask = land_sea_mask
-        
-        logger.debug('Got land-sea-mask.')
-        
-        return land_sea_mask
+#     @property
+#     def land_sea_mask(self):
+#         """The land-sea-mask from metos3d as numpy array."""
+#         
+#         logger.debug('Getting land-sea-mask.')
+#         
+#         ## return land-sea-mask if loaded
+#         try:
+#             land_sea_mask = self.__land_sea_mask
+#             logger.debug('Returning cached land-sea-mask.')
+#         ## otherwise load land-sea-mask and return it
+#         except AttributeError:
+#             land_sea_mask = ndop.model.data.load_land_sea_mask()
+#             self.__land_sea_mask = land_sea_mask
+#         
+#         logger.debug('Got land-sea-mask.')
+#         
+#         return land_sea_mask
     
     
     
@@ -167,7 +170,7 @@ class Model():
     ## interpolate
     
     def _interpolate(self, data, interpolation_points, use_cache=False):
-        from .constants import MODEL_INTERPOLATOR_FILE, MODEL_INTERPOLATOR_AMOUNT_OF_WRAP_AROUND, MODEL_INTERPOLATOR_NUMBER_OF_LINEAR_INTERPOLATOR, MODEL_INTERPOLATOR_TOTAL_OVERLAPPING_OF_LINEAR_INTERPOLATOR
+        from .constants import MODEL_INTERPOLATOR_FILE, MODEL_INTERPOLATOR_AMOUNT_OF_WRAP_AROUND, MODEL_INTERPOLATOR_NUMBER_OF_LINEAR_INTERPOLATOR, MODEL_INTERPOLATOR_TOTAL_OVERLAPPING_OF_LINEAR_INTERPOLATOR, METOS_DIM
         
         data_points = data[:,:-1]
         data_values = data[:,-1]
@@ -186,7 +189,7 @@ class Model():
                 logger.debug('Returning interpolator loaded from {}.'.format(interpolator_file))
             ## if no interpolator exists, create new interpolator
             else:
-                interpolator = measurements.util.interpolate.Time_Periodic_Earth_Interpolater(data_points=data_points, data_values=data_values, t_len=1, wrap_around_amount=MODEL_INTERPOLATOR_AMOUNT_OF_WRAP_AROUND, number_of_linear_interpolators=MODEL_INTERPOLATOR_NUMBER_OF_LINEAR_INTERPOLATOR, total_overlapping_linear_interpolators=MODEL_INTERPOLATOR_TOTAL_OVERLAPPING_OF_LINEAR_INTERPOLATOR)
+                interpolator = util.math.interpolate.Periodic_Interpolator(data_points=data_points, data_values=data_values, point_range_size=METOS_DIM, scaling_values=(METOS_DIM[1]/METOS_DIM[0], None, None, None), wrap_around_amount=MODEL_INTERPOLATOR_AMOUNT_OF_WRAP_AROUND, number_of_linear_interpolators=MODEL_INTERPOLATOR_NUMBER_OF_LINEAR_INTERPOLATOR, total_overlapping_linear_interpolators=MODEL_INTERPOLATOR_TOTAL_OVERLAPPING_OF_LINEAR_INTERPOLATOR)
                 logger.debug('Returning new created interpolator.')
             
             self._interpolator_cached = interpolator
@@ -471,8 +474,7 @@ class Model():
         with Metos3D_Job(output_path) as job:
             job.init(model_parameters, years=years, tolerance=tolerance, time_step=time_step, write_trajectory=write_trajectory, tracer_input_path=tracer_input_path, job_setup=job_setup)
             job.start()
-            if make_read_only:
-                job.make_read_only()
+            job.make_read_only_input(make_read_only)
         
         ## wait to finish
         self.wait_until_job_finished(output_path, make_read_only=make_read_only, wait_seconds=wait_seconds)
@@ -486,12 +488,13 @@ class Model():
     def wait_until_job_finished(self, run_dir, make_read_only=True, wait_seconds=10):
         if wait_seconds:
             with Metos3D_Job(run_dir, force_load=True) as job:
-                if make_read_only:
-                    job.make_read_only()
+                job.make_read_only_input(make_read_only)
                 job.wait_until_finished(wait_seconds)
-            
-            if make_read_only:
-                util.io.make_read_only_recursively(run_dir, exclude_dir=True)
+                job.make_read_only_output(make_read_only)
+        
+#             if make_read_only:
+#                 job.make_read_only_output()
+#                 util.io.make_read_only_recursively(run_dir, exclude_dir=True)
         else:
             logger.debug('Not waiting for job to finish.')
             
@@ -746,41 +749,30 @@ class Model():
     
     
     def _get_load_trajectory_function_for_all(self, time_dim_desired):
-        
-#         def load_trajectory_function(trajectory_path, tracer_index):
-#             retry_count = 5
-#             tracer_trajectory = None
-#             while retry_count >= 1 and tracer_trajectory is None:
-#                 try:
-#                     trajectory = ndop.model.data.load_trajectories_to_index_array(trajectory_path, tracer_index=tracer_index, land_sea_mask=self.land_sea_mask, time_dim_desired=time_dim_desired)
-#                 except FileNotFoundError as e:
-#                     if retry_count > 0:
-#                         warnings.warn('PETSc vectors in {} not found. Waiting.'.format(trajectory_path))
-#                         retry_count -= 1
-#                         time.sleep(30)
-#                     else:
-#                         raise e
-#             return trajectory
-        
-        
-        load_trajectory_function = lambda trajectory_path, tracer_index : ndop.model.data.load_trajectories_to_index_array(trajectory_path, tracer_index, land_sea_mask=self.land_sea_mask, time_dim_desired=time_dim_desired)
+        load_trajectory_function = lambda trajectory_path, tracer_index : ndop.model.data.load_trajectories_to_map(trajectory_path, tracer_index, time_dim_desired=time_dim_desired)
         return load_trajectory_function
     
     
     
     def _get_load_trajectory_function_for_points(self, points):
+#         from .constants import METOS_T_DIM, METOS_X_DIM, METOS_Y_DIM, METOS_Z_CENTER
+        from .constants import LSM
+        
         ## discard year
         interpolation_points = []
         for tracer_points in points:
             tracer_interpolation_points = np.array(tracer_points, copy=True)
-            tracer_interpolation_points[:, 0] = tracer_interpolation_points[:, 0] % 1
+            tracer_interpolation_points[:, 0] = (tracer_interpolation_points[:, 0] % 1) * LSM.t_dim
+#             tracer_interpolation_points = measurements.util.interpolate.convert_coordinates_to_map_index(tracer_interpolation_points, (METOS_T_DIM, METOS_X_DIM, METOS_Y_DIM, METOS_Z_CENTER))
+            tracer_interpolation_points = LSM.coordinates_to_map_indices(tracer_interpolation_points)
             interpolation_points.append(tracer_interpolation_points)
         
         ## load function
         def load_trajectory_function(trajectory_path, tracer_index):
-            tracer_trajectory = ndop.model.data.load_trajectories_to_point_array(trajectory_path, tracer_index=tracer_index, land_sea_mask=self.land_sea_mask)
+            tracer_trajectory = ndop.model.data.load_trajectories_to_map_index_array(trajectory_path, tracer_index=tracer_index)
             interpolated_values_for_tracer = self._interpolate(tracer_trajectory, interpolation_points[tracer_index])
             return interpolated_values_for_tracer
+        
         return load_trajectory_function
     
     
@@ -795,7 +787,7 @@ class Model():
         return f
     
     
-    def f_all(self, parameters, time_dim_desired, spinup_options=None, time_step=1):
+    def f_boxes(self, parameters, time_dim_desired, spinup_options=None, time_step=1):
         logger.debug('Calculating all f values for parameters {} with time dimension {} and spinup options {}.'.format(parameters, time_dim_desired, spinup_options))
         
         f = self._f(self._get_load_trajectory_function_for_all(time_dim_desired), parameters, spinup_options, time_step=time_step)
@@ -820,7 +812,10 @@ class Model():
     
     
     def _df(self, load_trajectory_function, parameters, spinup_options=None, time_step=1, accuracy_order=2):
-        from .constants import MODEL_OUTPUT_DIR, MODEL_DERIVATIVE_DIRNAME, MODEL_SPINUP_DIRNAME, MODEL_PARTIAL_DERIVATIVE_DIRNAME, MODEL_DERIVATIVE_SPINUP_YEARS, METOS_TRACER_DIM, MODEL_START_FROM_CLOSEST_PARAMETER_SET
+        from .constants import MODEL_OUTPUT_DIR, MODEL_DERIVATIVE_DIRNAME, MODEL_SPINUP_DIRNAME, MODEL_PARTIAL_DERIVATIVE_DIRNAME, METOS_TRACER_DIM, MODEL_START_FROM_CLOSEST_PARAMETER_SET, MODEL_PARAMETER_TYPICAL
+        
+        MODEL_DERIVATIVE_SPINUP_YEARS = self.df_options['years']
+        MODEL_DERIVATIVE_STEP_SIZE = self.df_options['step_size']
         
         
         ## chose h factors
@@ -833,7 +828,7 @@ class Model():
         
         ## search directories
         parameter_set_dir = self.get_parameter_set_dir(time_step, parameters, create=True)
-        derivative_dir = os.path.join(parameter_set_dir, MODEL_DERIVATIVE_DIRNAME)
+        derivative_dir = os.path.join(parameter_set_dir, MODEL_DERIVATIVE_DIRNAME.format(MODEL_DERIVATIVE_STEP_SIZE))
         
         ## get spinup run
         years, tolerance, combination = self.all_spinup_options(spinup_options)
@@ -850,15 +845,15 @@ class Model():
             
             f = self._f(load_trajectory_function, parameters, {'years':spinup_run_years + MODEL_DERIVATIVE_SPINUP_YEARS, 'tolerance':0, 'combination':'or'}, time_step=time_step)
         
-        ## init df
-        df = [None] * METOS_TRACER_DIM
+        ## init values
         parameters_len = len(parameters)
         h_factors_len = len(h_factors)
         
-        eps = np.spacing(1)
-        eta = np.sqrt(eps) # square root of accuracy of F
-        eta = 10**(-7) # square root of accuracy of F
+#         eps = np.spacing(1)
+#         eta = np.sqrt(eps) # square root of accuracy of F
+#         eta = 10**(-7) # square root of accuracy of F
         h = np.empty((parameters_len, h_factors_len))
+        parameters_for_derivative = np.empty((parameters_len, h_factors_len, parameters_len))
         
         parameters_lower_bound = self.parameters_lower_bound
         parameters_upper_bound = self.parameters_upper_bound
@@ -868,33 +863,31 @@ class Model():
         
         ## start derivative runs
         for parameter_index in range(parameters_len):
-            h_i =  max(abs(parameters[parameter_index]), 10**(-1)) * eta
-#             if parameter_index == 6:
-#                 h_i *= 10**4
+            h_i = MODEL_PARAMETER_TYPICAL[parameter_index] * MODEL_DERIVATIVE_STEP_SIZE
             
             for h_factor_index in range(h_factors_len):
                 
                 ## prepare parameters for derivative
-                parameters_der = np.copy(parameters)
+                parameters_for_derivative[parameter_index, h_factor_index] = np.copy(parameters)
                 h[parameter_index, h_factor_index] = h_factors[h_factor_index] * h_i
-                parameters_der[parameter_index] += h[parameter_index, h_factor_index]
+                parameters_for_derivative[parameter_index, h_factor_index, parameter_index] += h[parameter_index, h_factor_index]
                 
                 ## consider bounds
-                violates_lower_bound = parameters_der[parameter_index] < parameters_lower_bound[parameter_index]
-                violates_upper_bound = parameters_der[parameter_index] > parameters_upper_bound[parameter_index]
+                violates_lower_bound = parameters_for_derivative[parameter_index, h_factor_index, parameter_index] < parameters_lower_bound[parameter_index]
+                violates_upper_bound = parameters_for_derivative[parameter_index, h_factor_index, parameter_index] > parameters_upper_bound[parameter_index]
                 
                 if accuracy_order == 1:
                     if violates_lower_bound or violates_upper_bound:
                         h[parameter_index, h_factor_index] *= -1
-                        parameters_der[parameter_index] = parameters[parameter_index] + h[parameter_index, h_factor_index]
+                        parameters_for_derivative[parameter_index, h_factor_index, parameter_index] = parameters[parameter_index] + h[parameter_index, h_factor_index]
                 else:
                     if violates_lower_bound:
-                        parameters_der[parameter_index] = parameters_lower_bound[parameter_index]
+                        parameters_for_derivative[parameter_index, h_factor_index, parameter_index] = parameters_lower_bound[parameter_index]
                     elif violates_upper_bound:
-                        parameters_der[parameter_index] = parameters_upper_bound[parameter_index]
+                        parameters_for_derivative[parameter_index, h_factor_index, parameter_index] = parameters_upper_bound[parameter_index]
                 
-                ## calculate h
-                h[parameter_index, h_factor_index] = parameters_der[parameter_index] - parameters[parameter_index] # improvement of accuracy of h
+                ## calculate h   (improvement of accuracy of h)
+                h[parameter_index, h_factor_index] = parameters_for_derivative[parameter_index, h_factor_index, parameter_index] - parameters[parameter_index] 
                 
                 logger.debug('Calculating finite differences approximation for parameter index {} with h value {}.'.format(parameter_index, h[parameter_index, h_factor_index]))
                 
@@ -914,15 +907,17 @@ class Model():
                             nodes_max = job_setup['nodes_max']
                         except KeyError:
                             nodes_max = None
-                        job_setup['nodes_setup'] = self.best_nodes_setup(years, nodes_max=nodes_max)
+                        job_setup['nodes_setup'] = Metos3D_Job.best_nodes_setup(years, nodes_max=nodes_max)
                     
                     ## start job
-                    partial_derivative_run_dir = self.make_run(partial_derivative_dir, parameters_der, MODEL_DERIVATIVE_SPINUP_YEARS, 0, time_step, job_setup, tracer_input_path=spinup_run_dir, wait_seconds=False)
+                    partial_derivative_run_dir = self.make_run(partial_derivative_dir, parameters_for_derivative[parameter_index, h_factor_index], MODEL_DERIVATIVE_SPINUP_YEARS, 0, time_step, job_setup, tracer_input_path=spinup_run_dir, wait_seconds=False)
                 
                 partial_derivative_run_dirs[parameter_index, h_factor_index] = partial_derivative_run_dir
         
         
         ## make trajectories and calculate df
+        df = [None] * METOS_TRACER_DIM
+        
         for parameter_index in range(parameters_len):
             for h_factor_index in range(h_factors_len):
                 ## wait partial derivative run to finish
@@ -930,7 +925,7 @@ class Model():
                 self.wait_until_job_finished(partial_derivative_run_dir, wait_seconds=self.wait_seconds_derivative)
                 
                 ## get trajectory and add to df
-                trajectory = self._get_trajectory(load_trajectory_function, partial_derivative_run_dir, parameters)
+                trajectory = self._get_trajectory(load_trajectory_function, partial_derivative_run_dir, parameters_for_derivative[parameter_index, h_factor_index])
                 for tracer_index in range(METOS_TRACER_DIM):
                     if df[tracer_index] is None:
                         df[tracer_index] = np.zeros((parameters_len,) + trajectory[tracer_index].shape)
@@ -947,7 +942,7 @@ class Model():
         return df
     
     
-    def df_all(self, parameters, time_dim_desired, spinup_options=None, time_step=1, accuracy_order=2):
+    def df_boxes(self, parameters, time_dim_desired, spinup_options=None, time_step=1, accuracy_order=2):
         logger.debug('Calculating all df values for parameters {} with time dimension {}, spinup options {} and accuracy order {}.'.format(parameters, time_dim_desired, spinup_options, accuracy_order))
         
         df = self._df(self._get_load_trajectory_function_for_all(time_dim_desired=time_dim_desired), parameters, spinup_options, time_step=time_step, accuracy_order=accuracy_order)

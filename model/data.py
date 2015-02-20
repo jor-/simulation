@@ -3,71 +3,49 @@ import itertools
 import numpy as np
 import logging
 
-import measurements.land_sea_mask.load
-# import measurements.util.regrid
-# import util.pattern
 import util.petsc.universal
 
 
-## get land sea mask
-
-def _check_land_sea_mask(land_sea_mask):
-    from ndop.model.constants import METOS_DIM
-    
-    ## check input
-    if land_sea_mask.ndim != 2:
-        raise ValueError('The land sea mask must have 2 dimensions, but its shape is {}.'.format(land_sea_mask.shape))
-    metos_shape = tuple(METOS_DIM[0:2])
-    if land_sea_mask.shape != metos_shape:
-        raise ValueError('The land sea mask must have the shape {}, but its shape is {}.'.format(metos_shape, land_sea_mask.shape))
+# ## get land sea mask
+# 
+# def _check_land_sea_mask(land_sea_mask):
+#     from ndop.model.constants import METOS_SPACE_DIM
+#     
+#     ## check input
+#     if land_sea_mask.ndim != 2:
+#         raise ValueError('The land sea mask must have 2 dimensions, but its shape is {}.'.format(land_sea_mask.shape))
+#     metos_shape = METOS_SPACE_DIM[0:2]
+#     if land_sea_mask.shape != metos_shape:
+#         raise ValueError('The land sea mask must have the shape {}, but its shape is {}.'.format(metos_shape, land_sea_mask.shape))
 #     assert land_sea_mask.ndim == 2
 #     assert land_sea_mask.shape == METOS_DIM[0:2]
 
 
-def load_land_sea_mask():
-    return measurements.land_sea_mask.load.resolution_128x64x15()
-#     from ndop.model.constants import METOS_LAND_SEA_MASK_FILE_PETSC, METOS_LAND_SEA_MASK_FILE_NPY
-#     
-#     try:
-#         land_sea_mask = np.load(METOS_LAND_SEA_MASK_FILE_NPY)
-#         
-#         logging.debug('Returning land-sea-mask loaded from {} file.'.format(METOS_LAND_SEA_MASK_FILE_NPY))
-#         
-#     except (OSError, IOError):
-#         land_sea_mask = util.petsc.universal.load_petsc_mat_to_array(METOS_LAND_SEA_MASK_FILE_PETSC, dtype=int)
-#         land_sea_mask = land_sea_mask.transpose() # metos3d: x and y are changed
-#         
-#         logging.debug('Saving land-sea-mask to {} file.'.format(METOS_LAND_SEA_MASK_FILE_NPY))
-#         
-#         np.save(METOS_LAND_SEA_MASK_FILE_NPY, land_sea_mask)
-#         
-#         logging.debug('Returning land-sea-mask loaded from petsc file.')
-#     
-#     _check_land_sea_mask(land_sea_mask)
-#     
-#     return land_sea_mask
+# def load_land_sea_mask():
+#     from ndop.model.constants import LSM
+#     return LSM.lsm
+#     return measurements.land_sea_mask.load.resolution_128x64x15()
 
 
 
 ## convert Metos vector to 3D vector
 
-def convert_metos_1D_to_3D(metos_vec, land_sea_mask):
-    from ndop.model.constants import METOS_Z_DIM
-    
-    x_dim, y_dim = land_sea_mask.shape
+def convert_metos_1D_to_3D(metos_vec):
+#     from ndop.model.constants import METOS_X_DIM, METOS_Y_DIM, METOS_Z_DIM
+    from ndop.model.constants import LSM
     
     ## init array
-    array = np.empty([x_dim, y_dim, METOS_Z_DIM], dtype=np.float64)
+    array = np.empty([LSM.x_dim, LSM.y_dim, LSM.z_dim], dtype=np.float64)
     array.fill(np.nan)
     
     ## fill array
     logging.debug('Converting metos {} vector to {} matrix.'.format(metos_vec.shape, array.shape))
     
     offset = 0
-    for iy in range(y_dim):
-        for ix in range(x_dim):
-            length = land_sea_mask[ix, iy]
-            if not length == 0:
+    for iy in range(LSM.y_dim):
+        for ix in range(LSM.x_dim):
+            length = LSM[ix, iy]
+            if length > 0:
                 array[ix, iy, 0:length] = metos_vec[offset:offset+length]
                 offset = offset + length
     
@@ -75,27 +53,48 @@ def convert_metos_1D_to_3D(metos_vec, land_sea_mask):
 
 
 
+def convert_3D_to_metos_1D(data):
+    assert data.ndim == 3
+    
+    metos_vec_len = np.sum(~np.isnan(data))
+    metos_vec = np.empty(metos_vec_len)
+    x_dim, y_dim, z_dim = data.shape
+    
+    offset = 0
+    for iy in range(y_dim):
+        for ix in range(x_dim):
+            data_x_y = data[ix, iy]
+            mask = ~ np.isnan(data_x_y)
+            length = sum(mask)
+            if length > 0:
+                metos_vec[offset:offset+length] = data_x_y[mask]
+                offset = offset + length
+    
+    return metos_vec
+            
+
+
 
 
 ## load trajectory
 
-def load_trajectories_to_universal(path, convert_function=None, converted_result_shape=None, tracer_indices=None, time_dim_desired=None):
-    from ndop.model.constants import MODEL_TIME_STEP_SIZE_MAX, METOS_TRAJECTORY_FILENAMES
+def load_trajectories_to_universal(path, convert_function=None, converted_result_shape=None, tracer_indices=None, time_dim_desired=None, set_negative_values_to_zero=False):
+    from ndop.model.constants import METOS_T_DIM, METOS_TRAJECTORY_FILENAMES
     
-    logging.debug('Loading trajectories with tracer indices {}, desired time dim {} and convert function {} with result shape {} from {}.'.format(tracer_indices,  time_dim_desired, convert_function, converted_result_shape, path))
+    logging.debug('Loading trajectories with tracer indices {}, desired time dim {}, set_negative_values_to_zero {} and convert function {} with result shape {} from {}.'.format(tracer_indices, time_dim_desired, set_negative_values_to_zero, convert_function, converted_result_shape, path))
     
     
     ## check input
     
 #     # check time_step_size
-#     if MODEL_TIME_STEP_SIZE_MAX % time_step_size != 0:
-#         raise ValueError('The time step size {} must be wrong. It has to be a divider of {}.'.format(time_step_size, MODEL_TIME_STEP_SIZE_MAX))
+#     if METOS_T_DIM % time_step_size != 0:
+#         raise ValueError('The time step size {} must be wrong. It has to be a divider of {}.'.format(time_step_size, METOS_T_DIM))
 #     
-#     assert MODEL_TIME_STEP_SIZE_MAX % time_step_size == 0
+#     assert METOS_T_DIM % time_step_size == 0
 #     
 #     
 #     # check t_dim
-#     number_of_petsc_vecs = MODEL_TIME_STEP_SIZE_MAX / time_step_size
+#     number_of_petsc_vecs = METOS_T_DIM / time_step_size
     
     
     # check tracer_indices
@@ -131,10 +130,9 @@ def load_trajectories_to_universal(path, convert_function=None, converted_result
     
     
     ## calculate number_of_petsc_vecs
-    number_of_petsc_vecs = MODEL_TIME_STEP_SIZE_MAX
+    number_of_petsc_vecs = METOS_T_DIM
     number_of_petsc_vecs_found = False
     while not number_of_petsc_vecs_found:
-#         filename = util.pattern.replace_int_pattern(METOS_TRAJECTORY_FILENAMES[0], number_of_petsc_vecs - 1)
         filename = METOS_TRAJECTORY_FILENAMES[0].format(number_of_petsc_vecs - 1)
         file = os.path.join(path, filename)
         if not os.path.exists(file):
@@ -167,7 +165,7 @@ def load_trajectories_to_universal(path, convert_function=None, converted_result
     if converted_result_shape is None:
         filename = METOS_TRAJECTORY_FILENAMES[0].format(0)
         file = os.path.join(path, filename)
-        trajectory = util.petsc.universal.load_petsc_vec_to_array(file)
+        trajectory = util.petsc.universal.load_petsc_vec_to_numpy_array(file)
         converted_result_shape = convert_function(trajectory).shape
     
     tracer_indices_len = len(tracer_indices)
@@ -188,13 +186,19 @@ def load_trajectories_to_universal(path, convert_function=None, converted_result
             
             ## average trajectory
             for k in range(t_step):
+                ## prepare filename
                 file_nr = time_index * t_step + k
                 filename = file_pattern.format(file_nr)
                 file = os.path.join(path, filename)
+                
+                ## load vector and average
+                vec = util.petsc.universal.load_petsc_vec_to_numpy_array(file)
+                if set_negative_values_to_zero:
+                    vec[vec < 0] = 0
                 if k == 0:
-                    trajectory_averaged = util.petsc.universal.load_petsc_vec_to_array(file)
+                    trajectory_averaged = vec
                 else:
-                    trajectory_averaged += util.petsc.universal.load_petsc_vec_to_array(file)
+                    trajectory_averaged += vec
                 
             trajectory_averaged /= t_step
             
@@ -221,28 +225,15 @@ def _check_tracer_index(tracer_index):
     
 
 
-def load_trajectories_to_index_array(path, tracer_index, land_sea_mask, time_dim_desired=None):
-    from ndop.model.constants import METOS_DIM
-    
-#     
-#     ## check input
-#     if land_sea_mask.ndim != 2:
-#         raise ValueError('The land sea mask must have 2 dimensions but its shape is {}.'.format(land_sea_mask.shape))
-#     assert land_sea_mask.ndim == 2
-#     assert land_sea_mask.shape == METOS_DIM[0:2]
-#     
-#     tracer_index_array = np.asanyarray(tracer_index, dtype=np.int)
-#     if tracer_index_array.ndim != 0:
-#         raise ValueError('The tracer index must be an int, but its {}.'.format(tracer_index))
-    
+def load_trajectories_to_map(path, tracer_index, time_dim_desired=None):
+    from ndop.model.constants import METOS_SPACE_DIM
     
     ## check input
-    _check_land_sea_mask(land_sea_mask)
     _check_tracer_index(tracer_index)
     
     ## load trajectory
-    convert_function = lambda metos_vec: convert_metos_1D_to_3D(metos_vec, land_sea_mask)
-    trajectory = load_trajectories_to_universal(path, convert_function=convert_function, converted_result_shape=METOS_DIM, tracer_indices=tracer_index, time_dim_desired=time_dim_desired)
+    convert_function = lambda metos_vec: convert_metos_1D_to_3D(metos_vec)
+    trajectory = load_trajectories_to_universal(path, convert_function=convert_function, converted_result_shape=METOS_SPACE_DIM, tracer_indices=tracer_index, time_dim_desired=time_dim_desired)
     trajectory = trajectory[0]
     
     assert trajectory.ndim == 4
@@ -251,16 +242,13 @@ def load_trajectories_to_index_array(path, tracer_index, land_sea_mask, time_dim
 
 
 
-def load_trajectories_to_point_array(path, tracer_index, land_sea_mask, time_dim_desired=None):
-    from ndop.model.constants import METOS_DIM, METOS_Z_CENTER
-    
+def load_trajectories_to_map_index_array(path, tracer_index, time_dim_desired=None):
     ## check input
-    _check_land_sea_mask(land_sea_mask)
     _check_tracer_index(tracer_index)
     
     ## load trajectory with universal function
     def convert_function(metos_vec):
-        trajectory = convert_metos_1D_to_3D(metos_vec, land_sea_mask)
+        trajectory = convert_metos_1D_to_3D(metos_vec)
         data_mask = np.logical_not(np.isnan(trajectory))
         
         data_indices = np.array(np.where(data_mask)).swapaxes(0, 1)
@@ -287,27 +275,17 @@ def load_trajectories_to_point_array(path, tracer_index, land_sea_mask, time_dim
     t_dim, point_len_per_t, point_dim  = trajectory.shape
     trajectory_point_array = np.empty((t_dim * point_len_per_t, point_dim + 1))
     for t_index in range(t_dim):
-        trajectory_point_array[t_index*point_len_per_t : (t_index+1)*point_len_per_t, 0] = t_index / t_dim
+#         trajectory_point_array[t_index*point_len_per_t : (t_index+1)*point_len_per_t, 0] = t_index / t_dim
+        trajectory_point_array[t_index*point_len_per_t : (t_index+1)*point_len_per_t, 0] = t_index
         trajectory_point_array[t_index*point_len_per_t : (t_index+1)*point_len_per_t, 1:] = trajectory[t_index]
     
-    ## convert metos indices to point values
-    trajectory_point_array[:, 1] *= 360 / METOS_DIM[1]
-    trajectory_point_array[:, 2] *= 180 / METOS_DIM[2]
-    trajectory_point_array[:, 3] = METOS_Z_CENTER[trajectory_point_array[:, 3].astype(dtype=np.int)]
+#     ## convert metos indices to point values
+#     trajectory_point_array[:, 1] = (trajectory_point_array[:, 1] + 0.5) * 360 / METOS_X_DIM
+#     trajectory_point_array[:, 2] = (trajectory_point_array[:, 2] + 0.5) * 180 / METOS_Y_DIM - 90
+#     trajectory_point_array[:, 3] = METOS_Z_CENTER[trajectory_point_array[:, 3].astype(dtype=np.int)]
     
     assert trajectory_point_array.ndim == 2
     assert trajectory_point_array.shape[1] == 5
     
     return trajectory_point_array
 
-
-
-
-
-
-
-
-# def convert_point_to_box_index(t, x, y, z, t_dim, land_sea_mask):
-#     from ndop.model.constants import METOS_T_RANGE, METOS_X_RANGE, METOS_Y_RANGE, METOS_Z
-#     
-#     return measurements.util.regrid.convert_point_to_box_index(t, x, y, z, t_dim, land_sea_mask, METOS_Z, t_range=METOS_T_RANGE, x_range=METOS_X_RANGE, y_range=METOS_Y_RANGE)
