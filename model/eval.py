@@ -1,22 +1,21 @@
 import os
-import warnings
-import tempfile
 import stat
-import time
+import tempfile
+import warnings
+
 import numpy as np
-import multiprocessing
-import multiprocessing.pool
-
-import logging
-logger = logging.getLogger(__name__)
-
-import util.io
-import util.pattern
-import util.math.interpolate
-import measurements.util.interpolate
 
 import ndop.model.data
-from ndop.model.job import Metos3D_Job
+import ndop.model.job
+
+import measurements.util.interpolate
+
+import util.io.fs
+import util.pattern
+import util.math.interpolate
+
+import util.logging
+logger = util.logging.logger
 
 
 # spinup_options: years, tolerance=0, combination='or'
@@ -36,7 +35,6 @@ class Model():
         job_setup_collection = {}
         keys = list(job_setup.keys())
         kinds = ['spinup', 'derivative', 'trajectory']
-#         if 'spinup' in keys or 'derivative' in keys or 'trajectory' in keys:
         if any(kind in keys for kind in kinds):
             job_setup_collection = job_setup
         else:
@@ -100,10 +98,10 @@ class Model():
         ## model output dir
         self.model_output_dir = MODEL_OUTPUT_DIR
         
-        ## wait second
-        self.wait_seconds_spinup = 120
-        self.wait_seconds_derivative = 60
-        self.wait_seconds_trajectory = 10
+        # ## wait second
+        # self.wait_seconds_spinup = 120
+        # self.wait_seconds_derivative = 60
+        # self.wait_seconds_trajectory = 10
         
         ## empty interpolator cache
         self._interpolator_cached = None
@@ -156,12 +154,13 @@ class Model():
     
     
     def get_parameters_diff(self, parameters, parameter_set_dir):
-        from .constants import MODEL_PARAMETERS_FILENAME
+        from .constants import MODEL_PARAMETERS_FILENAME, MODEL_PARAMETERS_MAX_REL_DIFF, MODEL_PARAMETERS_MAX_ABS_DIFF
         
         parameters_file = os.path.join(parameter_set_dir, MODEL_PARAMETERS_FILENAME)
         current_parameters = np.loadtxt(parameters_file)
         
-        parameter_diff = np.linalg.norm(parameters - current_parameters)
+        parameter_diffs = np.abs(parameters - current_parameters) / np.maximum(np.abs(parameters), MODEL_PARAMETERS_MAX_ABS_DIFF/MODEL_PARAMETERS_MAX_REL_DIFF)
+        parameter_diff = parameter_diffs.max()
         
         return parameter_diff
     
@@ -250,14 +249,14 @@ class Model():
         
         ## if time step dir exists, search for matching parameter set 
         if time_step_dir is not None:
-            from .constants import MODEL_PARAMETERS_MAX_DIFF, MODEL_SPINUP_DIRNAME
+            from .constants import MODEL_SPINUP_DIRNAME
             
             logger.debug('Searching for directory for parameters as close as possible to {} in {}.'.format(parameters, time_step_dir))
             
             ## search for parameter set directories with nearby parameters
             parameter_set_number = 0
             
-            parameter_set_dirs = util.io.get_dirs(time_step_dir)
+            parameter_set_dirs = util.io.fs.get_dirs(time_step_dir)
             number_of_parameter_set_dirs = len(parameter_set_dirs)
             while closest_parameters_diff > 0 and parameter_set_number < number_of_parameter_set_dirs:
                 current_parameter_set_dir = parameter_set_dirs[parameter_set_number]
@@ -294,29 +293,29 @@ class Model():
     
     
     def get_parameter_set_dir(self, time_step, parameters, create=True):
-        from .constants import MODEL_PARAMETERS_MAX_DIFF
+        from .constants import MODEL_PARAMETERS_MAX_REL_DIFF
         
         ## search for directories with matching parameters
-        logger.debug('Searching parameter directory for time_step {} and parameters {}.'.format(time_step, parameters))
+        logger.debug('Searching parameter directory for time_step {} and parameters {} with create {}.'.format(time_step, parameters, create))
         
         parameter_set_dir = self.get_closest_parameter_set_dir(time_step, parameters, no_spinup_okay=True)
         if parameter_set_dir is not None:
             parameters_diff = self.get_parameters_diff(parameters, parameter_set_dir)
-            if parameters_diff > MODEL_PARAMETERS_MAX_DIFF:
+            if parameters_diff > MODEL_PARAMETERS_MAX_REL_DIFF:
                 parameter_set_dir = None
         
         
         ## make new model_output if the parameters are not matching
         if parameter_set_dir is None:
             if create:
-                from .constants import MODEL_PARAMETERS_SET_DIRNAME, MODEL_PARAMETERS_FILENAME, MODEL_PARAMETERS_FORMAT_STRING
+                from .constants import MODEL_PARAMETERS_SET_DIRNAME, MODEL_PARAMETERS_FILENAME, MODEL_PARAMETERS_FORMAT_STRING_OLD_STYLE
                 
                 time_step_dir = self.get_time_step_dir(time_step, create=True)
                 
-#                 number_of_parameter_set_dirs = len(util.io.get_dirs(time_step_dir))
+#                 number_of_parameter_set_dirs = len(util.io.fs.get_dirs(time_step_dir))
 #                 parameter_set_dirname = util.pattern.replace_int_pattern(MODEL_PARAMETERS_SET_DIRNAME, number_of_parameter_set_dirs)
                 ## search free index
-                free_parameter_set_dir_number = len(util.io.get_dirs(time_step_dir))
+                free_parameter_set_dir_number = len(util.io.fs.get_dirs(time_step_dir))
                 free_parameter_set_dir_number = 0
                 found = False
                 while not found:
@@ -329,7 +328,7 @@ class Model():
                 os.makedirs(parameter_set_dir)
                 
                 parameters_file = os.path.join(parameter_set_dir, MODEL_PARAMETERS_FILENAME)
-                np.savetxt(parameters_file, parameters, fmt=MODEL_PARAMETERS_FORMAT_STRING)
+                np.savetxt(parameters_file, parameters, fmt=MODEL_PARAMETERS_FORMAT_STRING_OLD_STYLE)
                 os.chmod(parameters_file, stat.S_IRUSR)
                 
                 logger.debug('Directory for parameters created in {}.'.format(parameter_set_dir))
@@ -338,6 +337,7 @@ class Model():
         else:
             logger.debug('Matching directory for parameters found at {}.'.format(parameter_set_dir))
         
+        assert parameter_set_dir is not None or not create
         return parameter_set_dir
     
     
@@ -375,13 +375,15 @@ class Model():
             
             ## finish last run
             if last_run_dir is not None:
-                self.wait_until_job_finished(last_run_dir, wait_seconds=self.wait_seconds_spinup)
+                # self.wait_until_job_finished(last_run_dir, wait_seconds=self.wait_seconds_spinup)
+                self.wait_until_job_finished(last_run_dir)
             
             ## make new run
             years, tolerance, combination = self.all_spinup_options(spinup_options)
             
             if combination == 'or':
-                run_dir = self.make_run(spinup_dir, parameters, years, tolerance, time_step, self.job_setup_collection['spinup'], tracer_input_path=last_run_dir, wait_seconds=self.wait_seconds_spinup)
+                # run_dir = self.make_run(spinup_dir, parameters, years, tolerance, time_step, self.job_setup_collection['spinup'], tracer_input_path=last_run_dir, wait_seconds=self.wait_seconds_spinup)
+                run_dir = self.make_run(spinup_dir, parameters, years, tolerance, time_step, self.job_setup_collection['spinup'], tracer_input_path=last_run_dir)
             elif combination == 'and':
                 run_dir = self.get_spinup_run_dir(parameter_set_dir, {'years':years, 'tolerance':0, 'combination':'or'}, start_from_closest_parameters)
                 run_dir = self.get_spinup_run_dir(parameter_set_dir, {'years':MODEL_SPINUP_MAX_YEARS, 'tolerance':tolerance, 'combination':'or'}, start_from_closest_parameters)
@@ -392,19 +394,18 @@ class Model():
     
     
     
-    def make_run(self, output_path, parameters, years, tolerance, time_step, job_setup, tracer_input_path=None, wait_seconds=30):
+    def make_run(self, output_path, parameters, years, tolerance, time_step, job_setup, tracer_input_path=None, wait_until_finished=True):
         from .constants import MODEL_RUN_DIRNAME, MODEL_RUN_OPTIONS_FILENAME
         
         ## check parameters
         self.check_if_parameters_in_bounds(parameters)
         
         ## get next run index
-        util.io.makedirs_if_not_exists(output_path)
+        util.io.fs.makedirs_if_not_exists(output_path)
         run_dirs = self.get_run_dirs(output_path)
         next_run_index = len(run_dirs)
         
         ## create run dir
-#         run_dirname = util.pattern.replace_int_pattern(MODEL_RUN_DIRNAME, next_run_index)
         run_dirname = MODEL_RUN_DIRNAME.format(next_run_index)
         run_dir = os.path.join(output_path, run_dirname)
         
@@ -423,8 +424,8 @@ class Model():
             last_years = self.get_total_years(tracer_input_path)
         else:
             last_years = 0
-            
-        self.run_job(parameters, run_dir, years-last_years, tolerance, time_step, job_setup, tracer_input_path=tracer_input_path, wait_seconds=wait_seconds)
+        
+        self.run_job(parameters, run_dir, years-last_years, tolerance, time_step, job_setup, tracer_input_path=tracer_input_path, wait_until_finished=wait_until_finished)
         
         return run_dir
     
@@ -433,8 +434,8 @@ class Model():
     
     ## run job
     
-    def run_job(self, model_parameters, output_path, years, tolerance, time_step, job_setup, write_trajectory=False, tracer_input_path=None, wait_seconds=30, make_read_only=True):
-        logger.debug('Running job with years {} tolerance {} time_step {} tracer_input_path {}'.format(years, tolerance, time_step, tracer_input_path))
+    def run_job(self, model_parameters, output_path, years, tolerance, time_step, job_setup, write_trajectory=False, tracer_input_path=None, make_read_only=True, wait_until_finished=True):
+        logger.debug('Running job with years {} tolerance {} time_step {} tracer_input_path {}.'.format(years, tolerance, time_step, tracer_input_path))
         assert years >= 0
         assert tolerance >= 0
         assert time_step >= 1
@@ -442,62 +443,24 @@ class Model():
         ## check parameters
         self.check_if_parameters_in_bounds(model_parameters)
         
-#         ## load max nodes
-#         nodes_max_file = self.job_nodes_max_file
-#         if nodes_max_file is not None:
-#             try:
-#                 nodes_max = np.loadtxt(nodes_max_file)
-#             except (OSError, IOError):
-#                 warnings.warn('The nodes_max_file {} could not been read.'.format(nodes_max_file))
-#                 nodes_max = None
-#         else:
-#             nodes_max = None
-#         nodes_max = self.job_nodes_max_file
-#         
-#         nodes_setup = self.job_nodes_setup
-        
-        ## get job setup
-#         if job_setup is None:
-#             job_setup = self.job_setup.copy()
-#             try:
-#                 nodes_max = job_setup['nodes_max']
-#             except KeyError:
-#                 nodes_max = None
-#             job_setup['nodes_setup'] = Metos3D_Job.best_nodes_setup(years, nodes_max=nodes_max)
-#         job_setup = self.job_setup
-#         if job_setup is not None:
-#             job_setup = job_setup.copy()
-#             if years <= 250:
-#                 job_setup['nodes_setup'] = None
-        
         ## execute job
-        with Metos3D_Job(output_path) as job:
-            job.init(model_parameters, years=years, tolerance=tolerance, time_step=time_step, write_trajectory=write_trajectory, tracer_input_path=tracer_input_path, job_setup=job_setup)
+        with ndop.model.job.Metos3D_Job(output_path) as job:
+            job.write_job_file(model_parameters, years=years, tolerance=tolerance, time_step=time_step, write_trajectory=write_trajectory, tracer_input_path=tracer_input_path, job_setup=job_setup)
             job.start()
             job.make_read_only_input(make_read_only)
         
         ## wait to finish
-        self.wait_until_job_finished(output_path, make_read_only=make_read_only, wait_seconds=wait_seconds)
-#             job.wait_until_finished(wait_seconds)
-#         
-#         ## change access mode of files
-#         if make_read_only:
-#             util.io.make_read_only_recursively(output_path, exclude_dir=True)
-    
-    
-    def wait_until_job_finished(self, run_dir, make_read_only=True, wait_seconds=10):
-        if wait_seconds:
-            with Metos3D_Job(run_dir, force_load=True) as job:
-                job.make_read_only_input(make_read_only)
-                job.wait_until_finished(wait_seconds)
-                job.make_read_only_output(make_read_only)
-        
-#             if make_read_only:
-#                 job.make_read_only_output()
-#                 util.io.make_read_only_recursively(run_dir, exclude_dir=True)
+        if wait_until_finished:
+            self.wait_until_job_finished(output_path, make_read_only=make_read_only)
         else:
             logger.debug('Not waiting for job to finish.')
-            
+    
+    
+    def wait_until_job_finished(self, run_dir, make_read_only=True):
+        with ndop.model.job.Metos3D_Job(run_dir, force_load=True) as job:
+            job.make_read_only_input(make_read_only)
+            job.wait_until_finished()
+            job.make_read_only_output(make_read_only)
     
     
     
@@ -539,12 +502,7 @@ class Model():
         for option in ('years', 'tolerance', 'combination'):
             all_spinup_options.append(self.spinup_option(option, spinup_options))
         return all_spinup_options
-        
     
-#     def check_combination_value(self, value):
-#         valid_values = ('and', 'or')
-#         if not value in valid_values:
-#             raise ValueError('The combination value {} is not valid. Only the values {} are supported.'.format(value, valid_values))
     
     
     ## access to runs
@@ -583,52 +541,12 @@ class Model():
         
         run_dir_condition = lambda file: os.path.isdir(file) and util.pattern.is_matching(os.path.basename(file), MODEL_RUN_DIRNAME)
         try:
-            run_dirs = util.io.filter_files(search_path, run_dir_condition)
+            run_dirs = util.io.fs.filter_files(search_path, run_dir_condition)
         except (OSError, IOError) as exception:
             warnings.warn('It could not been searched in the search path "' + search_path + '": ' + str(exception))
             run_dirs = []
         
         return run_dirs
-    
-    
-    
-#     def get_last_run_dir(self, search_path, wait_until_finished=True):
-#         logger.debug('Searching for last run in {} with wait_until_finished {}.'.format(search_path, wait_until_finished))
-#         
-#         run_dirs = self.get_run_dirs(search_path)
-#         
-#         last_run_dir = None
-#         last_run_index =  len(run_dirs) - 1
-#         
-#         while last_run_dir is None and last_run_index >= 0:
-#             last_run_dir = run_dirs[last_run_index]
-#             logger.debug('Searching in {}.'.format(last_run_dir))
-#             
-#             # load last job finished
-#             if last_run_dir is not None:
-#                 try: 
-#                     job = Metos3D_Job(last_run_dir, force_load=True)
-#                 except (OSError, IOError) as exception:
-#                     warnings.warn('Could not read the job options file from "' + last_run_dir + '": ' + str(exception))
-#                     job = None
-#                     last_run_dir = None
-#                 
-#                 # check if job is finished
-#                 if wait_until_finished and last_run_dir is not None:
-#                     try:
-#                         job.wait_until_finished(self.wait_seconds_spinup)
-#                     except (OSError, IOError) as exception:
-#                         warnings.warn('Could not check if job ' + job.id + ' is finished: ' + str(exception))
-#                         last_run_dir = None
-#                 
-#                 if job is not None:
-#                     job.close()
-#             
-#             last_run_index -= 1
-#         
-#         logger.debug('Run {} found.'.format(last_run_dir))
-#         
-#         return last_run_dir
     
     
     
@@ -647,7 +565,7 @@ class Model():
             # check job options file
             if last_run_dir is not None:
                 try: 
-                    with Metos3D_Job(last_run_dir, force_load=True) as job:
+                    with ndop.model.job.Metos3D_Job(last_run_dir, force_load=True) as job:
                         pass
                 except (OSError, IOError) as exception:
                     warnings.warn('Could not read the job options file from "' + last_run_dir + '": ' + str(exception))
@@ -683,7 +601,7 @@ class Model():
         total_years = 0
         
         while run_dir is not None:
-            with Metos3D_Job(run_dir, force_load=True) as job:
+            with ndop.model.job.Metos3D_Job(run_dir, force_load=True) as job:
                 years = job.last_year
             total_years += years
             run_dir = self.get_previous_run_dir(run_dir)
@@ -693,7 +611,7 @@ class Model():
     
     
     def get_real_tolerance(self, run_dir):
-        with Metos3D_Job(run_dir, force_load=True) as job:
+        with ndop.model.job.Metos3D_Job(run_dir, force_load=True) as job:
             tolerance = job.last_tolerance     
         
         return tolerance
@@ -701,7 +619,7 @@ class Model():
     
     
     def get_time_step(self, run_dir):
-        with Metos3D_Job(run_dir, force_load=True) as job:
+        with ndop.model.job.Metos3D_Job(run_dir, force_load=True) as job:
             time_step = job.time_step
         
         return time_step
@@ -709,7 +627,7 @@ class Model():
     
     
     def get_tracer_input_dir(self, run_dir):
-        with Metos3D_Job(run_dir, force_load=True) as job:
+        with ndop.model.job.Metos3D_Job(run_dir, force_load=True) as job:
             tracer_input_dir = job.tracer_input_path
         
         return tracer_input_dir
@@ -734,7 +652,8 @@ class Model():
         else:
             tmp_dir = run_dir
         with tempfile.TemporaryDirectory(dir=tmp_dir, prefix='trajectory_tmp_') as trajectory_dir:
-            self.run_job(parameters, trajectory_dir, years=1, tolerance=0, time_step=run_time_step, job_setup=self.job_setup_collection['trajectory'], tracer_input_path=run_dir, write_trajectory=True, wait_seconds=self.wait_seconds_trajectory, make_read_only=False)
+            # self.run_job(parameters, trajectory_dir, years=1, tolerance=0, time_step=run_time_step, job_setup=self.job_setup_collection['trajectory'], tracer_input_path=run_dir, write_trajectory=True, wait_seconds=self.wait_seconds_trajectory, make_read_only=False)
+            self.run_job(parameters, trajectory_dir, years=1, tolerance=0, time_step=run_time_step, job_setup=self.job_setup_collection['trajectory'], tracer_input_path=run_dir, write_trajectory=True, make_read_only=False)
             
             trajectory_output_dir = os.path.join(trajectory_dir, 'trajectory')
             
@@ -755,7 +674,6 @@ class Model():
     
     
     def _get_load_trajectory_function_for_points(self, points):
-#         from .constants import METOS_T_DIM, METOS_X_DIM, METOS_Y_DIM, METOS_Z_CENTER
         from .constants import LSM
         
         ## discard year
@@ -763,7 +681,6 @@ class Model():
         for tracer_points in points:
             tracer_interpolation_points = np.array(tracer_points, copy=True)
             tracer_interpolation_points[:, 0] = (tracer_interpolation_points[:, 0] % 1) * LSM.t_dim
-#             tracer_interpolation_points = measurements.util.interpolate.convert_coordinates_to_map_index(tracer_interpolation_points, (METOS_T_DIM, METOS_X_DIM, METOS_Y_DIM, METOS_Z_CENTER))
             tracer_interpolation_points = LSM.coordinates_to_map_indices(tracer_interpolation_points)
             interpolation_points.append(tracer_interpolation_points)
         
@@ -780,10 +697,12 @@ class Model():
     def _f(self, load_trajectory_function, parameters, spinup_options=None, time_step=1):
         from .constants import MODEL_START_FROM_CLOSEST_PARAMETER_SET
         
+        parameters = np.asanyarray(parameters)
         parameter_set_dir = self.get_parameter_set_dir(time_step, parameters, create=True)
         spinup_run_dir = self.get_spinup_run_dir(parameter_set_dir, spinup_options, start_from_closest_parameters=MODEL_START_FROM_CLOSEST_PARAMETER_SET)
         f = self._get_trajectory(load_trajectory_function, spinup_run_dir, parameters)
         
+        assert f is not None
         return f
     
     
@@ -817,6 +736,7 @@ class Model():
         MODEL_DERIVATIVE_SPINUP_YEARS = self.df_options['years']
         MODEL_DERIVATIVE_STEP_SIZE = self.df_options['step_size']
         
+        parameters = np.asanyarray(parameters)
         
         ## chose h factors
         if accuracy_order == 1:
@@ -899,7 +819,7 @@ class Model():
                 
                 ## make new run if run not matching
                 if not self.is_run_matching_options(partial_derivative_run_dir, {'years':MODEL_DERIVATIVE_SPINUP_YEARS, 'tolerance':0, 'combination':'or'}):
-                    util.io.remove_recursively(partial_derivative_dir, force=True, exclude_dir=True)
+                    util.io.fs.remove_recursively(partial_derivative_dir, force=True, exclude_dir=True)
                     
                     ## if no job setup available, get best job setup
                     if job_setup['nodes_setup'] is None:
@@ -907,10 +827,10 @@ class Model():
                             nodes_max = job_setup['nodes_max']
                         except KeyError:
                             nodes_max = None
-                        job_setup['nodes_setup'] = Metos3D_Job.best_nodes_setup(years, nodes_max=nodes_max)
+                        job_setup['nodes_setup'] = ndop.model.job.Metos3D_Job.best_nodes_setup(years, nodes_max=nodes_max)
                     
                     ## start job
-                    partial_derivative_run_dir = self.make_run(partial_derivative_dir, parameters_for_derivative[parameter_index, h_factor_index], MODEL_DERIVATIVE_SPINUP_YEARS, 0, time_step, job_setup, tracer_input_path=spinup_run_dir, wait_seconds=False)
+                    partial_derivative_run_dir = self.make_run(partial_derivative_dir, parameters_for_derivative[parameter_index, h_factor_index], MODEL_DERIVATIVE_SPINUP_YEARS, 0, time_step, job_setup, tracer_input_path=spinup_run_dir, wait_until_finished=False)
                 
                 partial_derivative_run_dirs[parameter_index, h_factor_index] = partial_derivative_run_dir
         
@@ -922,7 +842,7 @@ class Model():
             for h_factor_index in range(h_factors_len):
                 ## wait partial derivative run to finish
                 partial_derivative_run_dir = partial_derivative_run_dirs[parameter_index, h_factor_index]
-                self.wait_until_job_finished(partial_derivative_run_dir, wait_seconds=self.wait_seconds_derivative)
+                self.wait_until_job_finished(partial_derivative_run_dir)
                 
                 ## get trajectory and add to df
                 trajectory = self._get_trajectory(load_trajectory_function, partial_derivative_run_dir, parameters_for_derivative[parameter_index, h_factor_index])

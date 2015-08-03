@@ -4,19 +4,17 @@ import subprocess
 import re
 import numpy as np
 
-import logging
-logger = logging.getLogger(__name__)
+import util.io.fs
 
-from util.rzcluster.job import Job
-import util.io
+import util.rzcluster.interact
+import util.rzcluster.job
+
+import util.logging
+logger = util.logging.logger
 
 
 
-class Metos3D_Job(Job):
-    
-#     def __init__(self, output_path, force_load=False):
-#         Job.__init__(self, output_path, force_load)
-    
+class Metos3D_Job(util.rzcluster.job.Job):
     
     
     @property
@@ -133,20 +131,20 @@ class Metos3D_Job(Job):
     def make_read_only_input(self, read_only=True):
         super().make_read_only_input(read_only=read_only)
         if read_only:
-            util.io.make_read_only(self.metos3d_option_file)
-            util.io.make_read_only(self.model_parameters_file)
+            util.io.fs.make_read_only(self.metos3d_option_file)
+            util.io.fs.make_read_only(self.model_parameters_file)
     
     def make_read_only_output(self, read_only=True):
         super().make_read_only_output(read_only=read_only)
         if read_only:
-            util.io.make_read_only(self.dop_output_file)
-            util.io.make_read_only(self.po4_output_file)
+            util.io.fs.make_read_only(self.dop_output_file)
+            util.io.fs.make_read_only(self.po4_output_file)
     
     
     
     
     
-    def update_output_path(self, new_output_path):
+    def update_output_dir(self, new_output_path):
         opt = self.options
         old_output_path = opt['/metos3d/output_path']
         
@@ -159,10 +157,10 @@ class Metos3D_Job(Job):
     
     
     @staticmethod
-    def best_nodes_setup(years, nodes_max=None):
-        from ndop.model.constants import JOB_OPTIONS_FILENAME, JOB_MEMORY_GB, JOB_MIN_CPUS
+    def best_nodes_setup(years, node_kind=None, nodes_max=None):
+        from ndop.model.constants import JOB_MEMORY_GB, JOB_MIN_CPUS
         
-        logger.debug('Getting best nodes_setup for {} years and nodes_max {}.'.format(years, nodes_max))
+        logger.debug('Getting best nodes_setup for {} years with node_kind {} and nodes_max {}.'.format(years, node_kind, nodes_max))
         
         ## min cpus
         cpus_min = min(int(np.ceil(years/10)), JOB_MIN_CPUS)
@@ -170,27 +168,25 @@ class Metos3D_Job(Job):
         ## max nodes 
         if years <= 1:
             if nodes_max is not None:
-                nodes_max = util.io.get_sequence_from_values_or_file(nodes_max)
+                # nodes_max = util.io.io.get_sequence_from_values_or_file(nodes_max)
                 nodes_max = list(nodes_max)
                 for i in range(len(nodes_max)):
                     nodes_max[i] = min(nodes_max[i], 1)
             else:
-#                 nodes_max = (1,) * len(NODES_MAX)
                 nodes_max = 1
         
         ## best node setup
-        nodes_setup = util.rzcluster.interact.wait_for_needed_resources(JOB_MEMORY_GB, cpus_min=cpus_min, nodes_max=nodes_max)
+        # nodes_setup = util.rzcluster.interact.wait_for_needed_resources(JOB_MEMORY_GB, node_kind=node_kind, cpus_min=cpus_min, nodes_max=nodes_max)
+        nodes_setup = util.rzcluster.interact.NodeSetup(memory=JOB_MEMORY_GB, node_kind=node_kind, total_cpus_min=cpus_min, nodes_max=nodes_max)
+        nodes_setup.wait_for_needed_resources()
         logger.debug('Best nodes_setup is {}.'.format(nodes_setup))
         
         return nodes_setup
     
     
     
-#     def init(self, model_parameters, years, tolerance, time_step=1, write_trajectory=False, tracer_input_path=None, nodes_setup=None, nodes_max=None, job_name_prefix=''):
-    def init(self, model_parameters, years, tolerance, time_step=1, write_trajectory=False, tracer_input_path=None, job_setup=None):
-#         from ndop.model.constants import JOB_OPTIONS_FILENAME, JOB_MEMORY_GB, JOB_MIN_CPUS, MODEL_PARAMETERS_FORMAT_STRING, METOS_T_DIM, METOS_PATH_1, METOS_PATH_2
-#         from util.rzcluster.constants import NODES_MAX
-        from ndop.model.constants import JOB_OPTIONS_FILENAME, JOB_MEMORY_GB, MODEL_PARAMETERS_FORMAT_STRING, METOS_T_DIM, METOS_DATA_DIR, METOS_SIM_FILE# METOS_PATH_1, METOS_PATH_2
+    def write_job_file(self, model_parameters, years, tolerance, time_step=1, write_trajectory=False, tracer_input_path=None, job_setup=None):
+        from ndop.model.constants import JOB_OPTIONS_FILENAME, JOB_MEMORY_GB, MODEL_PARAMETERS_FORMAT_STRING, MODEL_PARAMETERS_FORMAT_STRING_OLD_STYLE, METOS_T_DIM, METOS_DATA_DIR, METOS_SIM_FILE
 
         logger.debug('Initialising job with job_setup {}.'.format(job_setup))
         
@@ -225,47 +221,22 @@ class Metos3D_Job(Job):
         job_name += '{}_{}'.format(years, time_step)
         
         
-        
-#         ## used passed nodes setup
-#         if nodes_setup is not None:
-# #             (cpu_kind, nodes, cpus) = nodes_setup
-#             Job.init(self, job_name, JOB_MEMORY_GB, nodes_setup, walltime_hours=walltime_hours)
-#         
-#         ## init job with best node setup, if non passed
-#         else:
-#             if years == 1:
-#                 cpus_min = 1
-#                 
-#                 ## max one node
-#                 if nodes_max is not None:
-#                     nodes_max = util.io.get_sequence_from_values_or_file(nodes_max)
-#                     nodes_max = list(nodes_max)
-#                     for i in range(len(nodes_max)):
-#                         nodes_max[i] = min(nodes_max[i], 1)
-#                 else:
-#                     nodes_max = (1,) * len(NODES_MAX)
-#             elif years <= max_years_express:
-#                 cpus_min = 16
-#             else:
-#                 cpus_min = JOB_MIN_CPUS
-#                 
-#             Job.init_best(self, job_name, JOB_MEMORY_GB, cpus_min=cpus_min, nodes_max=nodes_max, walltime_hours=walltime_hours)
-        
-        
         ## use best node setup if no node setup passed
         if nodes_setup is None:
-            nodes_setup = self.best_nodes_setup(years, nodes_max=nodes_max)
+            nodes_setup = self.best_nodes_setup(years, node_kind=node_kind, nodes_max=nodes_max)
         
         ## chose walltime
-        (best_kind, best_nodes, best_cpus) = nodes_setup
-        if best_kind in ('f_ocean2', 'foexpress'):
+        nodes_setup_kind = nodes_setup.node_kind
+        nodes_setup_nodes = nodes_setup.nodes
+        nodes_setup_cpus = nodes_setup.cpus
+        if nodes_setup_kind == 'f_ocean2':
             factor = 1
         else:
-            factor = 4
-        walltime_hours = np.ceil(factor * years / (10 * best_nodes * best_cpus))
+            factor = 8
+        walltime_hours = np.ceil(factor * years / (10 * nodes_setup_nodes * nodes_setup_cpus))
         
         ## init job
-        Job.init(self, job_name, JOB_MEMORY_GB, nodes_setup, walltime_hours=walltime_hours)
+        super().init_job_file(job_name, nodes_setup, walltime_hours=walltime_hours, write_output_file=True)
         
         
         ## get output path
@@ -280,7 +251,7 @@ class Metos3D_Job(Job):
         model_parameters = np.array(model_parameters, dtype=np.float64)
         opt['/model/parameters'] = model_parameters
         opt['/model/parameters_file'] = os.path.join(output_path, 'model_parameter.txt')
-        np.savetxt(opt['/model/parameters_file'], opt['/model/parameters'], fmt=MODEL_PARAMETERS_FORMAT_STRING)
+        np.savetxt(opt['/model/parameters_file'], opt['/model/parameters'], fmt=MODEL_PARAMETERS_FORMAT_STRING_OLD_STYLE)
         
         time_step_count = int(METOS_T_DIM / time_step)
         opt['/model/time_step_count'] = time_step_count
@@ -326,12 +297,16 @@ class Metos3D_Job(Job):
             
             opt['/metos3d/tracer_input_path'] = output_path
         
-        model_parameters_string = ''
-        model_parameters_len = len(model_parameters)
-        for i in range(model_parameters_len):
-            model_parameters_string += MODEL_PARAMETERS_FORMAT_STRING % model_parameters[i]
-            if i < model_parameters_len - 1:
-                model_parameters_string += ','
+        # model_parameters_string = ''
+        # model_parameters_len = len(model_parameters)
+        # for i in range(model_parameters_len):
+        #     # model_parameters_string += MODEL_PARAMETERS_FORMAT_STRING % model_parameters[i]
+        #     model_parameters_string += MODEL_PARAMETERS_FORMAT_STRING.format(model_parameters[i])
+        #     if i < model_parameters_len - 1:
+        #         model_parameters_string += ','
+        
+        model_parameters_string = str(tuple(map(lambda f: MODEL_PARAMETERS_FORMAT_STRING.format(f), model_parameters)))
+        model_parameters_string = model_parameters_string.replace("'", '').replace('(', '').replace(')', '').replace(' ','')
         
         opt['/metos3d/parameters_string'] = model_parameters_string
         
@@ -345,7 +320,6 @@ class Metos3D_Job(Job):
     
         f.write('# geometry \n')
         f.write('-Metos3DGeometryType                    Profile \n')
-#         f.write('-Metos3DProfileInputDirectory           %s/2.8/Geometry/ \n' % opt['/metos3d/data_path'])
         f.write('-Metos3DProfileInputDirectory           %s/Geometry/ \n' % opt['/metos3d/data_path'])
         f.write('-Metos3DProfileIndexStartFile           gStartIndices.bin \n')
         f.write('-Metos3DProfileIndexEndFile             gEndIndices.bin \n\n')
@@ -372,7 +346,6 @@ class Metos3D_Job(Job):
     
         f.write('# bgc boundary conditions \n')
         f.write('-Metos3DBoundaryConditionCount          2 \n')
-#         f.write('-Metos3DBoundaryConditionInputDirectory %s/2.8/Forcing/BoundaryCondition/ \n' % opt['/metos3d/data_path'])
         f.write('-Metos3DBoundaryConditionInputDirectory %s/Forcing/BoundaryCondition/ \n' % opt['/metos3d/data_path'])
         f.write('-Metos3DBoundaryConditionName           Latitude,IceCover \n')
         f.write('-Metos3DLatitudeCount                   1 \n')
@@ -382,7 +355,6 @@ class Metos3D_Job(Job):
     
         f.write('# bgc domain conditions \n')
         f.write('-Metos3DDomainConditionCount            2 \n')
-#         f.write('-Metos3DDomainConditionInputDirectory   %s/2.8/Forcing/DomainCondition/ \n' % opt['/metos3d/data_path'])
         f.write('-Metos3DDomainConditionInputDirectory   %s/Forcing/DomainCondition/ \n' % opt['/metos3d/data_path'])
         f.write('-Metos3DDomainConditionName             LayerDepth,LayerHeight \n')
         f.write('-Metos3DLayerDepthCount                 1 \n')
@@ -392,7 +364,6 @@ class Metos3D_Job(Job):
     
         f.write('# transport \n')
         f.write('-Metos3DTransportType                   Matrix \n')
-#         f.write('-Metos3DMatrixInputDirectory            %s/2.8/Transport/Matrix5_4/1dt/ \n' % opt['/metos3d/data_path'])
         f.write('-Metos3DMatrixInputDirectory            %s/Transport/Matrix5_4/1dt/ \n' % opt['/metos3d/data_path'])
         f.write('-Metos3DMatrixCount                     12 \n')
         f.write('-Metos3DMatrixExplicitFileFormat        Ae_$02d.petsc \n')
@@ -416,20 +387,14 @@ class Metos3D_Job(Job):
             f.write('-Metos3DSpinupMonitorFileFormatPrefix   sp$0004d-,ts$0004d- \n')
             f.write('-Metos3DSpinupMonitorModuloStep         1,1 \n')
         
-        util.io.flush_and_close(f)
-        
+        util.io.fs.flush_and_close(f)
         
         
         
         ## write job file
-#         if new_environment:
         run_command = 'mpirun -n {} -machinefile $PBS_NODEFILE -r rsh {} {} \n\n'
-#         else:
-#             run_command = 'mpirun -n {} -machinefile $PBS_NODEFILE {} {} \n\n'
-        
         run_command = run_command.format(opt['/job/nodes'] * opt['/job/cpus'], opt['/metos3d/sim_file'], opt['/metos3d/option_file'])
-#         
-#         self.write_job_file(run_command, modules=('hdf5_1.8.8', 'petsc', 'python3'))
-        self.write_job_file(run_command, modules=['petsc'])
+        
+        super().write_job_file(run_command, modules=['petsc'])
         
         logger.debug('Job initialised.')

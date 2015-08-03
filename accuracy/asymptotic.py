@@ -10,7 +10,7 @@ import util.parallel.universal
 import util.parallel.with_multiprocessing
 
 import util.logging
-logger = util.logging.get_logger()
+logger = util.logging.logger
 
 from .constants import CACHE_DIRNAME, INFORMATION_MATRIX_FILENAME, COVARIANCE_MATRIX_FILENAME, PARAMETER_CONFIDENCE_FILENAME, MODEL_CONFIDENCE_FILENAME, AVERAGE_MODEL_CONFIDENCE_FILENAME, AVERAGE_MODEL_CONFIDENCE_INCREASE_FILENAME
 
@@ -1041,7 +1041,7 @@ class GLS(Base):
  
 
 
-class Family(ndop.util.data_base.Family):
+class Family(ndop.optimization.data_base.Family):
     def __init__(self, main_member_class, data_kind, spinup_options, time_step=1, df_accuracy_order=2, job_setup=None):
         
         if data_kind.upper() == 'WOA':
@@ -1113,7 +1113,7 @@ class Family(ndop.util.data_base.Family):
 # import util.parallel.with_multiprocessing
 # 
 # import util.logging
-# logger = util.logging.get_logger()
+# logger = util.logging.logger
 # 
 # from .constants import CACHE_DIRNAME, INFORMATION_MATRIX_FILENAME, COVARIANCE_MATRIX_FILENAME, PARAMETER_CONFIDENCE_FILENAME, MODEL_CONFIDENCE_FILENAME, AVERAGE_MODEL_CONFIDENCE_FILENAME, AVERAGE_MODEL_CONFIDENCE_INCREASE_FILENAME
 # 

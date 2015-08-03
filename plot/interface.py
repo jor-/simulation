@@ -1,140 +1,223 @@
 import numpy as np
+import os
 import os.path
 
 import measurements.util.data
 import ndop.optimization.results
 import ndop.util.data_base
 
+import ndop.constants
+
 import util.plot
 
-import logging
-logger = logging.getLogger(__name__)
+import util.logging
+logger = util.logging.logger
+
+WOD_KINDS = ('WOD/OLS', 'WOD/WLS', 'WOD/LWLS', 'WOD/GLS/40_inf', 'WOD/GLS/35_inf', 'WOD/GLS/30_inf')
+# WOD_LABELS = ('WOD-OLS', 'WOD-WLS', 'WOD-LWLS', 'WOD-GLS-40')
+WOA_KINDS = ('WOA/OLS', 'WOA/WLS', 'WOA/LWLS')
+# WOA_LABELS = ('WOA-OLS', 'WOA-WLS', 'WOA-LWLS')
+
+KINDS = WOD_KINDS + WOA_KINDS
+LABELS = {'WOD/OLS':'WOD-OLS', 'WOD/WLS':'WOD-WLS', 'WOD/LWLS':'WOD-LWLS', 'WOD/GLS/40_inf':'WOD-GLS-40', 'WOD/GLS/35_inf':'WOD-GLS-35', 'WOD/GLS/30_inf':'WOD-GLS-30', 'WOA/OLS':'WOA-OLS', 'WOA/WLS':'WOA-WLS', 'WOA/LWLS':'WOA-LWLS'}
+
 
 
 ## optimization results
 
-def optimization_cost_function_for_kind(path='/tmp', data_kind='WOD', y_max=None):
+def optimization_cost_function_for_kind(data_kind='WOD', path='/tmp', y_max=None, with_line_search_steps=True):
     
     ## init
     if data_kind == 'WOD':
-        kind_of_cost_functions = ('WOD_OLS_1', 'WOD_WLS_1', 'WOD_GLS_1', 'WOD_LWLS_1')
-        line_labels_all = ('WOD-OLS', 'WOD-WLS', 'WOD-GLS', 'WOD-LWLS')
+        kind_of_cost_functions = WOD_KINDS
+        # kind_of_cost_functions = ('WOD_OLS_1', 'WOD_WLS_1', 'WOD_GLS_1', 'WOD_LWLS_1')
+        # kind_of_cost_functions = ('WOD/OLS', 'WOD/WLS', 'WOD/LWLS', 'WOD/GLS/40_99')
+        # line_labels_all = ('WOD-OLS', 'WOD-WLS', 'WOD-LWLS', 'WOD-GLS-40')
     elif data_kind == 'WOA':
-        kind_of_cost_functions = ('WOA_OLS_1', 'WOA_WLS_1', 'WOA-LWLS_1')
-        line_labels_all = ('WOA-OLS', 'WOA-WLS', 'WOA_LWLS')
-    elif data_kind == 'OLD_WOD':
-        kind_of_cost_functions = ('OLD_WOD_WLS_1', 'OLD_WOD_LWLS_1')
-        line_labels_all = ('OLD_WOD_WLS', 'OLD_WOD_LWLS')
+        kind_of_cost_functions = WOA_KINDS
+        # kind_of_cost_functions = ('WOA_OLS_1', 'WOA_WLS_1', 'WOA_LWLS_1')
+        # kind_of_cost_functions = ('WOA/OLS', 'WOA/WLS', 'WOA/LWLS')
+        # line_labels_all = ('WOA-OLS', 'WOA-WLS', 'WOA-LWLS')
+    # elif data_kind == 'OLD_WOD':
+    #     kind_of_cost_functions = ('OLD_WOD_WLS_1', 'OLD_WOD_OLD_LWLS_1')
+    #     line_labels_all = ('OLD_WOD_WLS', 'OLD_WOD_LWLS')
     else:
         raise ValueError('Unknown data kind {}.'.format(data_kind))
     
     
-    file = os.path.join(path, 'optimization_cost_function_-_{}.png'.format(data_kind))
-    line_colors_all = ('b', 'r', 'g', 'k')
-    
+    file = os.path.join(path, 'optimization_cost_function_-_{}.png'.format(data_kind))    
     n = len(kind_of_cost_functions)
+    # line_colors_all = ('b', 'r', 'g', 'k')
+    line_colors_all = util.plot.get_colors(n)
+    
     
     xs = []
     ys = []
     line_labels = []
     line_styles = []
     line_colors = []
+    line_widths = []
     
     ## plot each function call
-    for i in range(n):
-        f = ndop.optimization.results.get_values(kind_of_cost_functions[i], 'all_f')
-        if len(f) > 0:
-            y = f / f[0]
-            x = np.arange(len(y))
-            
-            xs.append(x)
-            ys.append(y)
-            line_labels.append(line_labels_all[i])
-            line_styles.append('--')
-            line_colors.append(line_colors_all[i])
+    if with_line_search_steps:
+        for i in range(n):
+            f = ndop.optimization.results.all_f(kind_of_cost_functions[i])
+            if len(f) > 0:
+                y = f / f[0]
+                x = np.arange(len(y))
+                
+                xs.append(x)
+                ys.append(y)
+                line_labels.append(None)
+                line_styles.append('*')
+                line_colors.append(line_colors_all[i])
+                line_widths.append(2)
     
     ## plot each iteration step
     for i in range(n):
-        f = ndop.optimization.results.get_values(kind_of_cost_functions[i], 'solver_f')
+        kind_of_cost_function = kind_of_cost_functions[i]
+        f = ndop.optimization.results.solver_f(kind_of_cost_function)
         if len(f) > 0:
             y = f / f[0]
-            x = ndop.optimization.results.get_values(kind_of_cost_functions[i], 'solver_eval_f_index')
+            x = ndop.optimization.results.solver_f_indices(kind_of_cost_function)
+            local_stop_slices = ndop.optimization.results.local_solver_stop_slices(kind_of_cost_function)
             
-            xs.append(x)
-            ys.append(y)
-            line_labels.append(None)
-            line_styles.append('o')
-            line_colors.append(line_colors_all[i])
+            for j in range(len(local_stop_slices)):
+                slice = local_stop_slices[j]
+                xs.append(x[slice])
+                ys.append(y[slice])
+                line_styles.append('-')
+                line_colors.append(line_colors_all[i])
+                line_widths.append(3)
+                if j == 0:
+                    line_label = LABELS[kind_of_cost_function]
+                    line_labels.append(line_label)
+                else:
+                    line_labels.append(None)
+                    
+                
             
-            xs.append(x)
-            ys.append(y)
-            line_labels.append(None)
-            line_styles.append('-')
-            line_colors.append(line_colors_all[i])
+#             xs.append(x)
+#             ys.append(y)
+#             line_labels.append(line_labels_all[i])
+#             line_styles.append('-')
+#             line_colors.append(line_colors_all[i])
+            
+#             xs.append(x)
+#             ys.append(y)
+#             line_labels.append(None)
+#             line_styles.append('o')
+#             line_colors.append(line_colors_all[i])
+            
     
     x_label = 'number of function evaluations'
     y_label = '(normalized) function value'
     
-    util.plot.line(xs, ys, file, line_label=line_labels, line_style=line_styles, line_color=line_colors, line_width=3, tick_font_size=20, legend_font_size=16, y_max=y_max, x_label=x_label, y_label=y_label, use_log_scale=True)
+    util.plot.line(xs, ys, file, line_label=line_labels, line_style=line_styles, line_color=line_colors, line_width=line_widths, tick_font_size=20, legend_font_size=16, y_max=y_max, x_label=x_label, y_label=y_label, use_log_scale=True)
 
 
-def optimization_cost_functions(path='/tmp', y_max=10):
-    optimization_cost_function_for_kind(path=path, data_kind='WOD', y_max=y_max)
-    optimization_cost_function_for_kind(path=path, data_kind='WOA', y_max=y_max)
-    optimization_cost_function_for_kind(path=path, data_kind='OLD_WOD', y_max=y_max)
+def optimization_cost_functions(path='/tmp', y_max=10, with_line_search_steps=True):
+    optimization_cost_function_for_kind(data_kind='WOD', path=path, y_max=y_max, with_line_search_steps=with_line_search_steps)
+    optimization_cost_function_for_kind(data_kind='WOA', path=path, y_max=y_max, with_line_search_steps=with_line_search_steps)
+    # optimization_cost_function_for_kind(path=path, data_kind='OLD_WOD', y_max=y_max, with_line_search_steps=with_line_search_steps)
 
 
-def optimization_parameters_for_kind(path='/tmp', kind='WOD_OLS_1', all_parameters_in_one_plot=True):
-    from ndop.optimization.constants import PARAMETER_BOUNDS
+def optimization_parameters_for_kind(kind, path='/tmp', all_parameters_in_one_plot=True, with_line_search_steps=True):
+    # from ndop.optimization.constants import PARAMETER_BOUNDS
     p_labels = [r'$\lambda}$', r'$\alpha$', r'$\sigma$', r'$K_{phy}$', r'$I_{C}$', r'$K_{w}$', r'$b$']
+    kind_label = LABELS[kind]
     
 #     p_bounds = np.array([[0.05, 0.95], [0.5, 10], [0.05, 0.95], [0.005, 10], [10, 50], [0.001, 0.2], [0.7 , 1.3]])
     
     ## get values
-    all_ps = ndop.optimization.results.get_values(kind, 'all_p').swapaxes(0,1)
+    all_ps = ndop.optimization.results.all_p(kind).swapaxes(0,1)
     
     if len(all_ps) > 0:
         all_xs = np.arange(all_ps.shape[1])
         
-        solver_ps = ndop.optimization.results.get_values(kind, 'solver_p').swapaxes(0,1)
-        solver_xs = ndop.optimization.results.get_values(kind, 'solver_eval_f_index')
+        solver_ps = ndop.optimization.results.solver_p(kind).swapaxes(0,1)
+        solver_xs = ndop.optimization.results.solver_f_indices(kind)
         
         x_label = 'number of function evaluations'
         n = len(all_ps)
         
+        p_bounds =  ndop.optimization.results.p_bounds(kind)
+        
         ## plot all normalized parameters in one plot
         if all_parameters_in_one_plot:
             
-            ## prepare y values
+            ## prepare parameter values
+            p_lb = p_bounds[0][:, np.newaxis]
+            p_ub = p_bounds[1][:, np.newaxis]
+            
             def normalize(values):
                 ## normalize values to range [0, 1]
-#                 p_lb = p_bounds[:, 0][:, np.newaxis] 
-#                 p_ub = p_bounds[:, 1][:, np.newaxis] 
-                p_lb = PARAMETER_BOUNDS[0][:, np.newaxis]
-                p_ub = PARAMETER_BOUNDS[1][:, np.newaxis]
                 values = (values - p_lb) / (p_ub - p_lb)
                 return values
             
             all_ps = normalize(all_ps)
             solver_ps = normalize(solver_ps)
-            ys = all_ps.tolist() + solver_ps.tolist() * 2
+#             ys = all_ps.tolist() + solver_ps.tolist() * 2
+#             
+#             ## prepare other
+#             xs = [all_xs] * n + [solver_xs] * n * 2
+#             line_labels = p_labels + [None] * n * 2
+#             line_styles = [':'] * n + ['o'] * n + ['-'] * n
+#             line_colors = util.plot.get_colors(n) * 3
             
-            ## prepare other
-#             xs = [all_xs] * n + [solver_xs] * n
-#             line_labels = p_labels + [None] * n
-#             line_styles = ['-'] * n + [ 'o'] * n
-#             line_colors = util.plot.get_colors(n) * 2
-            xs = [all_xs] * n + [solver_xs] * n * 2
-            line_labels = p_labels + [None] * n * 2
-            line_styles = ['--'] * n + [ 'o'] * n + ['-'] * n
-            line_colors = util.plot.get_colors(n) * 3
+            ## prepare plot all values
+            if with_line_search_steps:
+                xs = [all_xs]*n
+                ys = all_ps.tolist()
+                line_labels = [None]*n 
+                line_styles = ['.']*n
+                line_colors = util.plot.get_colors(n)
+                line_widths = [2]*n
+            else:
+                xs = []
+                ys = []
+                line_labels = []
+                line_styles = []
+                line_colors = []
+                line_widths = []
             
-            file = os.path.join(path, 'optimization_normalized_parameters_-_{}.png'.format(kind))
+#             xs.extend([solver_xs]*n*2)
+#             ys.extend(solver_ps.tolist()*2)
+#             line_labels.extend(p_labels)
+#             line_labels.extend([None]*n)
+#             line_styles.extend(['-']*n)
+#             line_styles.extend(['o']*n)
+#             line_colors.extend(util.plot.get_colors(n)*2)
+            
+            ## prepare plot local solver line
+            local_stop_slices = ndop.optimization.results.local_solver_stop_slices(kind)
+            for j in range(len(local_stop_slices)):
+                slice = local_stop_slices[j]
+                xs.extend([solver_xs[slice]]*n)
+                ys.extend(solver_ps.T[slice].T.tolist())
+                line_styles.extend(['-']*n)
+                line_colors.extend(util.plot.get_colors(n))
+                line_widths.extend([3]*n)
+                if j == 0:
+                    line_labels.extend(p_labels)
+                else:
+                    line_labels.extend([None]*n)
+            
+#             ## prepare plot o marker
+#             xs.extend([solver_xs]*n)
+#             ys.extend(solver_ps.tolist())
+#             line_labels.extend([None]*n)
+#             line_styles.extend(['o']*n)
+#             line_colors.extend(util.plot.get_colors(n))
+            
+            
+            ## prepare rest
+            file = os.path.join(path, 'optimization_normalized_parameters_-_{}.png'.format(kind_label))
             y_label = 'normalized value'
             [y_min, y_max] = [0, 1]
             
             ## plot
-            util.plot.line(xs, ys, file, line_style=line_styles, line_label=line_labels, line_color=line_colors, line_width=3, tick_font_size=20, legend_font_size=16, x_label=x_label, y_label=y_label, y_min=y_min, y_max=y_max)
+            util.plot.line(xs, ys, file, line_style=line_styles, line_label=line_labels, line_color=line_colors, line_width=line_widths, tick_font_size=20, legend_font_size=16, x_label=x_label, y_label=y_label, y_min=y_min, y_max=y_max)
         
         ## plot each parameter
         else:
@@ -144,21 +227,22 @@ def optimization_parameters_for_kind(path='/tmp', kind='WOD_OLS_1', all_paramete
             for i in range(n):
                 ys = [all_ps[i], solver_ps[i]]
                 y_label = p_labels[i]
-                file = os.path.join(path, 'optimization_{}_parameter_{}.png'.format(kind, i))
+                file = os.path.join(path, 'optimization_{}_parameter_{}.png'.format(kind_label, i))
 #                 [y_min, y_max] = p_bounds[i]
-                [y_min, y_max] = PARAMETER_BOUNDS[:, i]
+                [y_min, y_max] = p_bounds[:, i]
                 
                 util.plot.line(xs, ys, file, line_style=line_styles, line_width=3, tick_font_size=20, legend_font_size=16, x_label=x_label, y_label=y_label, y_min=y_min, y_max=y_max)
 
 
-def optimization_parameters(path='/tmp'):
-    for kind in ['WOA_OLS_1', 'WOA_WLS_1', 'WOD_OLS_1', 'WOD_WLS_1', 'WOD_GLS_1', 'WOD_LWLS_1', 'WOA_LWLS_1', 'OLD_WOD_LWLS_1', 'OLD_WOD_WLS_1']:
-        optimization_parameters_for_kind(path=path, kind=kind)
-        
+def optimization_parameters(path='/tmp', with_line_search_steps=True):
+    # kinds = os.listdir(ndop.constants.PARAMETER_OPTIMIZATION_DIR)
+    for kind in KINDS:
+        optimization_parameters_for_kind(path=path, kind=kind, with_line_search_steps=with_line_search_steps)
 
-def optimization(path='/tmp'):
-    optimization_cost_functions(path=path)
-    optimization_parameters(path=path)
+
+def optimization(path='/tmp', with_line_search_steps=True):
+    optimization_cost_functions(path=path, with_line_search_steps=with_line_search_steps)
+    optimization_parameters(path=path, with_line_search_steps=with_line_search_steps)
 
 
 
@@ -198,11 +282,11 @@ def model_output(path='/tmp', parameter_set_nr=0, kind='BOXES', y_max=(None, Non
         
     plot_file = os.path.join(path, 'model_output_-_' + kind + '_-_' + parameter_set_dirname + '_-_{}.png')
     
-    util.plot.data(f[0], plot_file.format('dop'), land_value=np.nan, no_data_value=np.inf, vmin=0, vmax=y_max[0])
-    util.plot.data(f[1], plot_file.format('po4'), land_value=np.nan, no_data_value=np.inf, vmin=0, vmax=y_max[1])
+    util.plot.data(f[0], plot_file.format('dop'), land_value=np.nan, no_data_value=np.inf, v_min=0, v_max=y_max[0])
+    util.plot.data(f[1], plot_file.format('po4'), land_value=np.nan, no_data_value=np.inf, v_min=0, v_max=y_max[1])
 
 
-def model_confidence(path='/tmp', parameter_set_nr=0, kind='WOA_WLS', vmax=(None, None), time_dim_df=12):
+def model_confidence(path='/tmp', parameter_set_nr=0, kind='WOA_WLS', v_max=(None, None), time_dim_df=12):
     from ndop.model.constants import MODEL_OUTPUT_DIR, MODEL_TIME_STEP_DIRNAME, MODEL_PARAMETERS_SET_DIRNAME
     from ndop.accuracy.constants import CACHE_DIRNAME, MODEL_CONFIDENCE_FILENAME
     
@@ -214,8 +298,8 @@ def model_confidence(path='/tmp', parameter_set_nr=0, kind='WOA_WLS', vmax=(None
     f = np.load(f_file)
     
     file = os.path.join(path, 'model_confidence_-_' + parameter_set_dirname + '_-_time_dim_df_{}'.format(time_dim_df) + '_-_{}_-_{}.png')
-    util.plot.data(f[0], file.format(kind, 'dop'), land_value=np.nan, no_data_value=None, vmin=0, vmax=vmax[0])
-    util.plot.data(f[1], file.format(kind, 'po4'), land_value=np.nan, no_data_value=None, vmin=0, vmax=vmax[1])
+    util.plot.data(f[0], file.format(kind, 'dop'), land_value=np.nan, no_data_value=None, v_min=0, v_max=v_max[0])
+    util.plot.data(f[1], file.format(kind, 'po4'), land_value=np.nan, no_data_value=None, v_min=0, v_max=v_max[1])
 
 
 def average_model_confidence_increase(path='/tmp', parameter_set_nr=0, kind='WOA_WLS', time_dim_df=12):
@@ -229,19 +313,19 @@ def average_model_confidence_increase(path='/tmp', parameter_set_nr=0, kind='WOA
     f_file = os.path.join(MODEL_OUTPUT_DIR, MODEL_TIME_STEP_DIRNAME.format(1), parameter_set_dirname, CACHE_DIRNAME, kind, AVERAGE_MODEL_CONFIDENCE_INCREASE_FILENAME.format(time_dim_df))
     f = np.load(f_file)
     
-    vmin = np.nanmin(f, axis=tuple(np.arange(f.ndim-1)+1))
-    vmax = np.nanmax(f, axis=tuple(np.arange(f.ndim-1)+1))
+    v_min = np.nanmin(f, axis=tuple(np.arange(f.ndim-1)+1))
+    v_max = np.nanmax(f, axis=tuple(np.arange(f.ndim-1)+1))
     significant_digits=3
-    for i in range(len(vmin)):
-        round_factor = 10 ** (np.ceil(-np.log10(vmin[i])) + significant_digits)
-        vmin[i] = np.floor(vmin[i] * round_factor) / round_factor
-    for i in range(len(vmax)):
-        round_factor = 10 ** (np.ceil(-np.log10(vmin[i])) + significant_digits)
-        vmax[i] = np.ceil(vmax[i] * round_factor) / round_factor
+    for i in range(len(v_min)):
+        round_factor = 10 ** (np.ceil(-np.log10(v_min[i])) + significant_digits)
+        v_min[i] = np.floor(v_min[i] * round_factor) / round_factor
+    for i in range(len(v_max)):
+        round_factor = 10 ** (np.ceil(-np.log10(v_min[i])) + significant_digits)
+        v_max[i] = np.ceil(v_max[i] * round_factor) / round_factor
     
     file = os.path.join(path, 'average_model_confidence_increase_-_' + parameter_set_dirname + '_-_time_dim_df_{}'.format(time_dim_df) + '_-_{}_-_{}.png')
-    util.plot.data(f[0], file.format(kind, 'dop'), land_value=np.nan, no_data_value=None, vmin=vmin[0], vmax=vmax[0])
-    util.plot.data(f[1], file.format(kind, 'po4'), land_value=np.nan, no_data_value=None, vmin=vmin[1], vmax=vmax[1])
+    util.plot.data(f[0], file.format(kind, 'dop'), land_value=np.nan, no_data_value=None, v_min=v_min[0], v_max=v_max[0])
+    util.plot.data(f[1], file.format(kind, 'po4'), land_value=np.nan, no_data_value=None, v_min=v_min[1], v_max=v_max[1])
 
 
 def model_diff(path='/tmp', parameter_set_nr=0, data_kind='WOA', normalize_with_deviation=False, y_max=(None, None)):
@@ -274,7 +358,7 @@ def model_diff(path='/tmp', parameter_set_nr=0, data_kind='WOA', normalize_with_
     
     
     def plot_tracer_diff(diff, file, y_max=None):
-        util.plot.data(np.abs(diff), file, land_value=np.nan, no_data_value=np.inf, vmin=0, vmax=y_max)
+        util.plot.data(np.abs(diff), file, land_value=np.nan, no_data_value=np.inf, v_min=0, v_max=y_max)
     
     plot_tracer_diff(diff_boxes[0], file.format(data_kind, 'dop'), y_max=y_max[0])
     plot_tracer_diff(diff_boxes[1], file.format(data_kind, 'po4'), y_max=y_max[1])

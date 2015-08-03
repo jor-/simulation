@@ -38,10 +38,11 @@ JOB_MIN_CPUS = 32
 ## Model parameter
 MODEL_PARAMETER_DIM = 7
 MODEL_PARAMETER_LOWER_BOUND = np.array([0, 0, 0, 10**(-8), 10**(-8), 0, 0])
-MODEL_PARAMETER_UPPER_BOUND = np.array([1, np.inf, 1, np.inf, np.inf, np.inf, np.inf])
+MODEL_PARAMETER_UPPER_BOUND = np.array([METOS_T_DIM, np.inf, 1, np.inf, np.inf, np.inf, np.inf])
 MODEL_PARAMETER_TYPICAL = np.array([1, 1, 1, 1, 10, 0.01, 1])
 # MODEL_PARAMETERS_MAX_DIFF = 10**(-10) * MODEL_PARAMETER_DIM
-MODEL_PARAMETERS_MAX_DIFF = 10**(-7)
+MODEL_PARAMETERS_MAX_REL_DIFF = 10**(-5)
+MODEL_PARAMETERS_MAX_ABS_DIFF = 10**(-8)
 
 
 ## Model directories and files
@@ -55,10 +56,10 @@ MODEL_RUN_DIRNAME = 'run_{:0>2}'              # substituted by the number of the
 MODEL_RUN_OPTIONS_FILENAME = 'run_options.txt'
 
 MODEL_PARAMETERS_FILENAME = 'parameters.txt'
-MODEL_PARAMETERS_FORMAT_STRING = '%.18f'
+MODEL_PARAMETERS_FORMAT_STRING = '{:.18f}'
+MODEL_PARAMETERS_FORMAT_STRING_OLD_STYLE = '%.18f'
 
-# MODEL_TMP_DIR = os.environ['TMPDIR']
-MODEL_TMP_DIR = None
+MODEL_TMP_DIR = os.path.join(MODEL_OUTPUT_DIR, 'tmp')
 
 ## Model spinup
 MODEL_SPINUP_MAX_YEARS = 50000

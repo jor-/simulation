@@ -2,8 +2,10 @@ import argparse
 import sys
 import numpy as np
 
-from ndop.accuracy.asymptotic import OLS, WLS, GLS, Family
+from ndop.accuracy.asymptotic import OLS, WLS, GLS
 from util.logging import Logger
+
+from ndop.constants import MODEL_OUTPUT_DIR
 
 
 if __name__ == "__main__":
@@ -62,7 +64,7 @@ if __name__ == "__main__":
         cf_class = GLS
     
     with Logger():
-        p = np.loadtxt('/work_O2/sunip229/NDOP/model_output/time_step_0001/parameter_set_{:0>5}/parameters.txt'.format(parameter_set_nr))        
+        p = np.loadtxt(MODEL_OUTPUT_DIR+'/time_step_0001/parameter_set_{:0>5}/parameters.txt'.format(parameter_set_nr))        
         spinup_options = spinup_options={'years':10000, 'tolerance':0.0, 'combination':'or'}
 #         job_options = {'spinup': {'nodes_setup': ('f_ocean2', 5, 16)}, 'derivative': {'nodes_setup': ('foexpress', 2, 16)}, 'trajectory': {'nodes_setup': ('foexpress', 1, 16)}}
         job_options = {'spinup': {'nodes_setup': ('f_ocean2', 5, 16)}, 'derivative': {'nodes_setup': ('foexpress', 2, 16)}, 'trajectory': {'nodes_setup': ('westmere', 1, 1)}}

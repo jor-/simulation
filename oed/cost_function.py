@@ -7,7 +7,7 @@ import util.parallel.universal
 import util.math.interpolate
 import util.math.optimize.with_deap
 import util.logging
-logger = util.logging.get_logger()
+logger = util.logging.logger
 
 
 class CostFunction():

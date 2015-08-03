@@ -8,7 +8,7 @@ import numpy as np
 from ndop.model.eval import Model
 
 # import util.pattern
-import util.io
+import util.io.fs
 
 
 class Continue():
@@ -34,7 +34,7 @@ class Continue():
         time_step_dir = os.path.join(MODEL_OUTPUT_DIR, time_step_dirname)
         
         if parameter_set_numbers is None:
-            parameter_set_dirs = util.io.get_dirs(time_step_dir)
+            parameter_set_dirs = util.io.fs.get_dirs(time_step_dir)
             parameter_set_numbers = range(len(parameter_set_dirs))
         
         logging.debug('Continue runs for parameter set with number {}.'.format(parameter_set_numbers))

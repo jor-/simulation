@@ -6,6 +6,7 @@ from ndop.model.eval import Model
 
 import measurements.all.box.data
 import measurements.all.pw.values
+import measurements.all.pw.correlation
 import measurements.land_sea_mask.data
 import measurements.util.data
 
@@ -13,17 +14,18 @@ import util.math.matrix
 import util.cache
 
 import util.logging
-logger = util.logging.get_logger()
+logger = util.logging.logger
 
 
 DEFAULT_SPINUP_OPTIONS={'years':10000, 'tolerance':0.0, 'combination':'or'}
 
-class Data_Base:
+
+class DataBase:
     
     def __init__(self, spinup_options=DEFAULT_SPINUP_OPTIONS, time_step=1, df_accuracy_order=2, job_setup=None, F_cache_filename=None, DF_cache_filename=None):
         from .constants import CACHE_DIRNAME, F_BOXES_CACHE_FILENAME, DF_BOXES_CACHE_FILENAME
         
-        logger.debug('Initiating {} with spinup_options {}, time step {}, df_accuracy_order {}, job_setup {}, F_cache_filename {} and DF_cache_filename {}.'.format(self.__class__.__name__, spinup_options, time_step, df_accuracy_order, job_setup, F_cache_filename, DF_cache_filename))
+        logger.debug('Initiating {} with spinup_options {}, time step {}, df_accuracy_order {}, job_setup {}, F_cache_filename {} and DF_cache_filename {}.'.format(self, spinup_options, time_step, df_accuracy_order, job_setup, F_cache_filename, DF_cache_filename))
         
         self.spinup_options = spinup_options
         self.time_step = time_step
@@ -35,21 +37,25 @@ class Data_Base:
         self.F_cache_filename = F_cache_filename
         self.DF_cache_filename = DF_cache_filename
         
-        self.memory_cache = util.cache.Memory_Cache()
+        self.memory_cache = util.cache.MemoryCache()
         
         if job_setup is None:
             job_setup = {}
         try:
             job_setup['name']
         except KeyError:
-            job_setup['name'] = self.__class__.__name__
+            job_setup['name'] = str(self)
         self.model = Model(job_setup=job_setup)
+    
+    
+    def __str__(self):
+        return self.__class__.__name__
         
     
     
     ## model output
     def f_boxes_calculate(self, parameters, time_dim=12):
-        logger.debug('Calculating new model f_boxes with time dim {} for {}.'.format(time_dim, self.__class__.__name__))
+        logger.debug('Calculating new model f_boxes with time dim {} for {}.'.format(time_dim, self))
         f_boxes = self.model.f_boxes(parameters, time_dim_desired=time_dim, spinup_options=self.spinup_options, time_step=self.time_step)
         f_boxes = np.asanyarray(f_boxes)
         return f_boxes
@@ -61,7 +67,7 @@ class Data_Base:
     
     
     def df_boxes_calculate(self, parameters, time_dim=12):
-        logger.debug('Calculating new model df_boxes with time dim {} for {}.'.format(time_dim, self.__class__.__name__))
+        logger.debug('Calculating new model df_boxes with time dim {} for {}.'.format(time_dim, self))
         df_boxes = self.model.df_boxes(parameters, time_dim_desired=time_dim, spinup_options=self.spinup_options, time_step=self.time_step, accuracy_order=self.df_accuracy_order)
         df_boxes = np.asanyarray(df_boxes)
         for i in range(1, df_boxes.ndim-1):
@@ -141,7 +147,7 @@ class Data_Base:
     
 
 
-class WOA(Data_Base):
+class WOA(DataBase):
     
     def __init__(self, spinup_options=DEFAULT_SPINUP_OPTIONS, time_step=1, df_accuracy_order=2, job_setup=None, cache_dirname=None):
         ## super constructor
@@ -219,7 +225,7 @@ class WOA(Data_Base):
    
 
 
-class WOD(Data_Base):
+class WOD(DataBase):
     
     def __init__(self, spinup_options=DEFAULT_SPINUP_OPTIONS, time_step=1, df_accuracy_order=2, job_setup=None, cache_dirname=None):
         from .constants import F_WOD_CACHE_FILENAME, DF_WOD_CACHE_FILENAME
@@ -256,7 +262,9 @@ class WOD(Data_Base):
     @property
     def deviations_calculate(self):
         (deviation_dop, deviation_po4) = measurements.all.pw.values.deviation()
-        return np.concatenate([deviation_dop, deviation_po4])
+        deviations = np.concatenate([deviation_dop, deviation_po4])
+        assert len(deviations) == self.m
+        return deviations
     
     
     ## measurements
@@ -274,7 +282,9 @@ class WOD(Data_Base):
     @property
     def results_calculate(self):
         [[points_dop, points_po4], [results_dop, results_po4]] = measurements.all.pw.values.points_and_results()
-        return np.concatenate([results_dop, results_po4])
+        results = np.concatenate([results_dop, results_po4])
+        assert len(results) == self.m
+        return results
     
     
     @property
@@ -288,69 +298,39 @@ class WOD(Data_Base):
     @property
     def m(self):
         return self.memory_cache.get_value('m', lambda: self.m_dop + self.m_po4)
-        
     
-#     @property
-#     def results(self):
-#         try:
-#             return self._results
-#         except AttributeError:
-#             self.points
-#             return self._results
-#     
-#     @property
-#     def m_dop(self):
-#         try:
-#             return self._m_dop
-#         except AttributeError:
-#             self.points
-#             return self._m_dop
-#     
-#     @property
-#     def m_po4(self):
-#         try:
-#             return self._m_po4
-#         except AttributeError:
-#             self.points
-#             return self._m_po4
-#     
-#     @property
-#     def m(self):
-#         try:
-#             return self._m
-#         except AttributeError:
-#             self._m = self.m_dop + self.m_po4
-#             return self._m
+    
+    ## correlation matrix
+    
+    def correlation_matrix_calculate(self, min_values, max_year_diff=float('inf')):
+        return measurements.all.pw.correlation.CorrelationMatrix(min_values=min_values, max_year_diff=max_year_diff).correlation_matrix_positive_definite
+    
+    def correlation_matrix(self, min_values, max_year_diff=float('inf')):
+        return self.memory_cache.get_value('correlation_matrix_{:0>2}_{:0>2}'.format(min_values, max_year_diff), lambda: self.correlation_matrix_calculate(min_values, max_year_diff=max_year_diff))   
+    
+    
+    def correlation_matrix_cholesky_decomposition_calculate(self, min_values, max_year_diff=float('inf')):
+        return measurements.all.pw.correlation.CorrelationMatrix(min_values=min_values, max_year_diff=max_year_diff).correlation_matrix_cholesky_decomposition
+    
+    def correlation_matrix_cholesky_decomposition(self, min_values, max_year_diff=float('inf')):
+        return self.memory_cache.get_value('correlation_matrix_cholesky_decomposition_{:0>2}_{:0>2}'.format(min_values, max_year_diff), lambda: self.correlation_matrix_cholesky_decomposition_calculate(min_values, max_year_diff=max_year_diff))    
+    
+    # def correlation_matrix_L_calculate(self, min_values, max_year_diff=1):
+    #     return measurements.all.pw.correlation.CorrelationMatrix(min_values=min_values, max_year_diff=max_year_diff).correlation_matrix_cholesky_decomposition[0]
+    # 
+    # def correlation_matrix_L(self, min_values, max_year_diff=1):
+    #     return self.memory_cache.get_value('correlation_matrix_L_{:0>2}_{:0>2}'.format(min_values, max_year_diff), lambda: self.correlation_matrix_L_calculate(min_values, max_year_diff=max_year_diff))    
+    # 
+    # 
+    # def correlation_matrix_P_calculate(self, min_values, max_year_diff=1):
+    #     return measurements.all.pw.correlation.CorrelationMatrix(min_values=min_values, max_year_diff=max_year_diff)..correlation_matrix_cholesky_decomposition[1]
+    # 
+    # def correlation_matrix_P(self, min_values, max_year_diff=1):
+    #     return self.memory_cache.get_value('correlation_matrix_P_{:0>2}_{:0>2}'.format(min_values, max_year_diff), lambda: self.correlation_matrix_P_calculate(min_values, max_year_diff=max_year_diff))
     
     
     
-#     @property
-#     def inverse_deviations(self):
-#         try:
-#             return self._inverse_deviations
-#         except AttributeError:
-#             (deviation_dop, deviation_po4) = measurements.all.pw.values.get_deviation()
-#             self._inverse_deviations = 1 / np.concatenate([deviation_dop, deviation_po4])
-#             return self._inverse_deviations
-#     
-#     @property
-#     def inverse_variances(self):
-#         try:
-#             return self._inverse_variances
-#         except AttributeError:
-#             self._inverse_variances = self.inverse_deviations**(-2)
-#             return self._inverse_variances
-#     
-#     @property
-#     def average_inverse_variance(self):
-#         try:
-#             return self._average_inverse_variance
-#         except AttributeError:
-#             self._average_inverse_variance = self.inverse_variances.mean()
-#             return self._average_inverse_variance
-#     
-    
-    ## correlation methods
+    ## correlation methods for P3 correlation
     
     def correlation_parameters(self, parameters):
         from ndop.optimization.constants import COST_FUNCTION_CORRELATION_PARAMETER_FILENAME
@@ -540,21 +520,9 @@ class WOD(Data_Base):
         def convert_to_boxes_with_points(points, data):
             assert len(points) == len(data)
             
-#             from ndop.model.constants import (METOS_X_DIM as X_DIM, METOS_Y_DIM as Y_DIM, METOS_Z_LEFT as Z_VALUES_LEFT)
-#             from ndop.model.constants import LSM
-#             
-#             
-#             m = measurements.util.data.Measurements_Unsorted()
-#             m.add_results(points, data)
-#             m.discard_year()
-#             m.categorize_indices([1./t_dim])
-#             m.transform_indices_to_boxes(X_DIM, Y_DIM, Z_VALUES_LEFT)
-#             data_map = LSM.insert_index_values_in_map(m.means(), no_data_value=no_data_value)
-#             
-            
             lsm = measurements.land_sea_mask.data.LandSeaMaskTMM(t_dim=t_dim, t_centered=False)
-            m = measurements.util.data.Measurements_Unsorted()
-            m.add_results(points, data)
+            m = measurements.util.data.Measurements()
+            m.append_values(points, data)
             m.transform_indices_to_lsm(lsm)
             data_map = lsm.insert_index_values_in_map(m.means(), no_data_value=no_data_value)
             
@@ -573,28 +541,31 @@ class OLD_WOD(WOD):
         from .constants import F_WOD_CACHE_FILENAME, DF_WOD_CACHE_FILENAME
         F_WOD_CACHE_FILENAME = 'old_' + F_WOD_CACHE_FILENAME
         DF_WOD_CACHE_FILENAME = 'old_' + DF_WOD_CACHE_FILENAME
-        Data_Base.__init__(self, spinup_options, time_step=time_step, df_accuracy_order=df_accuracy_order, job_setup=job_setup, F_cache_filename=F_WOD_CACHE_FILENAME, DF_cache_filename=DF_WOD_CACHE_FILENAME)
+        DataBase.__init__(self, spinup_options, time_step=time_step, df_accuracy_order=df_accuracy_order, job_setup=job_setup, F_cache_filename=F_WOD_CACHE_FILENAME, DF_cache_filename=DF_WOD_CACHE_FILENAME)
     
     
     @property
     def deviations_calculate(self):
         import measurements.dop.pw.deviation
         dop_deviation = measurements.dop.pw.deviation.for_points()
-        po4_deviation = np.load('/work_O2/sunip229/NDOP/measurements/po4/wod13/analysis/old/deviation/measurement_deviations_interpolation_52_(0.1,2,0.2).npy')
+        from measurements.po4.wod.constants import ANALYSIS_DIR
+        po4_deviation = np.load(ANALYSIS_DIR+'/old/deviation/measurement_deviations_interpolation_52_(0.1,2,0.2).npy')
         return np.concatenate([dop_deviation, po4_deviation])
     
     @property
     def points_calculate(self):
         import measurements.dop.pw.data
         (dop_points, dop_values) = measurements.dop.pw.data.points_and_values()
-        po4_points = np.load('/work_O2/sunip229/NDOP/measurements/po4/wod13/analysis/old/measurement_points.npy')
+        from measurements.po4.wod.constants import ANALYSIS_DIR
+        po4_points = np.load(ANALYSIS_DIR+'/old/measurement_points.npy')
         return [dop_points, po4_points]
     
     @property
     def results_calculate(self):
         import measurements.dop.pw.data
         (dop_points, dop_results) = measurements.dop.pw.data.points_and_values()
-        po4_results = np.load('/work_O2/sunip229/NDOP/measurements/po4/wod13/analysis/old/measurement_results.npy')
+        from measurements.po4.wod.constants import ANALYSIS_DIR
+        po4_results = np.load(ANALYSIS_DIR+'/old/measurement_results.npy')
         return np.concatenate([dop_results, po4_results])
 
 
