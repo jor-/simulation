@@ -4,7 +4,7 @@ import numpy as np
 
 import ndop.util.data_base
 
-import util.rzcluster.interact
+import util.batch.universal.system
 import util.logging
 
 from ndop.model.constants import JOB_MEMORY_GB
@@ -49,11 +49,11 @@ if __name__ == "__main__":
     ## run
     with util.logging.Logger(disp_stdout=args['debug']):
         job_setup = {'name':'NDOP'}
-        job_setup['spinup'] = {'nodes_setup' : util.rzcluster.interact.NodeSetup(memory=JOB_MEMORY_GB, node_kind=('f_ocean', 'f_ocean2'), total_cpus_min=48)}
-        job_setup['derivative'] = {'nodes_setup' : util.rzcluster.interact.NodeSetup(memory=JOB_MEMORY_GB, node_kind=('f_ocean', 'f_ocean2'), total_cpus_min=48)}
+        job_setup['spinup'] = {'nodes_setup' : util.batch.universal.system.NodeSetup(memory=JOB_MEMORY_GB, node_kind=('f_ocean', 'f_ocean2'), total_cpus_min=48)}
+        job_setup['derivative'] = {'nodes_setup' : util.batch.universal.system.NodeSetup(memory=JOB_MEMORY_GB, node_kind=('f_ocean', 'f_ocean2'), total_cpus_min=48)}
 #         job_setup['spinup'] = {'nodes_setup':('f_ocean2', 6, 16)}
 #         job_setup['derivative'] = {'nodes_setup':('f_ocean', 12, 8)}
-        job_setup['trajectory'] = {'nodes_setup' : util.rzcluster.interact.NodeSetup(memory=JOB_MEMORY_GB, node_kind='f_ocean', nodes=1, total_cpus_min=4)}
+        job_setup['trajectory'] = {'nodes_setup' : util.batch.universal.system.NodeSetup(memory=JOB_MEMORY_GB, node_kind='f_ocean', nodes=1, total_cpus_min=4)}
         spinup_setup = {'years':years, 'tolerance':tolerance, 'combination':combination}
         db = ndop.util.data_base.DataBase(spinup_setup, job_setup=job_setup)
         if eval_F:

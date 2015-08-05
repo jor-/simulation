@@ -8,7 +8,7 @@ import numpy as np
 import ndop.optimization.cost_function
 import ndop.optimization.job
 import util.io.matlab
-# import util.io.fs
+import util.io.fs
 
 import util.logging
 logger = util.logging.logger
@@ -122,10 +122,15 @@ with util.logging.Logger(log_file=log_file, disp_stdout=log_file is None):
             spinup_run_dir = cf.data_base.model.get_spinup_run_dir(parameter_set_dir, spinup_options, start_from_closest_parameters=MODEL_START_FROM_CLOSEST_PARAMETER_SET)
             
             ## start cf calculation job
-            with tempfile.TemporaryDirectory(dir=MODEL_TMP_DIR, prefix='cost_function_tmp_') as output_dir:
-                with ndop.optimization.job.CostFunctionJob(output_dir, parameters, cf_kind, eval_f=eval_function_value, eval_df=eval_grad_value, write_output_file=True, **cf_kargs) as cf_job:
-                    cf_job.start()
-                    cf_job.wait_until_finished()
+            # with tempfile.TemporaryDirectory(dir=MODEL_TMP_DIR, prefix='cost_function_tmp_') as output_dir:
+            #     with ndop.optimization.job.CostFunctionJob(output_dir, parameters, cf_kind, eval_f=eval_function_value, eval_df=eval_grad_value, write_output_file=True, **cf_kargs) as cf_job:
+            #         cf_job.start()
+            #         cf_job.wait_until_finished()
+            output_dir = tempfile.mkdtemp(dir=MODEL_TMP_DIR, prefix='cost_function_tmp_')
+            with ndop.optimization.job.CostFunctionJob(output_dir, parameters, cf_kind, eval_f=eval_function_value, eval_df=eval_grad_value, write_output_file=True, **cf_kargs) as cf_job:
+                cf_job.start()
+                cf_job.wait_until_finished()
+            util.io.fs.remove_recursively(output_dir)
         
         
         ## load cost function values

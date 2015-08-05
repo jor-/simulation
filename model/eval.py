@@ -651,19 +651,31 @@ class Model():
             tmp_dir = MODEL_TMP_DIR
         else:
             tmp_dir = run_dir
-        with tempfile.TemporaryDirectory(dir=tmp_dir, prefix='trajectory_tmp_') as trajectory_dir:
-            # self.run_job(parameters, trajectory_dir, years=1, tolerance=0, time_step=run_time_step, job_setup=self.job_setup_collection['trajectory'], tracer_input_path=run_dir, write_trajectory=True, wait_seconds=self.wait_seconds_trajectory, make_read_only=False)
-            self.run_job(parameters, trajectory_dir, years=1, tolerance=0, time_step=run_time_step, job_setup=self.job_setup_collection['trajectory'], tracer_input_path=run_dir, write_trajectory=True, make_read_only=False)
-            
-            trajectory_output_dir = os.path.join(trajectory_dir, 'trajectory')
-            
-            ## for each tracer read trajectory
-            for tracer_index in range(METOS_TRACER_DIM):
-                tracer_trajectory_values = load_trajectory_function(trajectory_output_dir, tracer_index)
-                trajectory_values += (tracer_trajectory_values,)
+        # with tempfile.TemporaryDirectory(dir=tmp_dir, prefix='trajectory_tmp_') as trajectory_dir:
+        #     self.run_job(parameters, trajectory_dir, years=1, tolerance=0, time_step=run_time_step, job_setup=self.job_setup_collection['trajectory'], tracer_input_path=run_dir, write_trajectory=True, make_read_only=False)
+        #     
+        #     trajectory_output_dir = os.path.join(trajectory_dir, 'trajectory')
+        #     
+        #     ## for each tracer read trajectory
+        #     for tracer_index in range(METOS_TRACER_DIM):
+        #         tracer_trajectory_values = load_trajectory_function(trajectory_output_dir, tracer_index)
+        #         trajectory_values += (tracer_trajectory_values,)
         
+        ## write trajectory
+        trajectory_dir = tempfile.mkdtemp(dir=tmp_dir, prefix='trajectory_tmp_')
+        self.run_job(parameters, trajectory_dir, years=1, tolerance=0, time_step=run_time_step, job_setup=self.job_setup_collection['trajectory'], tracer_input_path=run_dir, write_trajectory=True, make_read_only=False)
+        
+        ## read trajectory        
+        trajectory_output_dir = os.path.join(trajectory_dir, 'trajectory')
+        for tracer_index in range(METOS_TRACER_DIM):
+            tracer_trajectory_values = load_trajectory_function(trajectory_output_dir, tracer_index)
+            trajectory_values += (tracer_trajectory_values,)
+        
+        ## remove trajectory
+        util.io.fs.remove_recursively(trajectory_dir)
+        
+        ## return
         assert len(trajectory_values) == METOS_TRACER_DIM
-        
         return trajectory_values
     
     

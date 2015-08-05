@@ -4,16 +4,15 @@ import numpy as np
 
 import ndop.optimization.constants
 
+import util.batch.universal.system
 import util.io.fs
-import util.rzcluster.job
-import util.rzcluster.interact
 
 import util.logging
 logger = util.logging.logger
 
 
 
-class CostFunctionJob(util.rzcluster.job.Job):
+class CostFunctionJob(util.batch.universal.system.Job):
 
     def __init__(self, output_dir, parameters, cf_kind, eval_f=True, eval_df=True, write_output_file=True, **cf_kargs):
         from ndop.optimization.constants import COST_FUNCTION_NODES_SETUP_JOB
@@ -58,7 +57,7 @@ class CostFunctionJob(util.rzcluster.job.Job):
                 memory_gb = 24
         # nodes_setup = (cpu_kind, node_numbers, cpu_numbers)
         # node_kind=('westmere', 'shanghai', 'f_ocean')
-        # nodes_setup = util.rzcluster.interact.NodeSetup(memory=memory_gb, node_kind=ndop.optimization.constants.COST_FUNCTION_JOB_NODE_KIND, nodes_max=node_numbers, total_cpus_max=cpu_numbers)
+        # nodes_setup = util.batch.universal.system.NodeSetup(memory=memory_gb, node_kind=ndop.optimization.constants.COST_FUNCTION_JOB_NODE_KIND, nodes_max=node_numbers, total_cpus_max=cpu_numbers)
         nodes_setup = COST_FUNCTION_NODES_SETUP_JOB.copy()
         nodes_setup['memory'] = memory_gb
         # nodes_setup.wait_for_needed_resources()

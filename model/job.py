@@ -4,17 +4,15 @@ import subprocess
 import re
 import numpy as np
 
+import util.batch.universal.system
 import util.io.fs
-
-import util.rzcluster.interact
-import util.rzcluster.job
 
 import util.logging
 logger = util.logging.logger
 
 
 
-class Metos3D_Job(util.rzcluster.job.Job):
+class Metos3D_Job(util.batch.universal.system.Job):
     
     
     @property
@@ -176,9 +174,8 @@ class Metos3D_Job(util.rzcluster.job.Job):
                 nodes_max = 1
         
         ## best node setup
-        # nodes_setup = util.rzcluster.interact.wait_for_needed_resources(JOB_MEMORY_GB, node_kind=node_kind, cpus_min=cpus_min, nodes_max=nodes_max)
-        nodes_setup = util.rzcluster.interact.NodeSetup(memory=JOB_MEMORY_GB, node_kind=node_kind, total_cpus_min=cpus_min, nodes_max=nodes_max)
-        nodes_setup.wait_for_needed_resources()
+        nodes_setup = util.batch.universal.system.NodeSetup(memory=JOB_MEMORY_GB, node_kind=node_kind, total_cpus_min=cpus_min, nodes_max=nodes_max)
+        # nodes_setup.wait_for_needed_resources()
         logger.debug('Best nodes_setup is {}.'.format(nodes_setup))
         
         return nodes_setup

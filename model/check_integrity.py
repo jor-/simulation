@@ -6,7 +6,7 @@ from ndop.model.job import Metos3D_Job
 import ndop.util.data_base
 
 import util.io.fs
-import util.rzcluster.interact
+import util.batch.universal.system
 
 #TODO check read only for finished jobs
 #TODO check cache option files available
@@ -44,12 +44,29 @@ def check_job_file_integrity_spinup(spinup_dir, is_spinup_dir):
             ## check if really running
             if is_running:
                 try:
-                    is_really_running = util.rzcluster.interact.is_job_running(job_id)
+                    is_really_running = util.batch.universal.system.BATCH_SYSTEM.is_job_running(job_id)
                     if not is_really_running:
                         print('Job in {} should run but it does not!'.format(run_dir))
                         break
                 except ConnectionError:
                     print('Cannot connect to job server. Please check job id {}'.format(job_id))
+            ## check exit code
+            else:
+                with Metos3D_Job(run_dir, force_load=True) as job:
+                    exit_code = job.exit_code
+                    # if os.path.exists(job.finished_file):
+                    #     try:
+                    #         exit_code = job.exit_code
+                    #     except ValueError:
+                    #         util.io.fs.make_writable(job.finished_file)
+                    #         print('Adding exit code to {}!'.format(job.finished_file))
+                    #         with open(job.finished_file, 'w') as file:
+                    #             file.writelines('0\n')
+                    #         util.io.fs.make_read_only(job.finished_file)
+                        
+                if exit_code != 0:
+                    print('Job in {} has exit code {}!'.format(run_dir, exit_code))
+                    
             
             ## check if trajectory dir exist
             trajectory_dirs = util.io.fs.get_dirs(run_dir)
@@ -112,7 +129,7 @@ def check_job_file_integrity_spinup(spinup_dir, is_spinup_dir):
                     break
                 else:
                     try:
-                        if util.rzcluster.interact.is_job_finished(job_id):
+                        if util.batch.universal.system.BATCH_SYSTEM.is_job_finished(job_id):
                             print('Job in run dir {} should run, but it is not!'.format(run_dir))
                     except ConnectionError:
                         print('Cannot connect to job server. Please check job id {}'.format(job_id))
