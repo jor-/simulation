@@ -639,7 +639,8 @@ class Model():
     ## access to model values
     
     def _get_trajectory(self, load_trajectory_function, run_dir, parameters):
-        from .constants import MODEL_TMP_DIR, METOS_TRACER_DIM
+        from .constants import METOS_TRACER_DIM
+        from util.constants import TMP_DIR
         
         assert callable(load_trajectory_function)
         
@@ -647,8 +648,8 @@ class Model():
         trajectory_values = ()
         
         ## create trajectory
-        if MODEL_TMP_DIR is not None:
-            tmp_dir = MODEL_TMP_DIR
+        if TMP_DIR is not None:
+            tmp_dir = TMP_DIR
         else:
             tmp_dir = run_dir
         # with tempfile.TemporaryDirectory(dir=tmp_dir, prefix='trajectory_tmp_') as trajectory_dir:

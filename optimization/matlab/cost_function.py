@@ -115,7 +115,8 @@ with util.logging.Logger(log_file=log_file, disp_stdout=log_file is None):
         
         ## if necessary start calculation job
         if (eval_function_value and not cf.f_available(parameters)) or (eval_grad_value and not cf.df_available(parameters)):
-            from ndop.model.constants import MODEL_TMP_DIR, MODEL_START_FROM_CLOSEST_PARAMETER_SET
+            from ndop.model.constants import MODEL_START_FROM_CLOSEST_PARAMETER_SET
+            from util.constants import TMP_DIR
             
             ## start spinup job
             parameter_set_dir = cf.data_base.model.get_parameter_set_dir(time_step, parameters, create=True)
@@ -126,7 +127,7 @@ with util.logging.Logger(log_file=log_file, disp_stdout=log_file is None):
             #     with ndop.optimization.job.CostFunctionJob(output_dir, parameters, cf_kind, eval_f=eval_function_value, eval_df=eval_grad_value, write_output_file=True, **cf_kargs) as cf_job:
             #         cf_job.start()
             #         cf_job.wait_until_finished()
-            output_dir = tempfile.mkdtemp(dir=MODEL_TMP_DIR, prefix='cost_function_tmp_')
+            output_dir = tempfile.mkdtemp(dir=TMP_DIR, prefix='cost_function_tmp_')
             with ndop.optimization.job.CostFunctionJob(output_dir, parameters, cf_kind, eval_f=eval_function_value, eval_df=eval_grad_value, write_output_file=True, **cf_kargs) as cf_job:
                 cf_job.start()
                 cf_job.wait_until_finished()
