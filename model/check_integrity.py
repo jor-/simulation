@@ -144,7 +144,7 @@ def check_job_file_integrity_spinup(spinup_dir, is_spinup_dir):
     
 
 
-def check_job_file_integrity(time_step_size=1, parameter_set_dirs_to_check=None):
+def check_job_file_integrity(time_step_size=1, parameter_set_dirs_to_check=None, check_for_same_parameters=True):
     from ndop.model.constants import MODEL_OUTPUT_DIR, MODEL_TIME_STEP_DIRNAME, MODEL_SPINUP_DIRNAME, MODEL_DERIVATIVE_DIRNAME, JOB_OPTIONS_FILENAME, MODEL_PARAMETERS_FILENAME
     from ndop.util.constants import CACHE_DIRNAME, F_WOD_CACHE_FILENAME, DF_WOD_CACHE_FILENAME
     
@@ -174,13 +174,14 @@ def check_job_file_integrity(time_step_size=1, parameter_set_dirs_to_check=None)
         if not np.all(np.isfinite(p)):
             print('Parameters {} in set {} are not finite!'.format(p, parameter_set_dir))
         
-        # ## check for same parameters
-        for parameter_set_dir_i in parameter_set_dirs_all:
-            if parameter_set_dir_i != parameter_set_dir:
-                p_i = np.loadtxt(os.path.join(parameter_set_dir_i, MODEL_PARAMETERS_FILENAME))
-                # if np.allclose(p, p_i):
-                if np.all(p == p_i):
-                    print('Parameter set {} and {} have same parameters!'.format(parameter_set_dir, parameter_set_dir_i))
+        ## check for same parameters
+        if check_for_same_parameters:
+            for parameter_set_dir_i in parameter_set_dirs_all:
+                if parameter_set_dir_i != parameter_set_dir:
+                    p_i = np.loadtxt(os.path.join(parameter_set_dir_i, MODEL_PARAMETERS_FILENAME))
+                    # if np.allclose(p, p_i):
+                    if np.all(p == p_i):
+                        print('Parameter set {} and {} have same parameters!'.format(parameter_set_dir, parameter_set_dir_i))
         
         ## check WOD output
         f_wod_file = os.path.join(parameter_set_dir, CACHE_DIRNAME, F_WOD_CACHE_FILENAME)
@@ -208,8 +209,9 @@ def check_job_file_integrity(time_step_size=1, parameter_set_dirs_to_check=None)
 if __name__ == "__main__":
     ## configure arguments
     parser = argparse.ArgumentParser()
+    parser.add_argument('-s', '--skip_same_parameter_check', action='store_true')
     parser.add_argument('parameter_set_dir', nargs='?', default=None)
     args = parser.parse_args()
     ## run check
-    check_job_file_integrity(parameter_set_dirs_to_check=(args.parameter_set_dir,))
+    check_job_file_integrity(parameter_set_dirs_to_check=(args.parameter_set_dir,), check_for_same_parameters=not args.skip_same_parameter_check)
     print('Check completed.')
