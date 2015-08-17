@@ -17,7 +17,7 @@ from util.math.matrix import SingularMatrixError
 import util.logging
 logger = util.logging.logger
 
-from ndop.optimization.constants import COST_FUNCTIONS_DIRNAME, COST_FUNCTION_F_FILENAME, COST_FUNCTION_DF_FILENAME, COST_FUNCTION_F_NORMALIZED_FILENAME, COST_FUNCTION_CORRELATION_PARAMETER_FILENAME, COST_FUNCTION_NODES_SETUP_SPINUP, COST_FUNCTION_NODES_SETUP_DERIVATIVE, COST_FUNCTION_NODES_SETUP_TRAJECTORY
+from ndop.optimization.constants import COST_FUNCTION_DIRNAME, COST_FUNCTION_F_FILENAME, COST_FUNCTION_DF_FILENAME, COST_FUNCTION_F_NORMALIZED_FILENAME, COST_FUNCTION_CORRELATION_PARAMETER_FILENAME, COST_FUNCTION_NODES_SETUP_SPINUP, COST_FUNCTION_NODES_SETUP_DERIVATIVE, COST_FUNCTION_NODES_SETUP_TRAJECTORY
 
 
 ## Base
@@ -70,7 +70,7 @@ class Base():
         ## prepare cache and data base
         self.data_base = ndop.util.data_base.init_data_base(data_kind, spinup_options, time_step, df_accuracy_order=df_accuracy_order, job_setup=job_setup)
         
-        # cache_dirname = os.path.join(COST_FUNCTIONS_DIRNAME, data_kind + '_' + cf_kind)
+        # cache_dirname = os.path.join(COST_FUNCTION_DIRNAME, data_kind + '_' + cf_kind)
         self.cache = ndop.util.value_cache.Cache(spinup_options, time_step, df_accuracy_order=df_accuracy_order, cache_dirname=self.cache_dirname, use_memory_cache=True)
     
     
@@ -83,7 +83,7 @@ class Base():
         
     @property
     def cache_dirname(self):
-        return os.path.join(COST_FUNCTIONS_DIRNAME, '{}_{}'.format(self.data_base, self))
+        return os.path.join(COST_FUNCTION_DIRNAME, '{}_{}'.format(self.data_base, self))
     
     
     ## cost function values
@@ -176,7 +176,7 @@ class BaseGeneralized(BaseWeighted):
     
     @property
     def cache_dirname(self):
-        return os.path.join(COST_FUNCTIONS_DIRNAME, '{}_{}'.format(self.data_base, self.__class__.__name__), 'min_values_{}'.format(self.correlation_min_values), 'max_year_diff_{}'.format(self.correlation_max_year_diff))    
+        return os.path.join(COST_FUNCTION_DIRNAME, '{}_{}'.format(self.data_base, self.__class__.__name__), 'min_values_{}'.format(self.correlation_min_values), 'max_year_diff_{}'.format(self.correlation_max_year_diff))    
     
     
     @property
@@ -700,7 +700,7 @@ class Family():
 #     # 
 #     # @property
 #     # def cache_dirname(self):
-#     #     return os.path.join(COST_FUNCTIONS_DIRNAME, '{}_{}'.format(self.data_base, self.__class__.__name__), 'min_values_{}'.format(self.correlation_min_values), 'max_year_diff_{}'.format(self.correlation_max_year_diff))
+#     #     return os.path.join(COST_FUNCTION_DIRNAME, '{}_{}'.format(self.data_base, self.__class__.__name__), 'min_values_{}'.format(self.correlation_min_values), 'max_year_diff_{}'.format(self.correlation_max_year_diff))
 #     
 #     
 #     
@@ -759,7 +759,7 @@ class Family():
 # #     
 # #     @property
 # #     def cache_dirname(self):
-# #         return os.path.join(COST_FUNCTIONS_DIRNAME, '{}_{}'.format(self.data_base, self), 'min_values_{}'.format(self.correlation_min_values), 'max_year_diff_{}'.format(self.correlation_max_year_diff), 'tolerance_iter_{:.0e}'.format(self.tolerance_iter))
+# #         return os.path.join(COST_FUNCTION_DIRNAME, '{}_{}'.format(self.data_base, self), 'min_values_{}'.format(self.correlation_min_values), 'max_year_diff_{}'.format(self.correlation_max_year_diff), 'tolerance_iter_{:.0e}'.format(self.tolerance_iter))
 # #     
 # #     
 # #     # def __str__(self):
