@@ -263,7 +263,7 @@ class Model():
                 try:
                     current_parameters_diff = self.get_parameters_diff(parameters, current_parameter_set_dir)
                 except (OSError, IOError):
-                    warnings.warn('Could not read the parameters file {}!'.format(current_parameters_file))
+                    warnings.warn('Could not read the parameters file in {}!'.format(current_parameter_set_dir))
                     current_parameters_diff = float('inf')
                 
                 if current_parameters_diff < closest_parameters_diff:
