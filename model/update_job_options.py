@@ -1,14 +1,15 @@
 import os
 import stat
-import logging
 
-from ndop.model.job import Metos3D_Job
+import ndop.model.job
 
 import util.io.fs
+import util.options
 import util.logging
-from util.options import Options
+logger = util.logging.logger
 
 
+## general update functions
 
 def update_job_options(update_function):
     from ndop.model.constants import MODEL_OUTPUT_DIR, MODEL_TIME_STEP_DIRNAME, MODEL_PARAMETERS_SET_DIRNAME, MODEL_SPINUP_DIRNAME, MODEL_RUN_DIRNAME, MODEL_DERIVATIVE_DIRNAME, MODEL_PARTIAL_DERIVATIVE_DIRNAME
@@ -22,7 +23,7 @@ def update_job_options(update_function):
         time_step_dir = os.path.join(MODEL_OUTPUT_DIR, time_step_dirname)
         
         parameter_sets_len = len(util.io.fs.get_dirs(time_step_dir))
-        print('{} parameter set dirs found in {}.'.format(parameter_sets_len, time_step_dir))
+        logger.info('{} parameter set dirs found in {}.'.format(parameter_sets_len, time_step_dir))
         
         for parameter_set_number in range(parameter_sets_len):
             parameter_set_dirname = MODEL_PARAMETERS_SET_DIRNAME.format(parameter_set_number)
@@ -42,7 +43,6 @@ def update_job_options(update_function):
                     update_job_options_in_run_dirs(partial_derivative_dir, update_function)
 
 
-
 def update_job_options_in_run_dirs(run_dir_path, update_function):  
     from ndop.model.constants import MODEL_RUN_DIRNAME
     
@@ -56,9 +56,8 @@ def update_job_options_in_run_dirs(run_dir_path, update_function):
             update_job_options_in_job_options_dir(run_dir, update_function)
 
 
-
 def update_job_options_in_job_options_dir(job_options_dir, update_function):
-    print('Updating job options in {}.'.format(job_options_dir))
+    logger.info('Updating job options in {}.'.format(job_options_dir))
     
     options_file = os.path.join(job_options_dir, 'job_options.hdf5')
     
@@ -67,9 +66,11 @@ def update_job_options_in_job_options_dir(job_options_dir, update_function):
     os.chmod(options_file, stat.S_IRUSR)
 
 
+## specific update functions
+
 def update_output_dir():
     def update_function(job_options_dir):
-        with Metos3D_Job(job_options_dir, force_load=True) as job:
+        with ndop.model.job.Metos3D_Job(job_options_dir, force_load=True) as job:
             job.update_output_dir(job_options_dir)
     
     update_job_options(update_function)
@@ -79,7 +80,7 @@ def add_finished_file():
     def update_function(job_options_dir):
         options_file = os.path.join(job_options_dir, 'job_options.hdf5')
         
-        with Options(options_file) as options:
+        with util.options.Options(options_file) as options:
             try:
                 options['/job/finished_file']
                 print('Finished file option already there in job option file {}.'.format(options_file))
