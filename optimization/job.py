@@ -77,20 +77,18 @@ class CostFunctionJob(util.batch.universal.system.Job):
         ## write python script
         from ndop.model.constants import MODEL_PARAMETERS_FORMAT_STRING
         
-        commands = ['import ndop.optimization.cost_function']
-        commands += ['import util.logging']
-        
-        commands += ['with util.logging.Logger():']
-        
-        commands += ["  cf = ndop.optimization.cost_function.{}(**{})".format(cf_kind, cf_kargs)]
+        commands = ['import util.logging']
+        commands += ['with util.logging.Logger():']        
+        commands += ['    import ndop.optimization.cost_function']
+        commands += ["    cf = ndop.optimization.cost_function.{}(**{})".format(cf_kind, cf_kargs)]
         
         parameters_str = str(tuple(map(lambda f: MODEL_PARAMETERS_FORMAT_STRING.format(f), parameters)))
         parameters_str = parameters_str.replace("'", '')
 
         if eval_f:
-            commands += ['  cf.f({})'.format(parameters_str)]
+            commands += ['    cf.f({})'.format(parameters_str)]
         if eval_df:
-            commands += ['  cf.df({})'.format(parameters_str)]
+            commands += ['    cf.df({})'.format(parameters_str)]
         
         
         script_str = "\n".join(commands)
