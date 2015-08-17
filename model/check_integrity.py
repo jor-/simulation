@@ -26,6 +26,7 @@ def check_job_file_integrity_spinup(spinup_dir, is_spinup_dir):
             ## check job file
             try:
                 with Metos3D_Job(run_dir, force_load=True) as job:
+                    ## check if started
                     if not job.is_started():
                         print('Job in {} is not started!'.format(run_dir))
                     is_running = job.is_running()
@@ -35,6 +36,9 @@ def check_job_file_integrity_spinup(spinup_dir, is_spinup_dir):
                     except Exception:
                         print('Job in {} is not started!'.format(run_dir))
                         break
+                    ## check read only
+                    if not job.options.is_read_only():
+                        print('Job option file in {} is writeable!'.format(run_dir))
             except (OSError, IOError):
                 print('Job file in ' + run_dir + ' is not okay.')
                 break
@@ -43,13 +47,14 @@ def check_job_file_integrity_spinup(spinup_dir, is_spinup_dir):
             
             ## check if really running
             if is_running:
-                try:
-                    is_really_running = util.batch.universal.system.BATCH_SYSTEM.is_job_running(job_id)
-                    if not is_really_running:
-                        print('Job in {} should run but it does not!'.format(run_dir))
-                        break
-                except ConnectionError:
-                    print('Cannot connect to job server. Please check job id {}'.format(job_id))
+                # try:
+                #     is_really_running = util.batch.universal.system.BATCH_SYSTEM.is_job_running(job_id)
+                #     if not is_really_running:
+                #         print('Job in {} should run but it does not!'.format(run_dir))
+                #         break
+                # except ConnectionError:
+                #     print('Cannot connect to job server. Please check job id {}'.format(job_id))
+                pass
             ## check exit code
             else:
                 with Metos3D_Job(run_dir, force_load=True) as job:
@@ -128,11 +133,11 @@ def check_job_file_integrity_spinup(spinup_dir, is_spinup_dir):
                     print('Job is running but output files in {} do exist!'.format(run_dir))
                     break
                 else:
-                    try:
-                        if util.batch.universal.system.BATCH_SYSTEM.is_job_finished(job_id):
-                            print('Job in run dir {} should run, but it is not!'.format(run_dir))
-                    except ConnectionError:
-                        print('Cannot connect to job server. Please check job id {}'.format(job_id))
+                    # try:
+                    #     if util.batch.universal.system.BATCH_SYSTEM.is_job_finished(job_id):
+                    #         print('Job in run dir {} should run, but it is not!'.format(run_dir))
+                    # except ConnectionError:
+                    #     print('Cannot connect to job server. Please check job id {}'.format(job_id))
                     if run_dir_index != n-1:
                         print('Job in run dir {} not finished, but it has not the last run index!'.format(run_dir))
                         break

@@ -141,7 +141,6 @@ class Metos3D_Job(util.batch.universal.system.Job):
     
     
     
-    
     def update_output_dir(self, new_output_path):
         opt = self.options
         old_output_path = opt['/metos3d/output_path']
@@ -226,10 +225,11 @@ class Metos3D_Job(util.batch.universal.system.Job):
         nodes_setup_kind = nodes_setup.node_kind
         nodes_setup_nodes = nodes_setup.nodes
         nodes_setup_cpus = nodes_setup.cpus
-        if nodes_setup_kind == 'f_ocean2':
-            factor = 1
-        else:
-            factor = 8
+        # if nodes_setup_kind == 'f_ocean2':
+        #     factor = 1
+        # else:
+        #     factor = 8
+        factor = 1
         walltime_hours = np.ceil(factor * years / (10 * nodes_setup_nodes * nodes_setup_cpus))
         
         ## init job
@@ -389,9 +389,12 @@ class Metos3D_Job(util.batch.universal.system.Job):
         
         
         ## write job file
-        run_command = 'mpirun -n {} -machinefile $PBS_NODEFILE -r rsh {} {} \n\n'
-        run_command = run_command.format(opt['/job/nodes'] * opt['/job/cpus'], opt['/metos3d/sim_file'], opt['/metos3d/option_file'])
+        # run_command = 'mpirun -n {} -machinefile $PBS_NODEFILE -r rsh {} {} \n\n'
+        # run_command = run_command.format(opt['/job/nodes'] * opt['/job/cpus'], opt['/metos3d/sim_file'], opt['/metos3d/option_file'])
+        # super().write_job_file(run_command, modules=['petsc'])
+
+        run_command = '{} {} \n'.format(opt['/metos3d/sim_file'], opt['/metos3d/option_file'])
+        super().write_job_file(run_command, modules=['intel', 'intelmpi', 'petsc'])
         
-        super().write_job_file(run_command, modules=['petsc'])
         
         logger.debug('Job initialised.')
