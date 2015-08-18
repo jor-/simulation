@@ -21,7 +21,14 @@ def check_job_file_integrity_spinup(spinup_dir, is_spinup_dir):
         print('No run dirs in ' + spinup_dir + '.')
     else:
         for run_dir_index in range(n):
-            run_dir = run_dirs[run_dir_index]
+            run_dir = run_dirs[run_dir_index]            
+            
+            
+            ## check if dirs in run dir exist
+            dirs = util.io.fs.get_dirs(run_dir)
+            if len(dirs) > 0:
+                print('Directories found in {}.'.format(run_dir))
+            
             
             ## check job file
             try:
@@ -42,41 +49,7 @@ def check_job_file_integrity_spinup(spinup_dir, is_spinup_dir):
             except (OSError, IOError):
                 print('Job file in ' + run_dir + ' is not okay.')
                 break
-#                 is_running = False
-#                 job_output_file = None
             
-            ## check if really running
-            if is_running:
-                # try:
-                #     is_really_running = util.batch.universal.system.BATCH_SYSTEM.is_job_running(job_id)
-                #     if not is_really_running:
-                #         print('Job in {} should run but it does not!'.format(run_dir))
-                #         break
-                # except ConnectionError:
-                #     print('Cannot connect to job server. Please check job id {}'.format(job_id))
-                pass
-            ## check exit code
-            else:
-                with Metos3D_Job(run_dir, force_load=True) as job:
-                    exit_code = job.exit_code
-                    # if os.path.exists(job.finished_file):
-                    #     try:
-                    #         exit_code = job.exit_code
-                    #     except ValueError:
-                    #         util.io.fs.make_writable(job.finished_file)
-                    #         print('Adding exit code to {}!'.format(job.finished_file))
-                    #         with open(job.finished_file, 'w') as file:
-                    #             file.writelines('0\n')
-                    #         util.io.fs.make_read_only(job.finished_file)
-                        
-                if exit_code != 0:
-                    print('Job in {} has exit code {}!'.format(run_dir, exit_code))
-                    
-            
-            ## check if trajectory dir exist
-            trajectory_dirs = util.io.fs.get_dirs(run_dir)
-            if len(trajectory_dirs) > 0:
-                print('Trajectory directories found: ' + ' '.join(trajectory_dirs))
             
             ## check petsc input files
             for input_filename in ('dop_input.petsc', 'po4_input.petsc') :
@@ -97,10 +70,53 @@ def check_job_file_integrity_spinup(spinup_dir, is_spinup_dir):
                         break
             
             
-            ## check job output file exists
-            if not is_running:
+            ## check if petsc output files exist
+            petsc_output_files_exist = []
+            for petsc_output_filename in ('dop_output.petsc', 'po4_output.petsc'):
+                petsc_output_file = os.path.join(run_dir, petsc_output_filename)
+                petsc_output_files_exist.append(os.path.exists(petsc_output_file))
+            
+            if not np.all(petsc_output_files_exist) and (run_dir_index != n-1 or not is_running):
+                if run_dir_index != n-1:
+                    print('Petsc output files in {} do not exist, but it has not the last run index!'.format(run_dir))
+                else:
+                    print('Petsc output files in {} do not exist, but the job is not started or finished!'.format(run_dir))
+                break
+            
+            
+            ## check finish file
+            finished_file = os.path.join(run_dir, 'finished.txt')
+            if np.any(petsc_output_files_exist) and not os.path.exists(finished_file):
+                print('Petsc output files in {} exist but finished file does not exist!'.format(run_dir))
+                break
+            
+            
+            if is_running:
+                ## check if really running
+                try:
+                    is_really_running = util.batch.universal.system.BATCH_SYSTEM.is_job_running(job_id)
+                    if not is_really_running:
+                        print('Job in {} should run but it does not!'.format(run_dir))
+                        break
+                except ConnectionError:
+                    print('Cannot connect to job server. Please check job id {}'.format(job_id))
+                
+                
+                ## check if petsc output files exist
+                if np.any(petsc_output_files_exist):
+                    print('Job is running but petsc output files in {} do exist!'.format(run_dir))
+                    break
+            else:
+                ## check exit code
+                with Metos3D_Job(run_dir, force_load=True) as job:
+                    exit_code = job.exit_code
+                        
+                if exit_code != 0:
+                    print('Job in {} has exit code {}!'.format(run_dir, exit_code))
+                
+            
+                ## check job output file
                 if os.path.exists(job_output_file):
-                    ## check job output file for errors
                     try:
                         with open(job_output_file) as output_file_object:
                             for line in output_file_object:
@@ -110,41 +126,9 @@ def check_job_file_integrity_spinup(spinup_dir, is_spinup_dir):
                                         print('There are errors in the job output file {}: {}.'.format(job_output_file, line))
                                         break
                     except e:
-                        print('The job output file {} could not be opened!'% job_output_file)
+                        print('The job output file {} could not be opened!'.format(job_output_file))
                 else:
                     print('Job output file {} does not exist!'.format(job_output_file))
-            
-            
-            ## check if petsc output files exist
-            output_files_exist = []
-            for petsc_output_filename in ('dop_output.petsc', 'po4_output.petsc') :
-                petsc_output_file = os.path.join(run_dir, petsc_output_filename)
-                output_files_exist.append(os.path.exists(petsc_output_file))
-            
-            ## check finish files
-            finished_file = os.path.join(run_dir, 'finished.txt')
-            if np.any(output_files_exist) and not os.path.exists(finished_file):
-                print('Output files exist but finished file {} does not exits!'.format(finished_file))
-                break
-            
-            ## check petsc output files
-            if is_running:
-                if np.any(output_files_exist):
-                    print('Job is running but output files in {} do exist!'.format(run_dir))
-                    break
-                else:
-                    # try:
-                    #     if util.batch.universal.system.BATCH_SYSTEM.is_job_finished(job_id):
-                    #         print('Job in run dir {} should run, but it is not!'.format(run_dir))
-                    # except ConnectionError:
-                    #     print('Cannot connect to job server. Please check job id {}'.format(job_id))
-                    if run_dir_index != n-1:
-                        print('Job in run dir {} not finished, but it has not the last run index!'.format(run_dir))
-                        break
-            else:
-                if not np.all(output_files_exist):
-                    print('Petsc output files in {} do not exist!'.format(run_dir))
-                    break
 
     
 
