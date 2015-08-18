@@ -25,7 +25,7 @@ class Model():
     def __init__(self, job_setup=None, default_spinup_options={'years':10000, 'tolerance':0.0, 'combination':'or'}, df_options= {'years':100, 'step_size': 10**(-7)}):
         from .constants import MODEL_PARAMETER_LOWER_BOUND, MODEL_PARAMETER_UPPER_BOUND, MODEL_OUTPUT_DIR, METOS_TRACER_DIM
         
-        logger.debug('Model initiated with job setup {} and default spinup options {}.'.format(job_setup, default_spinup_options))
+        logger.debug('Model initiated with job setup {}, default spinup options {} and df options.'.format(job_setup, default_spinup_options, df_options))
         
         ## job setup collection
         # convert job setup to job setup collection

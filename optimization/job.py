@@ -19,6 +19,13 @@ class CostFunctionJob(util.batch.universal.system.Job):
         
         super().__init__(output_dir)
         
+
+        if 'job_setup' in cf_kargs:
+            job_setup = cf_kargs['job_setup']
+            del cf_kargs['job_setup']
+        else:
+            job_setup = None
+        
         ## save CF options
         self.options['/cf/kind'] = cf_kind
         self.options['/cf/parameters'] = parameters
@@ -75,16 +82,37 @@ class CostFunctionJob(util.batch.universal.system.Job):
             cf_kargs['correlation_max_year_diff'] = -1
         
         ## write python script
-        from ndop.model.constants import MODEL_PARAMETERS_FORMAT_STRING
+        # try:
+        #     job_setup = cf_kargs['job_setup']
+        # except KeyError:
+        #     job_setup = None
+        # if job_setup is not None:
+        #     job_setup_str = '{}'
+        #     for setup_name in ('spinup', 'derivative', 'trajectory'):
+        #         if setup_name in job_setup:
+        #             nodes_setup = job_setup[setup_name]['nodes_setup']
+        #             nodes_setup_str = "util.batch.general.system.NodeSetup(memory={}, node_kind='{}', nodes={}, cpus={})".format(nodes_setup.memory, nodes_setup.node_kind, nodes_setup.nodes, nodes_setup.cpus)
+        #             job_setup_str += ".update({'" + setup_name + "':{'nodes_setup':" + nodes_setup_str + "}})"
         
         commands = ['import util.logging']
         commands += ['with util.logging.Logger():']        
         commands += ['    import ndop.optimization.cost_function']
-        commands += ["    cf = ndop.optimization.cost_function.{}(**{})".format(cf_kind, cf_kargs)]
-        
+        commands += ["    cf_kargs = {}".format(cf_kargs)]
+        if job_setup is not None:
+            commands += ['    import util.batch.general.system']
+            commands += ["    job_setup = {}"]
+            for setup_name in ('spinup', 'derivative', 'trajectory'):
+                if setup_name in job_setup:
+                    nodes_setup = job_setup[setup_name]['nodes_setup']
+                    nodes_setup_str = "util.batch.general.system.NodeSetup(memory={}, node_kind='{}', nodes={}, cpus={})".format(nodes_setup.memory, nodes_setup.node_kind, nodes_setup.nodes, nodes_setup.cpus)
+                    job_setup_str = "{'" + setup_name + "':{'nodes_setup':" + nodes_setup_str + "}}"
+                    commands += ["    job_setup.update({})".format(job_setup_str)]
+            commands += ["    cf_kargs.update({'job_setup':job_setup})"]
+        commands += ['    cf = ndop.optimization.cost_function.{}(**cf_kargs)'.format(cf_kind)]
+
+        from ndop.model.constants import MODEL_PARAMETERS_FORMAT_STRING
         parameters_str = str(tuple(map(lambda f: MODEL_PARAMETERS_FORMAT_STRING.format(f), parameters)))
         parameters_str = parameters_str.replace("'", '')
-
         if eval_f:
             commands += ['    cf.f({})'.format(parameters_str)]
         if eval_df:

@@ -257,14 +257,6 @@ class Metos3D_Job(util.batch.universal.system.Job):
         
         
         ## set metos3d options
-# #         new_environment = True #self.queue in ('f_ocean', 'f_ocean2') or self.cpu_kind == 'amd256'
-# #         if new_environment:
-#         METOS_PATH = METOS_PATH_2
-# #         else:
-# #             METOS_PATH = METOS_PATH_1
-#         opt['/metos3d/path'] = METOS_PATH
-# #         opt['/metos3d/data_path'] = os.path.join(METOS_PATH, 'data/Metos3DData')
-# #         opt['/metos3d/sim_file'] = os.path.join(METOS_PATH, 'simpack/metos3d-simpack-MITgcm-PO4-DOP.exe')
         opt['/metos3d/data_path'] = METOS_DATA_DIR
         opt['/metos3d/sim_file'] = METOS_SIM_FILE
         opt['/metos3d/years'] = years
@@ -293,14 +285,6 @@ class Metos3D_Job(util.batch.universal.system.Job):
             os.symlink(os.path.join(tracer_input_path, opt['metos3d/dop_output_filename']), os.path.join(output_path, opt['/metos3d/dop_input_filename']))
             
             opt['/metos3d/tracer_input_path'] = output_path
-        
-        # model_parameters_string = ''
-        # model_parameters_len = len(model_parameters)
-        # for i in range(model_parameters_len):
-        #     # model_parameters_string += MODEL_PARAMETERS_FORMAT_STRING % model_parameters[i]
-        #     model_parameters_string += MODEL_PARAMETERS_FORMAT_STRING.format(model_parameters[i])
-        #     if i < model_parameters_len - 1:
-        #         model_parameters_string += ','
         
         model_parameters_string = str(tuple(map(lambda f: MODEL_PARAMETERS_FORMAT_STRING.format(f), model_parameters)))
         model_parameters_string = model_parameters_string.replace("'", '').replace('(', '').replace(')', '').replace(' ','')
@@ -387,14 +371,8 @@ class Metos3D_Job(util.batch.universal.system.Job):
         util.io.fs.flush_and_close(f)
         
         
-        
         ## write job file
-        # run_command = 'mpirun -n {} -machinefile $PBS_NODEFILE -r rsh {} {} \n\n'
-        # run_command = run_command.format(opt['/job/nodes'] * opt['/job/cpus'], opt['/metos3d/sim_file'], opt['/metos3d/option_file'])
-        # super().write_job_file(run_command, modules=['petsc'])
-
         run_command = '{} {} \n'.format(opt['/metos3d/sim_file'], opt['/metos3d/option_file'])
         super().write_job_file(run_command, modules=['intel', 'intelmpi', 'petsc'])
-        
         
         logger.debug('Job initialised.')

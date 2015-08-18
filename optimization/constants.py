@@ -32,7 +32,7 @@ if util.batch.universal.system.IS_NEC:
     # COST_FUNCTION_NODES_SETUP_SPINUP = util.batch.universal.system.NodeSetup(memory=JOB_MEMORY_GB, node_kind='clmedium', nodes=10, cpus=16)
     # COST_FUNCTION_NODES_SETUP_DERIVATIVE = util.batch.universal.system.NodeSetup(memory=JOB_MEMORY_GB, node_kind='clmedium', nodes=5, cpus=16)
     COST_FUNCTION_NODES_SETUP_SPINUP = util.batch.universal.system.NodeSetup(memory=JOB_MEMORY_GB, node_kind='clfo2', nodes=6, cpus=24)
-    COST_FUNCTION_NODES_SETUP_DERIVATIVE = util.batch.universal.system.NodeSetup(memory=JOB_MEMORY_GB, node_kind='clfo2', nodes=3, cpus=24)
+    COST_FUNCTION_NODES_SETUP_DERIVATIVE = util.batch.universal.system.NodeSetup(memory=JOB_MEMORY_GB, node_kind='clmedium', nodes=4, cpus=16)
     COST_FUNCTION_NODES_SETUP_TRAJECTORY = util.batch.universal.system.NodeSetup(memory=JOB_MEMORY_GB, node_kind='clexpress', nodes=1, cpus=16)
     COST_FUNCTION_NODES_SETUP_JOB = util.batch.universal.system.NodeSetup(node_kind='clmedium', nodes=1, cpus=1)
     
