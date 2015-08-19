@@ -48,12 +48,11 @@ if __name__ == "__main__":
         
     ## run
     with util.logging.Logger(disp_stdout=args['debug']):
+        from ndop.optimization.constants import COST_FUNCTION_NODES_SETUP_SPINUP, COST_FUNCTION_NODES_SETUP_DERIVATIVE, COST_FUNCTION_NODES_SETUP_TRAJECTORY
         job_setup = {'name':'NDOP'}
-        job_setup['spinup'] = {'nodes_setup' : util.batch.universal.system.NodeSetup(memory=JOB_MEMORY_GB, node_kind=('f_ocean', 'f_ocean2'), total_cpus_min=48)}
-        job_setup['derivative'] = {'nodes_setup' : util.batch.universal.system.NodeSetup(memory=JOB_MEMORY_GB, node_kind=('f_ocean', 'f_ocean2'), total_cpus_min=48)}
-#         job_setup['spinup'] = {'nodes_setup':('f_ocean2', 6, 16)}
-#         job_setup['derivative'] = {'nodes_setup':('f_ocean', 12, 8)}
-        job_setup['trajectory'] = {'nodes_setup' : util.batch.universal.system.NodeSetup(memory=JOB_MEMORY_GB, node_kind='f_ocean', nodes=1, total_cpus_min=4)}
+        job_setup['spinup'] = {'nodes_setup' : COST_FUNCTION_NODES_SETUP_SPINUP}
+        job_setup['derivative'] = {'nodes_setup' : COST_FUNCTION_NODES_SETUP_DERIVATIVE}
+        job_setup['trajectory'] = {'nodes_setup' : COST_FUNCTION_NODES_SETUP_TRAJECTORY}
         spinup_setup = {'years':years, 'tolerance':tolerance, 'combination':combination}
         db = ndop.util.data_base.DataBase(spinup_setup, job_setup=job_setup)
         if eval_F:
