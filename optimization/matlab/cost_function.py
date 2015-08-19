@@ -130,7 +130,10 @@ if __name__ == "__main__":
                 with ndop.optimization.job.CostFunctionJob(output_dir, parameters, cf_kind, eval_f=eval_function_value, eval_df=eval_grad_value, write_output_file=True, **cf_kargs) as cf_job:
                     cf_job.start()
                     cf_job.wait_until_finished()
-                util.io.fs.remove_recursively(output_dir)
+                try:
+                    util.io.fs.remove_recursively(output_dir)
+                except OSError as e:
+                    logger.warning('Dir {} could not be removed: {}'.format(output_dir, e))
             
             
             ## load cost function values
