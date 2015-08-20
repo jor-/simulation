@@ -31,6 +31,8 @@ class Base():
         cache_dirname = os.path.join(CACHE_DIRNAME, kind)
         self.cache = ndop.util.value_cache.Cache(spinup_options, time_step, df_accuracy_order=df_accuracy_order, cache_dirname=cache_dirname, use_memory_cache=True)
         self.data_base = ndop.util.data_base.init_data_base(data_kind, spinup_options, time_step=time_step, df_accuracy_order=df_accuracy_order, job_setup=job_setup)
+        
+        self.dtype = np.float128
     
     
     
@@ -49,7 +51,7 @@ class Base():
     def covariance_matrix_calculate_with_information_matrix(self, information_matrix):
         logger.debug('Calculating covariance matrix for information matrix.')
         
-        information_matrix = np.asmatrix(information_matrix, dtype=np.float128)
+        information_matrix = np.asmatrix(information_matrix, dtype=self.dtype)
         try:
             covariance_matrix = information_matrix.I
         except np.linalg.linalg.LinAlgError as exc:
@@ -178,8 +180,8 @@ class Base():
         
         if value_mask is not None:
             model_confidence = model_confidence[value_mask]
-#         average_model_confidence = model_confidence[np.logical_not(np.isnan(model_confidence))].mean(dtype=np.float128)
-        average_model_confidence = np.nanmean(model_confidence, dtype=np.float128)
+#         average_model_confidence = model_confidence[np.logical_not(np.isnan(model_confidence))].mean(dtype=self.dtype)
+        average_model_confidence = np.nanmean(model_confidence, dtype=self.dtype)
         
         alpha = 0.99
         logger.debug('Average model confidence {} calculated for confidence level {} and time dim {} of df.'.format(average_model_confidence, alpha, time_dim_df))
@@ -271,12 +273,13 @@ class OLS(Base):
         assert DF.ndim == 2
         
         n, m = DF.shape
-        M = np.zeros([m, m], dtype=np.float128)
+        M = np.zeros([m, m], dtype=self.dtype)
         
         for i in range(n):
             M += np.outer(DF[i], DF[i])
+        M *= inverse_average_variance   
         
-        M *= inverse_average_variance
+        assert M.ndim == 2 and M.shape[0] == M.shape[1] == DF.shape[1] and M.dtype == self.dtype
         return M
     
     
@@ -284,7 +287,9 @@ class OLS(Base):
         logger.debug('Calculating information matrix of type {} for parameters {}.'.format(self.__class__.__name__, parameters))
         
         DF = self.data_base.DF(parameters)
-        M = self.information_matrix_calculate_with_DF(DF, self.data_base.inverse_average_variance)
+        M = self.information_matrix_calculate_with_DF(DF, self.data_base.inverse_average_variance)   
+             
+        assert M.ndim == 2 and M.shape[0] == M.shape[1] == len(parameters) and M.dtype == self.dtype
         return M
     
     
@@ -304,11 +309,12 @@ class WLS(Base):
         assert DF.ndim == 2
         
         n, m = DF.shape
-        M = np.zeros([m, m], dtype=np.float128)
+        M = np.zeros([m, m], dtype=self.dtype)
         
         for i in range(n):
             M += np.outer(DF[i], DF[i]) * inverse_deviations[i]**2
         
+        assert M.ndim == 2 and M.shape[0] == M.shape[1] == DF.shape[1] and M.dtype == self.dtype
         return M
     
     
@@ -318,7 +324,60 @@ class WLS(Base):
         DF = self.data_base.DF(parameters)
         M = self.information_matrix_calculate_with_DF(DF, self.data_base.inverse_deviations)
         
+        assert M.ndim == 2 and M.shape[0] == M.shape[1] == len(parameters) and M.dtype == self.dtype
         return M
+    
+    
+    def information_matrix_calculate(self, parameters, additionals=None):
+        if additionals is None:
+            return self.information_matrix_calculate_with_parameters(parameters)
+        else:
+            return self.information_matrix(parameters) + self.information_matrix_calculate_with_DF(additionals['DF'], additionals['inverse_deviations'])
+    
+
+
+class GLS(Base):
+    
+    def __init__(self, *args, correlation_min_values=10, correlation_max_year_diff=float('inf'), **kargs):        
+        ## save additional kargs
+        self.correlation_min_values = correlation_min_values
+        if correlation_max_year_diff is None or correlation_max_year_diff < 0:
+            correlation_max_year_diff = float('inf')
+        self.correlation_max_year_diff = correlation_max_year_diff
+        
+        ## super init
+        super().__init__(*args, **kargs)
+    
+    
+    def information_matrix_calculate_with_DF(self, DF, correlation_matrix):
+        logger.debug('Calculating information matrix of type {} with {} DF values.'.format(self.__class__.__name__, len(DF)))
+        
+        assert DF.ndim == 2 and correlation_matrix.ndim == 2
+        assert correlation_matrix.shape[1] == DF.shape[0]
+        
+        DF = np.asmatrix(DF, dtype=self.dtype)
+        correlation_matrix = np.asmatrix(correlation_matrix, dtype=self.dtype)
+        
+        M = DF.T * correlation_matrix.I * DF
+        
+        assert M.ndim == 2 and M.shape[0] == M.shape[1] == DF.shape[1] and M.dtype == self.dtype
+        return M
+    
+    
+    def information_matrix_calculate_with_parameters(self, parameters):
+        P, L = self.data_base.correlation_matrix_cholesky_decomposition(self.correlation_min_values, self.correlation_max_year_diff)
+        DF = self.data_base.DF(parameters)
+        inverse_deviations = self.data_base.inverse_variances
+        weighted_DF = DF * inverse_deviations[:, np.newaxis]
+        weighted_DF = P * np.matrix(weighted_DF)
+        
+        X = util.math.sparse.solve.forward_substitution(L, weighted_DF, dtype=self.dtype)
+        X = np.asmatrix(X)
+        M = X.T * X
+        
+        assert M.ndim == 2 and M.shape[0] == M.shape[1] == len(parameters) and M.dtype == self.dtype
+        return
+    
     
     
     def information_matrix_calculate(self, parameters, additionals=None):
