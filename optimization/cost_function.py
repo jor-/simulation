@@ -294,8 +294,6 @@ class GLS(BaseGeneralized):
         inverse_deviations = self.inverse_standard_deviations
         
         weighted_residual =  (F - results) * inverse_deviations
-        # L = self.correlation_matrix_L
-        # P = self.correlation_matrix_P
         P, L = self.correlation_matrix_cholesky_decomposition
         
         y = weighted_residual
