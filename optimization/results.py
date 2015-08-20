@@ -21,19 +21,19 @@ def get_values(cf_kind, value_kind, dtype=np.float64):
 #     pattern = 'iteration_' + value_kind + '_[0-9]{3}.txt'
     pattern = value_kind + '_[0-9]{3}.txt'
     files = util.io.fs.get_files(dir, pattern)
-    
+
     ## load indices and values
     indices = []
     values = []
-    
+
     for file in files:
         filename = os.path.split(file)[1]
         index = util.pattern.get_int_in_string(filename)
         indices.append(index)
-        
+
         value = np.loadtxt(file)
         values.append(value)
-    
+
     ## make array
     if len(indices) > 0:
         n = max(indices) + 1
@@ -44,7 +44,7 @@ def get_values(cf_kind, value_kind, dtype=np.float64):
     else:
         value_array = np.ma.masked_all((0,0), dtype)
 #         value_array = np.empty(0, dtype)
-    
+
     value_array = np.ma.masked_invalid(value_array)
     ## return
     return value_array
@@ -77,7 +77,7 @@ def solver_f_indices(cf_kind):
 #     df = all_df(cf_kind)
 # #     return np.any(np.isnan(df[i]), axis=1)
 #     return np.any(df.mask[i], axis=1)
-# 
+#
 # def local_solver_stop_solver_incides(cf_kind):
 #     return np.where(local_solver_stop_mask(cf_kind))[0]
 
@@ -86,15 +86,15 @@ def local_solver_stop_slices(cf_kind):
     i = solver_f_indices(cf_kind)
     i = i[i < len(df)]
     stop_indices = np.where(np.any(df.mask[i], axis=1))[0]
-    
+
     start_indices = [0,] + (stop_indices + 1).tolist()
     stop_indices = (stop_indices + 1).tolist() + [None,]
-    
+
     slices = []
     for i in range(len(stop_indices)):
         slices.append(slice(start_indices[i], stop_indices[i]))
     return slices
-    
-    
+
+
 
 

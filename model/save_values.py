@@ -24,7 +24,7 @@ if __name__ == "__main__":
     parser.add_argument('-d', '--debug', action='store_true', help='Print debug infos.')
     parser.add_argument('--version', action='version', version='%(prog)s 0.1')
     args = vars(parser.parse_args())
-    
+
     ## get args
     years = args['years']
     tolerance = args['tolerance']
@@ -32,8 +32,8 @@ if __name__ == "__main__":
     eval_F = args['F']
     eval_DF = args['DF']
     time_dim = args['time_dim']
-    
-    
+
+
     ## get p
     p = args['p']
     if p is not None:
@@ -44,8 +44,8 @@ if __name__ == "__main__":
         time_step = 1
         parameters_file = os.path.join(MODEL_OUTPUT_DIR, MODEL_TIME_STEP_DIRNAME.format(time_step), MODEL_PARAMETERS_SET_DIRNAME.format(parameter_set_number), MODEL_PARAMETERS_FILENAME)
         p = np.loadtxt(parameters_file)
-        
-        
+
+
     ## run
     with util.logging.Logger(disp_stdout=args['debug']):
         from ndop.optimization.constants import COST_FUNCTION_NODES_SETUP_SPINUP, COST_FUNCTION_NODES_SETUP_DERIVATIVE, COST_FUNCTION_NODES_SETUP_TRAJECTORY
@@ -64,4 +64,3 @@ if __name__ == "__main__":
 #             model.f_boxes(p, time_dim, spinup_setup)
 #         if eval_DF:
 #             model.df_boxes(p, time_dim, spinup_setup)
-            
