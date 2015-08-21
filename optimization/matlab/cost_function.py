@@ -63,7 +63,7 @@ if __name__ == "__main__":
 
     if args.node_kind is not None:
         nodes_setup_dict = {'node_kind':args.node_kind, 'nodes':args.nodes, 'cpus':args.cpus}
-        nodes_setup = util.batch.universal.system.NodeSetup(**nodes_setup_dict)
+        nodes_setup = util.batch.universal.system.NodeSetup(check_for_better=True, **nodes_setup_dict)
         job_setup = {'spinup':{'nodes_setup':nodes_setup}}
     else:
         job_setup = None

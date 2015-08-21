@@ -54,27 +54,14 @@ class CostFunctionJob(util.batch.universal.system.Job):
             if cf_kind == 'GLS':
                 if cf_kargs['correlation_min_values'] >= 35:
                     memory_gb = 26
-                # elif cf_kargs['correlation_min_values'] >= 30:
-                #     memory_gb = 26
                 else:
                     memory_gb = 31
-                # nodes_setup = ('f_ocean', 1, 8)
-                # cpu_numbers = 8
             else:
                 memory_gb = 24
-        # nodes_setup = (cpu_kind, node_numbers, cpu_numbers)
-        # node_kind=('westmere', 'shanghai', 'f_ocean')
-        # nodes_setup = util.batch.universal.system.NodeSetup(memory=memory_gb, node_kind=ndop.optimization.constants.COST_FUNCTION_JOB_NODE_KIND, nodes_max=node_numbers, total_cpus_max=cpu_numbers)
         nodes_setup = COST_FUNCTION_NODES_SETUP_JOB.copy()
         nodes_setup['memory'] = memory_gb
-        # nodes_setup.wait_for_needed_resources()
-        # nodes_setup['cpus'] = min(nodes_setup['cpus'], cpu_numbers)
-        # nodes_setup = nodes_setup.tuple
-
-        # queue = 'medium'
         queue = None
         walltime_hours = None
-        # super().init_job_file(job_name, memory_gb, nodes_setup, queue=queue, walltime_hours=walltime_hours, write_output_file=write_output_file)
         super().init_job_file(job_name, nodes_setup, queue=queue, walltime_hours=walltime_hours, write_output_file=write_output_file)
 
         ## convert inf to negative for script
@@ -82,29 +69,17 @@ class CostFunctionJob(util.batch.universal.system.Job):
             cf_kargs['correlation_max_year_diff'] = -1
 
         ## write python script
-        # try:
-        #     job_setup = cf_kargs['job_setup']
-        # except KeyError:
-        #     job_setup = None
-        # if job_setup is not None:
-        #     job_setup_str = '{}'
-        #     for setup_name in ('spinup', 'derivative', 'trajectory'):
-        #         if setup_name in job_setup:
-        #             nodes_setup = job_setup[setup_name]['nodes_setup']
-        #             nodes_setup_str = "util.batch.general.system.NodeSetup(memory={}, node_kind='{}', nodes={}, cpus={})".format(nodes_setup.memory, nodes_setup.node_kind, nodes_setup.nodes, nodes_setup.cpus)
-        #             job_setup_str += ".update({'" + setup_name + "':{'nodes_setup':" + nodes_setup_str + "}})"
-
         commands = ['import util.logging']
         commands += ['with util.logging.Logger():']
         commands += ['    import ndop.optimization.cost_function']
         commands += ["    cf_kargs = {}".format(cf_kargs)]
         if job_setup is not None:
-            commands += ['    import util.batch.general.system']
+            commands += ['    import util.batch.universal.system']
             commands += ["    job_setup = {}"]
             for setup_name in ('spinup', 'derivative', 'trajectory'):
                 if setup_name in job_setup:
                     nodes_setup = job_setup[setup_name]['nodes_setup']
-                    nodes_setup_str = "util.batch.general.system.NodeSetup(memory={}, node_kind='{}', nodes={}, cpus={})".format(nodes_setup.memory, nodes_setup.node_kind, nodes_setup.nodes, nodes_setup.cpus)
+                    nodes_setup_str = "util.batch.universal.system.NodeSetup(memory={}, node_kind='{}', nodes={}, cpus={})".format(nodes_setup.memory, nodes_setup.node_kind, nodes_setup.nodes, nodes_setup.cpus)
                     job_setup_str = "{'" + setup_name + "':{'nodes_setup':" + nodes_setup_str + "}}"
                     commands += ["    job_setup.update({})".format(job_setup_str)]
             commands += ["    cf_kargs.update({'job_setup':job_setup})"]
