@@ -229,7 +229,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
         #     factor = 1
         # else:
         #     factor = 8
-        factor = 1
+        factor = 1.25
         walltime_hours = np.ceil(factor * years / (10 * nodes_setup_nodes * nodes_setup_cpus))
 
         ## init job
