@@ -588,25 +588,67 @@ def init_data_base(data_kind, spinup_options=DEFAULT_SPINUP_OPTIONS, time_step=1
 
 
 
-class Family:
+# class Family:
+# 
+#     def __init__(self, main_member_class, member_classes, data_kind, spinup_options, time_step=1, df_accuracy_order=2, job_setup=None):
+# 
+#         logger.debug('Initiating cost function family for data kind {} with main member {} and members {}.'.format(data_kind, main_member_class.__name__, list(map(lambda x: x.__name__, member_classes))))
+# 
+#         if main_member_class not in member_classes:
+#             raise ValueError('The main member class has to be in {}, but its {}.'.format(member_classes__name__, main_member_class))
+# 
+#         main_member = main_member_class(data_kind, spinup_options, time_step=time_step, df_accuracy_order=df_accuracy_order, job_setup=job_setup)
+#         self.main_member = main_member
+# 
+#         family = []
+#         for member_class in member_classes:
+#             if member_class is not main_member_class:
+#                 member = member_class(data_kind, spinup_options, time_step=time_step, df_accuracy_order=df_accuracy_order, job_setup=job_setup)
+#                 member.data_base = main_member.data_base
+#                 family.append(member)
+# 
+#         self.family = family
+# 
+# 
+#     def get_function_value(self, function):
+#         assert callable(function)
+# 
+#         value = function(self.main_member)
+#         for member in self.family:
+#             function(member)
+# 
+#         return value
 
-    def __init__(self, main_member_class, member_classes, data_kind, spinup_options, time_step=1, df_accuracy_order=2, job_setup=None):
 
-        logger.debug('Initiating cost function family for data kind {} with main member {} and members {}.'.format(data_kind, main_member_class.__name__, list(map(lambda x: x.__name__, member_classes))))
 
-        if main_member_class not in member_classes:
-            raise ValueError('The main member class has to be in {}, but its {}.'.format(member_classes__name__, main_member_class))
+class Family():
+    
+    member_classes = {}
+    
+    # member_classes = {'WOA': [(OLS, [{}]), (WLS, [{}]), (LWLS, [{}])], 'WOD': [(OLS, [{}]), (WLS, [{}]), (LWLS, [{}]), (GLS, [{'correlation_min_values': a, 'correlation_max_year_diff': float('inf')} for correlation_min_values in (30, 35, 40)])]}
 
-        main_member = main_member_class(data_kind, spinup_options, time_step=time_step, df_accuracy_order=df_accuracy_order, job_setup=job_setup)
-        self.main_member = main_member
+    def __init__(self, **cf_kargs):
+        ## chose member classes
+        data_kind = cf_kargs['data_kind'].upper()
+        try:
+            member_classes_list = self.member_classes[data_kind]
+        except KeyError:
+            raise ValueError('Data_kind {} unknown. Must be in {}.'.format(data_kind, list(self.member_classes.keys())))
 
-        family = []
-        for member_class in member_classes:
-            if member_class is not main_member_class:
-                member = member_class(data_kind, spinup_options, time_step=time_step, df_accuracy_order=df_accuracy_order, job_setup=job_setup)
-                member.data_base = main_member.data_base
+        ## init members
+        for member_class, additional_arguments in member_classes_list:
+            for additional_kargs in additional_arguments:
+                cf_kargs_member_class = cf_kargs.copy()
+                cf_kargs_member_class.update(additional_kargs)
+                member = member_class(**cf_kargs_member_class)
                 family.append(member)
+        
+        ## set same database
+        for i in range(1, len(family)):
+            family[i].data_base = family[0].data_base
 
+        ## set family
+        logger.debug('Cost function family for data kind {} with members {} initiated.'.format(data_kind, list(map(lambda x: str(x), family))))
         self.family = family
 
 

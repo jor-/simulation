@@ -5,7 +5,8 @@ import numpy as np
 import ndop.util.value_cache
 import ndop.util.data_base
 
-from util.math.matrix import SingularMatrixError
+import util.math.matrix
+import util.math.sparse.solve
 import util.parallel.universal
 import util.parallel.with_multiprocessing
 
@@ -28,11 +29,16 @@ class Base():
         except KeyError:
             job_setup['name'] = 'A_' + kind
 
-        cache_dirname = os.path.join(CACHE_DIRNAME, kind)
-        self.cache = ndop.util.value_cache.Cache(spinup_options, time_step, df_accuracy_order=df_accuracy_order, cache_dirname=cache_dirname, use_memory_cache=True)
         self.data_base = ndop.util.data_base.init_data_base(data_kind, spinup_options, time_step=time_step, df_accuracy_order=df_accuracy_order, job_setup=job_setup)
+        
+        self.cache = ndop.util.value_cache.Cache(spinup_options, time_step, df_accuracy_order=df_accuracy_order, cache_dirname=self.cache_dirname, use_memory_cache=True)
 
         self.dtype = np.float128
+    
+
+    @property
+    def cache_dirname(self):
+        return os.path.join(CACHE_DIRNAME, str(self.data_base), self.__class__.__name__)
 
 
 
@@ -55,7 +61,7 @@ class Base():
         try:
             covariance_matrix = information_matrix.I
         except np.linalg.linalg.LinAlgError as exc:
-            raise SingularMatrixError(information_matrix) from exc
+            raise util.math.matrix.SingularMatrixError(information_matrix) from exc
         return covariance_matrix
 
 
@@ -272,11 +278,14 @@ class OLS(Base):
 
         assert DF.ndim == 2
 
-        n, m = DF.shape
-        M = np.zeros([m, m], dtype=self.dtype)
+        DF = np.asmatrix(DF, dtype=self.dtype)
+        M = DF.T * DF
 
-        for i in range(n):
-            M += np.outer(DF[i], DF[i])
+        # n, m = DF.shape
+        # M = np.zeros([m, m], dtype=self.dtype)
+
+        #   for i in range(n):
+        #     M += np.outer(DF[i], DF[i])
         M *= inverse_average_variance
 
         assert M.ndim == 2 and M.shape[0] == M.shape[1] == DF.shape[1] and M.dtype == self.dtype
@@ -308,11 +317,15 @@ class WLS(Base):
 
         assert DF.ndim == 2
 
-        n, m = DF.shape
-        M = np.zeros([m, m], dtype=self.dtype)
+        weighted_DF = DF * self.data_base.inverse_deviations[:, np.newaxis]
+        weighted_DF = np.asmatrix(weighted_DF, dtype=self.dtype)
+        M = weighted_DF.T * weighted_DF
 
-        for i in range(n):
-            M += np.outer(DF[i], DF[i]) * inverse_deviations[i]**2
+        # n, m = DF.shape
+        # M = np.zeros([m, m], dtype=self.dtype)
+
+        #   for i in range(n):
+        #     M += np.outer(DF[i], DF[i]) * inverse_deviations[i]**2
 
         assert M.ndim == 2 and M.shape[0] == M.shape[1] == DF.shape[1] and M.dtype == self.dtype
         return M
@@ -349,6 +362,11 @@ class GLS(Base):
         super().__init__(*args, **kargs)
 
 
+    @property
+    def cache_dirname(self):
+        return os.path.join(CACHE_DIRNAME, str(self.data_base), self.__class__.__name__, 'min_values_{}'.format(self.correlation_min_values), 'max_year_diff_{}'.format(self.correlation_max_year_diff))
+    
+
     def information_matrix_calculate_with_DF(self, DF, correlation_matrix):
         logger.debug('Calculating information matrix of type {} with {} DF values.'.format(self.__class__.__name__, len(DF)))
 
@@ -367,16 +385,16 @@ class GLS(Base):
     def information_matrix_calculate_with_parameters(self, parameters):
         P, L = self.data_base.correlation_matrix_cholesky_decomposition(self.correlation_min_values, self.correlation_max_year_diff)
         DF = self.data_base.DF(parameters)
-        inverse_deviations = self.data_base.inverse_variances
-        weighted_DF = DF * inverse_deviations[:, np.newaxis]
-        weighted_DF = P * np.matrix(weighted_DF)
+        
+        weighted_DF = DF * self.data_base.inverse_deviations[:, np.newaxis]
+        weighted_DF = P * np.asmatrix(weighted_DF, dtype=sef.dtype)
 
         X = util.math.sparse.solve.forward_substitution(L, weighted_DF, dtype=self.dtype)
         X = np.asmatrix(X)
         M = X.T * X
 
         assert M.ndim == 2 and M.shape[0] == M.shape[1] == len(parameters) and M.dtype == self.dtype
-        return
+        return M
 
 
 
@@ -384,7 +402,7 @@ class GLS(Base):
         if additionals is None:
             return self.information_matrix_calculate_with_parameters(parameters)
         else:
-            return self.information_matrix(parameters) + self.information_matrix_calculate_with_DF(additionals['DF'], additionals['inverse_deviations'])
+            return self.information_matrix(parameters) + self.information_matrix_calculate_with_DF(additionals['DF'], additionals['correlation_matrix'])
 
 
 
@@ -437,18 +455,53 @@ class GLS_P3(Base):
 
 
 
-class Family(ndop.optimization.data_base.Family):
-    def __init__(self, main_member_class, data_kind, spinup_options, time_step=1, df_accuracy_order=2, job_setup=None):
+# class Family(ndop.util.data_base.Family):
+#     def __init__(self, main_member_class, data_kind, spinup_options, time_step=1, df_accuracy_order=2, job_setup=None):
+# 
+#         if data_kind.upper() == 'WOA':
+#             member_classes = (OLS, WLS)
+#         elif data_kind.upper() == 'WOD':
+#             member_classes = (OLS, WLS, GLS)
+#         else:
+#             raise ValueError('Data_kind {} unknown. Must be "WOA" or "WOD".'.format(data_kind))
+# 
+#         super().__init__(main_member_class, member_classes, data_kind, spinup_options, time_step=time_step, df_accuracy_order=df_accuracy_order, job_setup=job_setup)
+# 
+# 
+#     def information_matrix(self, parameters):
+#         fun = lambda o: o.information_matrix(parameters)
+#         value = self.get_function_value(fun)
+#         return value
+# 
+#     def covariance_matrix(self, parameters):
+#         fun = lambda o: o.covariance_matrix(parameters)
+#         value = self.get_function_value(fun)
+#         return value
+# 
+#     def parameter_confidence(self, parameters):
+#         fun = lambda o: o.parameter_confidence(parameters)
+#         value = self.get_function_value(fun)
+#         return value
+# 
+#     def model_confidence(self, parameters):
+#         fun = lambda o: o.model_confidence(parameters)
+#         value = self.get_function_value(fun)
+#         return value
+# 
+#     def average_model_confidence(self, parameters):
+#         fun = lambda o: o.parameter_confidence(parameters)
+#         value = self.get_function_value(fun)
+#         return value
+# 
+#     def average_model_confidence_increase(self, parameters):
+#         fun = lambda o: o.average_model_confidence_increase(parameters)
+#         value = self.get_function_value(fun)
+#         return value
 
-        if data_kind.upper() == 'WOA':
-            member_classes = (OLS, WLS)
-        elif data_kind.upper() == 'WOD':
-            member_classes = (OLS, WLS, GLS)
-        else:
-            raise ValueError('Data_kind {} unknown. Must be "WOA" or "WOD".'.format(data_kind))
 
-        super().__init__(main_member_class, member_classes, data_kind, spinup_options, time_step=time_step, df_accuracy_order=df_accuracy_order, job_setup=job_setup)
-
+class Family(ndop.util.data_base.Family):
+    
+    member_classes = {'WOA': [(OLS, [{}]), (WLS, [{}])], 'WOD': [(OLS, [{}]), (WLS, [{}]), (GLS, [{'correlation_min_values': correlation_min_values, 'correlation_max_year_diff': float('inf')} for correlation_min_values in (30, 35, 40)])]}
 
     def information_matrix(self, parameters):
         fun = lambda o: o.information_matrix(parameters)
@@ -479,6 +532,3 @@ class Family(ndop.optimization.data_base.Family):
         fun = lambda o: o.average_model_confidence_increase(parameters)
         value = self.get_function_value(fun)
         return value
-
-
-

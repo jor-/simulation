@@ -100,7 +100,7 @@ if __name__ == "__main__":
             else:
                 raise ValueError('Unknown cf kind {}.'.format(cf_kind))
 
-            cf_kargs = {'data_kind': data_kind, 'spinup_options':spinup_options, 'time_step':time_step, 'df_accuracy_order':df_accuracy_order, 'job_setup':job_setup}
+            cf_kargs = {'data_kind': data_kind, 'spinup_options': spinup_options, 'time_step': time_step, 'df_accuracy_order': df_accuracy_order, 'job_setup': job_setup}
             if cf_kind == 'GLS':
                 cf_kargs['correlation_min_values'] = correlation_min_values
                 cf_kargs['correlation_max_year_diff'] = correlation_max_year_diff

@@ -70,7 +70,6 @@ class Base():
         ## prepare cache and data base
         self.data_base = ndop.util.data_base.init_data_base(data_kind, spinup_options, time_step, df_accuracy_order=df_accuracy_order, job_setup=job_setup)
 
-        # cache_dirname = os.path.join(COST_FUNCTION_DIRNAME, data_kind + '_' + cf_kind)
         self.cache = ndop.util.value_cache.Cache(spinup_options, time_step, df_accuracy_order=df_accuracy_order, cache_dirname=self.cache_dirname, use_memory_cache=True)
 
 
@@ -83,7 +82,7 @@ class Base():
 
     @property
     def cache_dirname(self):
-        return os.path.join(COST_FUNCTION_DIRNAME, '{}_{}'.format(self.data_base, self))
+        return os.path.join(COST_FUNCTION_DIRNAME, str(self.data_base), self.__class__.__name__)
 
 
     ## cost function values
@@ -176,7 +175,7 @@ class BaseGeneralized(BaseWeighted):
 
     @property
     def cache_dirname(self):
-        return os.path.join(COST_FUNCTION_DIRNAME, '{}_{}'.format(self.data_base, self.__class__.__name__), 'min_values_{}'.format(self.correlation_min_values), 'max_year_diff_{}'.format(self.correlation_max_year_diff))
+        return os.path.join(COST_FUNCTION_DIRNAME, str(self.data_base), self.__class__.__name__, 'min_values_{}'.format(self.correlation_min_values), 'max_year_diff_{}'.format(self.correlation_max_year_diff))
 
 
     @property
@@ -537,68 +536,90 @@ class LGLS(BaseGeneralized, BaseLog):
 
 ## Family
 
-# class Family(ndop.util.data_base.Family):
-class Family():
+# # class Family(ndop.util.data_base.Family):
+# class Family():
+# 
+#     def __init__(self, **cf_kargs):
+#         ## chose member classes
+#         data_kind = cf_kargs['data_kind']
+#         if data_kind.upper() == 'WOA':
+#             member_classes = (OLS, WLS, LWLS)
+#         elif data_kind.upper() == 'WOD':
+#             member_classes = (OLS, WLS, LWLS, GLS)
+#             correlation_min_values_tuple = (40, 35, 30)
+#             correlation_max_year_diff_tuple = (float('inf'), float('inf'), float('inf'))
+#         else:
+#             raise ValueError('Data_kind {} unknown. Must be "WOA" or "WOD".'.format(data_kind))
+# 
+#         ## prepare main member
+#         main_member_class = member_classes[0]
+#         main_member = main_member_class(**cf_kargs)
+#         self.main_member = main_member
+# 
+#         ## prepare other member
+#         family = []
+#         def append_member(member):
+#             member.data_base = main_member.data_base
+#             family.append(member)
+# 
+#         for member_class in member_classes:
+#             if member_class is not main_member_class:
+#                 if member_class is not GLS:
+#                     member = member_class(**cf_kargs)
+#                     append_member(member)
+#                 else:
+#                     for (correlation_min_values, correlation_max_year_diff) in zip(correlation_min_values_tuple, correlation_max_year_diff_tuple):
+#                         member = member_class(correlation_min_values=correlation_min_values, correlation_max_year_diff=correlation_max_year_diff,**cf_kargs)
+#                         append_member(member)
+# 
+# 
+#         ## set family
+#         logger.debug('Cost function family for data kind {} with members {} initiated.'.format(data_kind, list(map(lambda x: str(x), family))))
+#         self.family = family
+# 
+# 
+#     def get_function_value(self, function):
+#         assert callable(function)
+# 
+#         value = function(self.main_member)
+#         for member in self.family:
+#             function(member)
+# 
+#         return value
+# 
+# 
+#     # def __init__(self, main_member_class, data_kind, spinup_options, time_step=1, df_accuracy_order=2, job_setup=None):
+#     #
+#     #     if data_kind.upper() == 'WOA':
+#     #         member_classes = (OLS, WLS, LWLS)
+#     #     elif data_kind.upper() == 'WOD':
+#     #         member_classes = (OLS, WLS, LWLS)
+#     #     else:
+#     #         raise ValueError('Data_kind {} unknown. Must be "WOA" or "WOD".'.format(data_kind))
+#     #
+#     #     super().__init__(main_member_class, member_classes, data_kind, spinup_options, time_step=time_step, df_accuracy_order=df_accuracy_order, job_setup=job_setup)
+# 
+#     def f(self, parameters):
+#         fun = lambda o: o.f(parameters)
+#         value = self.get_function_value(fun)
+#         return value
+# 
+#     def f_normalized(self, parameters):
+#         fun = lambda o: o.f_normalized(parameters)
+#         value = self.get_function_value(fun)
+#         return value
+# 
+#     def df(self, parameters):
+#         fun = lambda o: o.df(parameters)
+#         value = self.get_function_value(fun)
+#         return value
 
-    def __init__(self, **cf_kargs):
-        ## chose member classes
-        data_kind = cf_kargs['data_kind']
-        if data_kind.upper() == 'WOA':
-            member_classes = (OLS, WLS, LWLS)
-        elif data_kind.upper() == 'WOD':
-            member_classes = (OLS, WLS, LWLS, GLS)
-            correlation_min_values_tuple = (40, 35, 30)
-            correlation_max_year_diff_tuple = (float('inf'), float('inf'), float('inf'))
-        else:
-            raise ValueError('Data_kind {} unknown. Must be "WOA" or "WOD".'.format(data_kind))
-
-        ## prepare main member
-        main_member_class = member_classes[0]
-        main_member = main_member_class(**cf_kargs)
-        self.main_member = main_member
-
-        ## prepare other member
-        family = []
-        def append_member(member):
-            member.data_base = main_member.data_base
-            family.append(member)
-
-        for member_class in member_classes:
-            if member_class is not main_member_class:
-                if member_class is not GLS:
-                    member = member_class(**cf_kargs)
-                    append_member(member)
-                else:
-                    for (correlation_min_values, correlation_max_year_diff) in zip(correlation_min_values_tuple, correlation_max_year_diff_tuple):
-                        member = member_class(correlation_min_values=correlation_min_values, correlation_max_year_diff=correlation_max_year_diff,**cf_kargs)
-                        append_member(member)
 
 
-        ## set family
-        logger.debug('Cost function family for data kind {} with members {} initiated.'.format(data_kind, list(map(lambda x: str(x), family))))
-        self.family = family
-
-
-    def get_function_value(self, function):
-        assert callable(function)
-
-        value = function(self.main_member)
-        for member in self.family:
-            function(member)
-
-        return value
-
-
-    # def __init__(self, main_member_class, data_kind, spinup_options, time_step=1, df_accuracy_order=2, job_setup=None):
-    #
-    #     if data_kind.upper() == 'WOA':
-    #         member_classes = (OLS, WLS, LWLS)
-    #     elif data_kind.upper() == 'WOD':
-    #         member_classes = (OLS, WLS, LWLS)
-    #     else:
-    #         raise ValueError('Data_kind {} unknown. Must be "WOA" or "WOD".'.format(data_kind))
-    #
-    #     super().__init__(main_member_class, member_classes, data_kind, spinup_options, time_step=time_step, df_accuracy_order=df_accuracy_order, job_setup=job_setup)
+class Family(ndop.util.data_base.Family):
+    
+    member_classes = {'WOA': [(OLS, [{}]), (WLS, [{}]), (LWLS, [{}])], 'WOD': [(OLS, [{}]), (WLS, [{}]), (LWLS, [{}]), (GLS, [{'correlation_min_values': correlation_min_values, 'correlation_max_year_diff': float('inf')} for correlation_min_values in (30, 35, 40)])]}
+    
 
     def f(self, parameters):
         fun = lambda o: o.f(parameters)
@@ -614,5 +635,3 @@ class Family():
         fun = lambda o: o.df(parameters)
         value = self.get_function_value(fun)
         return value
-
-

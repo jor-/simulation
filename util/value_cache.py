@@ -134,7 +134,7 @@ class Cache:
 
     def save_file(self, parameters, filename, value, save_also_txt=True):
         if value is None:
-            raise ValueError('Value for filename {} with parameters {} is None!'.format(filename, parameters))
+            raise ValueError('Value for {} with parameters {} is None!'.format(filename, parameters))
 
         file = self.get_file(parameters, filename)
         assert file is not None

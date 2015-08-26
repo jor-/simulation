@@ -4,7 +4,6 @@ import util.batch.universal.system
 
 from ndop.model.constants import JOB_MEMORY_GB
 
-
 COST_FUNCTION_DIRNAME = 'cost_functions'
 COST_FUNCTION_F_FILENAME = 'f.npy'
 COST_FUNCTION_DF_FILENAME = 'df.npy'
