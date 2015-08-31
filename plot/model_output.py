@@ -1,10 +1,9 @@
-import argparse
-
-from util.logging import Logger
-from ndop.plot.interface import model_output
-
-
 if __name__ == "__main__":
+    import argparse
+    
+    from util.logging import Logger
+    from ndop.plot.interface import model_output
+
     with Logger():
         parser = argparse.ArgumentParser(description='Plotting model output.')
         parser.add_argument('parameter_set', type=int, default=0)
