@@ -2,22 +2,22 @@ import argparse
 import sys
 import os.path
 import tempfile
-
-import numpy as np
-
-import ndop.optimization.cost_function
-import ndop.optimization.job
-import util.batch.universal.system
-import util.io.matlab
-import util.io.fs
-
-import util.logging
-logger = util.logging.logger
-
-from ndop.optimization.matlab.constants import MATLAB_PARAMETER_FILENAME, MATLAB_F_FILENAME, MATLAB_DF_FILENAME, NODES_MAX_FILENAME, KIND_OF_COST_FUNCTIONS
-
-
 if __name__ == "__main__":
+
+    import numpy as np
+    
+    import ndop.optimization.cost_function
+    import ndop.optimization.job
+    import util.batch.universal.system
+    import util.io.matlab
+    import util.io.fs
+    
+    import util.logging
+    logger = util.logging.logger
+    
+    from ndop.optimization.matlab.constants import MATLAB_PARAMETER_FILENAME, MATLAB_F_FILENAME, MATLAB_DF_FILENAME, NODES_MAX_FILENAME, KIND_OF_COST_FUNCTIONS
+    
+    
     ## parse arguments
     parser = argparse.ArgumentParser(description='Evaluating cost function for matlab.')
 
@@ -62,7 +62,8 @@ if __name__ == "__main__":
     df_accuracy_order = 2
 
     if args.node_kind is not None:
-        nodes_setup_dict = {'node_kind':args.node_kind, 'nodes':args.nodes, 'cpus':args.cpus}
+        from ndop.model.constants import JOB_MEMORY_GB
+        nodes_setup_dict = {'memory': JOB_MEMORY_GB, 'node_kind':args.node_kind, 'nodes':args.nodes, 'cpus':args.cpus}
         nodes_setup = util.batch.universal.system.NodeSetup(check_for_better=True, **nodes_setup_dict)
         job_setup = {'spinup':{'nodes_setup':nodes_setup}}
     else:
