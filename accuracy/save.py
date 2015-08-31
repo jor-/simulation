@@ -1,20 +1,19 @@
-import argparse
-import sys
-import numpy as np
-
-import ndop.optimization.constants
-import ndop.accuracy.asymptotic
-from util.logging import Logger
-
-from ndop.constants import MODEL_OUTPUT_DIR
-from ndop.optimization.matlab.constants import KIND_OF_COST_FUNCTIONS
-
-
 if __name__ == "__main__":
+    
+    import argparse
+    import sys
+    import numpy as np
+    
+    import ndop.optimization.constants
+    import ndop.accuracy.asymptotic
+    from util.logging import Logger
+    
+    from ndop.constants import MODEL_OUTPUT_DIR
+    from ndop.optimization.matlab.constants import KIND_OF_COST_FUNCTIONS
+
+
     parser = argparse.ArgumentParser(description='Calculating accuracy.')
 
-    # parser.add_argument('-d', '--data_kind', choices=('WOA', 'WOD'), default='WOA', help='The kind of the data to chose.')
-    # parser.add_argument('-c', '--cf_kind', choices=('OLS',), default='OLS', help='The kind of the cost function to chose.')
     parser.add_argument('-k', '--kind', choices=KIND_OF_COST_FUNCTIONS, help='The kind of the cost function to chose.')
     parser.add_argument('-p', '--parameter_set_nr', type=int, default=184, help='Parameter set nr.')
     parser.add_argument('-t', '--time_dim_df', type=int, default=2880, help='Time dim of df.')
