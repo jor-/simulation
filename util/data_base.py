@@ -23,7 +23,7 @@ DEFAULT_SPINUP_OPTIONS={'years':10000, 'tolerance':0.0, 'combination':'or'}
 class DataBase:
 
     def __init__(self, spinup_options=DEFAULT_SPINUP_OPTIONS, time_step=1, df_accuracy_order=2, job_setup=None, F_cache_filename=None, DF_cache_filename=None):
-        from .constants import CACHE_DIRNAME, F_BOXES_CACHE_FILENAME, DF_BOXES_CACHE_FILENAME
+        from .constants import CACHE_DIRNAME, BOXES_F_FILENAME, BOXES_DF_FILENAME
 
         logger.debug('Initiating {} with spinup_options {}, time step {}, df_accuracy_order {}, job_setup {}, F_cache_filename {} and DF_cache_filename {}.'.format(self, spinup_options, time_step, df_accuracy_order, job_setup, F_cache_filename, DF_cache_filename))
 
@@ -32,8 +32,8 @@ class DataBase:
         self.df_accuracy_order = df_accuracy_order
 
         self.cache = ndop.util.value_cache.Cache(spinup_options, time_step, df_accuracy_order=df_accuracy_order, cache_dirname=CACHE_DIRNAME, use_memory_cache=True)
-        self.f_boxes_cache_filename = F_BOXES_CACHE_FILENAME
-        self.df_boxes_cache_filename = DF_BOXES_CACHE_FILENAME
+        self.f_boxes_cache_filename = BOXES_F_FILENAME
+        self.df_boxes_cache_filename = BOXES_DF_FILENAME
         self.F_cache_filename = F_cache_filename
         self.DF_cache_filename = DF_cache_filename
 
@@ -151,8 +151,8 @@ class WOA(DataBase):
 
     def __init__(self, spinup_options=DEFAULT_SPINUP_OPTIONS, time_step=1, df_accuracy_order=2, job_setup=None, cache_dirname=None):
         ## super constructor
-        from .constants import F_WOA_CACHE_FILENAME, DF_WOA_CACHE_FILENAME
-        super().__init__(spinup_options, time_step=time_step, df_accuracy_order=df_accuracy_order, job_setup=job_setup, F_cache_filename=F_WOA_CACHE_FILENAME, DF_cache_filename=DF_WOA_CACHE_FILENAME)
+        from .constants import WOA_F_FILENAME, WOA_DF_FILENAME
+        super().__init__(spinup_options, time_step=time_step, df_accuracy_order=df_accuracy_order, job_setup=job_setup, F_cache_filename=WOA_F_FILENAME, DF_cache_filename=WOA_DF_FILENAME)
 
         ## compute annual box index
         from measurements.po4.woa.data13.constants import ANNUAL_THRESHOLD
@@ -228,8 +228,8 @@ class WOA(DataBase):
 class WOD(DataBase):
 
     def __init__(self, spinup_options=DEFAULT_SPINUP_OPTIONS, time_step=1, df_accuracy_order=2, job_setup=None, cache_dirname=None):
-        from .constants import F_WOD_CACHE_FILENAME, DF_WOD_CACHE_FILENAME
-        super().__init__(spinup_options, time_step=time_step, df_accuracy_order=df_accuracy_order, job_setup=job_setup, F_cache_filename=F_WOD_CACHE_FILENAME, DF_cache_filename=DF_WOD_CACHE_FILENAME)
+        from .constants import WOD_F_FILENAME, WOD_DF_FILENAME
+        super().__init__(spinup_options, time_step=time_step, df_accuracy_order=df_accuracy_order, job_setup=job_setup, F_cache_filename=WOD_F_FILENAME, DF_cache_filename=WOD_DF_FILENAME)
 
 
     ## model output
@@ -271,8 +271,9 @@ class WOD(DataBase):
 
     @property
     def points_calculate(self):
-        [[points_dop, points_po4], [results_dop, results_po4]] = measurements.all.pw.values.points_and_results()
-        return [points_dop, points_po4]
+        # [[points_dop, points_po4], [results_dop, results_po4]] = measurements.all.pw.values.points_and_results()
+        # return [points_dop, points_po4]
+        return measurements.all.pw.values.points()
 
     @property
     def points(self):
@@ -281,8 +282,9 @@ class WOD(DataBase):
 
     @property
     def results_calculate(self):
-        [[points_dop, points_po4], [results_dop, results_po4]] = measurements.all.pw.values.points_and_results()
-        results = np.concatenate([results_dop, results_po4])
+        # [[points_dop, points_po4], [results_dop, results_po4]] = measurements.all.pw.values.points_and_results()
+        # results = np.concatenate([results_dop, results_po4])
+        results = np.concatenate(measurements.all.pw.values.results())
         assert len(results) == self.m
         return results
 
@@ -360,37 +362,6 @@ class WOD(DataBase):
         return ln_det
 
 
-
-
-#     def project_1(self, values):
-#         values_squared = []
-#
-#         for i in range(len(values)):
-#             value = values[i]
-#             value_matrix = util.math.matrix.convert_to_matrix(value)
-#             value_squared = np.array(value_matrix.T * value_matrix)
-#             value_squared = util.math.matrix.convert_matrix_to_array(value_squared)
-#             values_squared.append(value_squared)
-#
-#         values_squared = np.array(values_squared)
-#
-#         return values_squared
-#
-#
-#
-#     def project_2(self, values):
-#         values_projected = []
-#
-#         for i in range(len(values)):
-#             value = values[i]
-#             value_projected = np.sum(value, axis=0)
-#
-#             values_projected.append(value_projected)
-#
-#         values_projected = np.array(values_projected)
-#
-#         return values_projected
-
     def project(self, values, split_index, projected_value_index=None):
 #         if len(values) != 2:
 #             raise ValueError('Values must be a list with length 2, but its length is {}.'.format(len(values)))
@@ -431,39 +402,6 @@ class WOD(DataBase):
         else:
             raise ValueError('Unknown projected_value_index: projected_value_index must be 0, 1 or None.')
 
-#     def project(self, values):
-#         values_squared = []
-#         values_projected = []
-#
-#         for i in range(len(values)):
-#             value = values[i]
-#             value_matrix = util.math.matrix.convert_to_matrix(value)
-#             value_squared = np.array(value_matrix.T * value_matrix)
-#             value_squared = util.math.matrix.convert_matrix_to_array(value_squared)
-#             value_projected = np.sum(value, axis=0)
-#
-#             values_squared.append(value_squared)
-#             values_projected.append(value_projected)
-#
-#         values_squared = np.array(values_squared)
-#         values_projected = np.array(values_projected)
-#
-#         return (values_squared, values_projected)
-
-
-
-#     def product_inverse_covariance_matrix_both_sides(self, factor, correlation_parameters):
-#         factor = self.inverse_deviations[:, np.newaxis] * factor
-#         product = self.product_inverse_correlation_matrix_both_sides(factor, correlation_parameters)
-#
-#         return product
-
-#     def product_inverse_correlation_matrix_both_sides(self, factor, correlation_parameters):
-#         n = self.m_dop
-#         factor_projected = self.project([factor[:n], factor[n:]])
-#         product = self.projected_product_inverse_correlation_matrix_both_sides(factor_projected, correlation_parameters)
-#
-#         return product
 
 
     def projected_product_inverse_correlation_matrix_both_sides(self, factor_projected, correlation_parameters):
@@ -513,9 +451,6 @@ class WOD(DataBase):
         return diff
 
 
-
-
-
     def convert_to_boxes(self, data, t_dim=12, no_data_value=np.inf):
         def convert_to_boxes_with_points(points, data):
             assert len(points) == len(data)
@@ -536,48 +471,12 @@ class WOD(DataBase):
         return data_map
 
 
-class OLD_WOD(WOD):
-    def __init__(self, spinup_options=DEFAULT_SPINUP_OPTIONS, time_step=1, df_accuracy_order=2, job_setup=None, cache_dirname=None):
-        from .constants import F_WOD_CACHE_FILENAME, DF_WOD_CACHE_FILENAME
-        F_WOD_CACHE_FILENAME = 'old_' + F_WOD_CACHE_FILENAME
-        DF_WOD_CACHE_FILENAME = 'old_' + DF_WOD_CACHE_FILENAME
-        DataBase.__init__(self, spinup_options, time_step=time_step, df_accuracy_order=df_accuracy_order, job_setup=job_setup, F_cache_filename=F_WOD_CACHE_FILENAME, DF_cache_filename=DF_WOD_CACHE_FILENAME)
-
-
-    @property
-    def deviations_calculate(self):
-        import measurements.dop.pw.deviation
-        dop_deviation = measurements.dop.pw.deviation.for_points()
-        from measurements.po4.wod.constants import ANALYSIS_DIR
-        po4_deviation = np.load(ANALYSIS_DIR+'/old/deviation/measurement_deviations_interpolation_52_(0.1,2,0.2).npy')
-        return np.concatenate([dop_deviation, po4_deviation])
-
-    @property
-    def points_calculate(self):
-        import measurements.dop.pw.data
-        (dop_points, dop_values) = measurements.dop.pw.data.points_and_values()
-        from measurements.po4.wod.constants import ANALYSIS_DIR
-        po4_points = np.load(ANALYSIS_DIR+'/old/measurement_points.npy')
-        return [dop_points, po4_points]
-
-    @property
-    def results_calculate(self):
-        import measurements.dop.pw.data
-        (dop_points, dop_results) = measurements.dop.pw.data.points_and_values()
-        from measurements.po4.wod.constants import ANALYSIS_DIR
-        po4_results = np.load(ANALYSIS_DIR+'/old/measurement_results.npy')
-        return np.concatenate([dop_results, po4_results])
-
-
-
 
 def init_data_base(data_kind, spinup_options=DEFAULT_SPINUP_OPTIONS, time_step=1, df_accuracy_order=2, job_setup=None):
     if data_kind.upper() == 'WOA':
         data_base_class = WOA
     elif data_kind.upper() == 'WOD':
         data_base_class = WOD
-    elif data_kind.upper() == 'OLD_WOD':
-        data_base_class = OLD_WOD
     else:
         raise ValueError('Data_kind {} unknown. Must be "WOA" or "WOD".'.format(data_kind))
 
@@ -587,46 +486,10 @@ def init_data_base(data_kind, spinup_options=DEFAULT_SPINUP_OPTIONS, time_step=1
 
 
 
-
-# class Family:
-# 
-#     def __init__(self, main_member_class, member_classes, data_kind, spinup_options, time_step=1, df_accuracy_order=2, job_setup=None):
-# 
-#         logger.debug('Initiating cost function family for data kind {} with main member {} and members {}.'.format(data_kind, main_member_class.__name__, list(map(lambda x: x.__name__, member_classes))))
-# 
-#         if main_member_class not in member_classes:
-#             raise ValueError('The main member class has to be in {}, but its {}.'.format(member_classes__name__, main_member_class))
-# 
-#         main_member = main_member_class(data_kind, spinup_options, time_step=time_step, df_accuracy_order=df_accuracy_order, job_setup=job_setup)
-#         self.main_member = main_member
-# 
-#         family = []
-#         for member_class in member_classes:
-#             if member_class is not main_member_class:
-#                 member = member_class(data_kind, spinup_options, time_step=time_step, df_accuracy_order=df_accuracy_order, job_setup=job_setup)
-#                 member.data_base = main_member.data_base
-#                 family.append(member)
-# 
-#         self.family = family
-# 
-# 
-#     def get_function_value(self, function):
-#         assert callable(function)
-# 
-#         value = function(self.main_member)
-#         for member in self.family:
-#             function(member)
-# 
-#         return value
-
-
-
 class Family():
     
     member_classes = {}
     
-    # member_classes = {'WOA': [(OLS, [{}]), (WLS, [{}]), (LWLS, [{}])], 'WOD': [(OLS, [{}]), (WLS, [{}]), (LWLS, [{}]), (GLS, [{'correlation_min_values': a, 'correlation_max_year_diff': float('inf')} for correlation_min_values in (30, 35, 40)])]}
-
     def __init__(self, **cf_kargs):
         ## chose member classes
         data_kind = cf_kargs['data_kind'].upper()
@@ -636,6 +499,7 @@ class Family():
             raise ValueError('Data_kind {} unknown. Must be in {}.'.format(data_kind, list(self.member_classes.keys())))
 
         ## init members
+        family = []
         for member_class, additional_arguments in member_classes_list:
             for additional_kargs in additional_arguments:
                 cf_kargs_member_class = cf_kargs.copy()
@@ -655,7 +519,7 @@ class Family():
     def get_function_value(self, function):
         assert callable(function)
 
-        value = function(self.main_member)
+        value = function(self.family[0])
         for member in self.family:
             function(member)
 

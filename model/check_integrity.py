@@ -135,7 +135,7 @@ def check_job_file_integrity_spinup(spinup_dir, is_spinup_dir):
 
 def check_job_file_integrity(time_step_size=1, parameter_set_dirs_to_check=None, check_for_same_parameters=True):
     from ndop.model.constants import MODEL_OUTPUT_DIR, MODEL_TIME_STEP_DIRNAME, MODEL_SPINUP_DIRNAME, MODEL_DERIVATIVE_DIRNAME, JOB_OPTIONS_FILENAME, MODEL_PARAMETERS_FILENAME
-    from ndop.util.constants import CACHE_DIRNAME, F_WOD_CACHE_FILENAME, DF_WOD_CACHE_FILENAME
+    from ndop.util.constants import CACHE_DIRNAME, WOD_F_FILENAME, WOD_DF_FILENAME
 
     wod_m = ndop.util.data_base.WOD().m
 
@@ -173,7 +173,7 @@ def check_job_file_integrity(time_step_size=1, parameter_set_dirs_to_check=None,
                         print('Parameter set {} and {} have same parameters!'.format(parameter_set_dir, parameter_set_dir_i))
 
         ## check WOD output
-        f_wod_file = os.path.join(parameter_set_dir, CACHE_DIRNAME, F_WOD_CACHE_FILENAME)
+        f_wod_file = os.path.join(parameter_set_dir, CACHE_DIRNAME, WOD_F_FILENAME)
         try:
             f_wod = np.load(f_wod_file)
         except FileNotFoundError:
@@ -182,7 +182,7 @@ def check_job_file_integrity(time_step_size=1, parameter_set_dirs_to_check=None,
             if f_wod.ndim != 1 or len(f_wod) != wod_m:
                 print('Wod f file {} has wrong shape {}!'.format(f_wod_file, f_wod.shape))
 
-        df_wod_file = os.path.join(parameter_set_dir, CACHE_DIRNAME, DF_WOD_CACHE_FILENAME)
+        df_wod_file = os.path.join(parameter_set_dir, CACHE_DIRNAME, WOD_DF_FILENAME)
         try:
             df_wod = np.load(df_wod_file)
         except FileNotFoundError:
