@@ -14,9 +14,7 @@ import util.logging
 logger = util.logging.logger
 
 WOD_KINDS = ('WOD/OLS', 'WOD/WLS', 'WOD/LWLS', 'WOD/GLS/40_inf', 'WOD/GLS/35_inf', 'WOD/GLS/30_inf')
-# WOD_LABELS = ('WOD-OLS', 'WOD-WLS', 'WOD-LWLS', 'WOD-GLS-40')
 WOA_KINDS = ('WOA/OLS', 'WOA/WLS', 'WOA/LWLS')
-# WOA_LABELS = ('WOA-OLS', 'WOA-WLS', 'WOA-LWLS')
 
 KINDS = WOD_KINDS + WOA_KINDS
 LABELS = {'WOD/OLS':'WOD-OLS', 'WOD/WLS':'WOD-WLS', 'WOD/LWLS':'WOD-LWLS', 'WOD/GLS/40_inf':'WOD-GLS-40', 'WOD/GLS/35_inf':'WOD-GLS-35', 'WOD/GLS/30_inf':'WOD-GLS-30', 'WOA/OLS':'WOA-OLS', 'WOA/WLS':'WOA-WLS', 'WOA/LWLS':'WOA-LWLS'}
@@ -251,7 +249,7 @@ def optimization(path='/tmp', with_line_search_steps=True):
 
 def model_output(path='/tmp', parameter_set_nr=0, kind='BOXES', y_max=(None, None)):
     from ndop.model.constants import MODEL_OUTPUT_DIR, MODEL_TIME_STEP_DIRNAME, MODEL_PARAMETERS_SET_DIRNAME, MODEL_PARAMETERS_FILENAME
-    from ndop.util.constants import CACHE_DIRNAME, F_BOXES_CACHE_FILENAME, F_WOD_CACHE_FILENAME
+    from ndop.util.constants import CACHE_DIRNAME, BOXES_F_FILENAME, WOD_F_FILENAME
 
     logger.debug('Plotting model output for parameter set {}'.format(parameter_set_nr))
 
@@ -274,10 +272,10 @@ def model_output(path='/tmp', parameter_set_nr=0, kind='BOXES', y_max=(None, Non
 #     parameter_set_dirname = MODEL_PARAMETERS_SET_DIRNAME.format(parameter_set_nr)
 #     f_dir = os.path.join(MODEL_OUTPUT_DIR, MODEL_TIME_STEP_DIRNAME.format(1), parameter_set_dirname, CACHE_DIRNAME)
 #     if kind.upper() == 'BOXES':
-#         f_file = os.path.join(f_dir, F_BOXES_CACHE_FILENAME.format(12))
+#         f_file = os.path.join(f_dir, BOXES_F_FILENAME.format(12))
 #         f = np.load(f_file)
 #     else:
-#         f_file = os.path.join(f_dir, F_WOD_CACHE_FILENAME)
+#         f_file = os.path.join(f_dir, WOD_F_FILENAME)
 #         f = np.load(f_file)
 
     plot_file = os.path.join(path, 'model_output_-_' + kind + '_-_' + parameter_set_dirname + '_-_{}.png')
