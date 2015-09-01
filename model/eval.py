@@ -166,48 +166,6 @@ class Model():
 
 
 
-    ## interpolate
-
-    def _interpolate(self, data, interpolation_points, use_cache=False):
-        from .constants import MODEL_INTERPOLATOR_FILE, MODEL_INTERPOLATOR_AMOUNT_OF_WRAP_AROUND, MODEL_INTERPOLATOR_NUMBER_OF_LINEAR_INTERPOLATOR, MODEL_INTERPOLATOR_TOTAL_OVERLAPPING_OF_LINEAR_INTERPOLATOR, METOS_DIM
-
-        data_points = data[:,:-1]
-        data_values = data[:,-1]
-        interpolator_file = MODEL_INTERPOLATOR_FILE
-
-        ## try to get cached interpolator
-        interpolator = self._interpolator_cached
-        if interpolator is not None:
-            interpolator.data_values = data_values
-            logger.debug('Returning cached interpolator.')
-        else:
-            ## otherwise try to get saved interpolator
-            if use_cache and os.path.exists(interpolator_file):
-                interpolator = util.math.interpolate.Interpolator_Base.load(interpolator_file)
-                interpolator.data_values = data_values
-                logger.debug('Returning interpolator loaded from {}.'.format(interpolator_file))
-            ## if no interpolator exists, create new interpolator
-            else:
-                interpolator = util.math.interpolate.Periodic_Interpolator(data_points=data_points, data_values=data_values, point_range_size=METOS_DIM, scaling_values=(METOS_DIM[1]/METOS_DIM[0], None, None, None), wrap_around_amount=MODEL_INTERPOLATOR_AMOUNT_OF_WRAP_AROUND, number_of_linear_interpolators=MODEL_INTERPOLATOR_NUMBER_OF_LINEAR_INTERPOLATOR, total_overlapping_linear_interpolators=MODEL_INTERPOLATOR_TOTAL_OVERLAPPING_OF_LINEAR_INTERPOLATOR)
-                logger.debug('Returning new created interpolator.')
-
-            self._interpolator_cached = interpolator
-
-        ## interpolate
-        interpolated_values = interpolator.interpolate(interpolation_points)
-
-        ## save interpolate if cache used
-        if use_cache and not os.path.exists(interpolator_file):
-            interpolator.save(interpolator_file)
-
-        ## return interpolated values
-        assert not np.any(np.isnan(interpolated_values))
-#         assert np.all(interpolator.data_points == data_points)
-#         assert np.all(interpolator.data_values == data_values)
-
-        return interpolated_values
-
-
 
 
     ## access to dirs
@@ -310,23 +268,29 @@ class Model():
             if create:
                 from .constants import MODEL_PARAMETERS_SET_DIRNAME, MODEL_PARAMETERS_FILENAME, MODEL_PARAMETERS_FORMAT_STRING_OLD_STYLE
 
+                ## create time_step_dir
                 time_step_dir = self.get_time_step_dir(time_step, create=True)
-
-#                 number_of_parameter_set_dirs = len(util.io.fs.get_dirs(time_step_dir))
-#                 parameter_set_dirname = util.pattern.replace_int_pattern(MODEL_PARAMETERS_SET_DIRNAME, number_of_parameter_set_dirs)
-                ## search free index
-                free_parameter_set_dir_number = len(util.io.fs.get_dirs(time_step_dir))
+                
+                ## create parameter_set_dir
                 free_parameter_set_dir_number = 0
+                created = False
                 found = False
-                while not found:
-                    parameter_set_dirname = MODEL_PARAMETERS_SET_DIRNAME.format(free_parameter_set_dir_number)
-                    parameter_set_dir = os.path.join(time_step_dir, parameter_set_dirname)
-                    found = not os.path.exists(parameter_set_dir)
-                    free_parameter_set_dir_number += 1
+                while not created:
+                    ## search free index
+                    while not found:
+                        parameter_set_dirname = MODEL_PARAMETERS_SET_DIRNAME.format(free_parameter_set_dir_number)
+                        parameter_set_dir = os.path.join(time_step_dir, parameter_set_dirname)
+                        found = not os.path.exists(parameter_set_dir)
+                        free_parameter_set_dir_number += 1
+    
+                    ## make dir
+                    try:
+                        os.makedirs(parameter_set_dir)
+                        created = True
+                    except FileExistsError:
+                        found = False
 
-                ## make dir
-                os.makedirs(parameter_set_dir)
-
+                ## create parameters_file
                 parameters_file = os.path.join(parameter_set_dir, MODEL_PARAMETERS_FILENAME)
                 np.savetxt(parameters_file, parameters, fmt=MODEL_PARAMETERS_FORMAT_STRING_OLD_STYLE)
                 os.chmod(parameters_file, stat.S_IRUSR)
@@ -375,14 +339,12 @@ class Model():
 
             ## finish last run
             if last_run_dir is not None:
-                # self.wait_until_job_finished(last_run_dir, wait_seconds=self.wait_seconds_spinup)
                 self.wait_until_job_finished(last_run_dir)
 
             ## make new run
             years, tolerance, combination = self.all_spinup_options(spinup_options)
 
             if combination == 'or':
-                # run_dir = self.make_run(spinup_dir, parameters, years, tolerance, time_step, self.job_setup_collection['spinup'], tracer_input_path=last_run_dir, wait_seconds=self.wait_seconds_spinup)
                 run_dir = self.make_run(spinup_dir, parameters, years, tolerance, time_step, self.job_setup_collection['spinup'], tracer_input_path=last_run_dir)
             elif combination == 'and':
                 run_dir = self.get_spinup_run_dir(parameter_set_dir, {'years':years, 'tolerance':0, 'combination':'or'}, start_from_closest_parameters)
@@ -463,19 +425,6 @@ class Model():
             job.make_read_only_output(make_read_only)
 
 
-
-#     def is_run_matching_options(self, run_dir, years, tolerance, time_step):
-#         if run_dir is not None:
-#             run_years = self.get_total_years(run_dir)
-#             run_tolerance = self.get_real_tolerance(run_dir)
-#             run_time_step = self.get_time_step(run_dir)
-#
-#
-#             is_matching = time_step >= run_time_step and (years <= run_years or tolerance >= run_tolerance)
-#         else:
-#             is_matching = False
-#
-#         return is_matching
 
     ## access to spinup options
 
@@ -583,10 +532,8 @@ class Model():
         from .constants import MODEL_RUN_DIRNAME
 
         (spinup_dir, run_dirname) = os.path.split(run_dir)
-        #run_index = int(re.findall('\d+', run_dirname)[0])
         run_index = util.pattern.get_int_in_string(run_dirname)
         if run_index > 0:
-#             previous_run_dirname = util.pattern.replace_int_pattern(MODEL_RUN_DIRNAME, run_index - 1)
             previous_run_dirname = MODEL_RUN_DIRNAME.format(run_index - 1)
             previous_run_dir = os.path.join(spinup_dir, previous_run_dirname)
         else:
@@ -652,15 +599,6 @@ class Model():
             tmp_dir = TMP_DIR
         else:
             tmp_dir = run_dir
-        # with tempfile.TemporaryDirectory(dir=tmp_dir, prefix='trajectory_tmp_') as trajectory_dir:
-        #     self.run_job(parameters, trajectory_dir, years=1, tolerance=0, time_step=run_time_step, job_setup=self.job_setup_collection['trajectory'], tracer_input_path=run_dir, write_trajectory=True, make_read_only=False)
-        #
-        #     trajectory_output_dir = os.path.join(trajectory_dir, 'trajectory')
-        #
-        #     ## for each tracer read trajectory
-        #     for tracer_index in range(METOS_TRACER_DIM):
-        #         tracer_trajectory_values = load_trajectory_function(trajectory_output_dir, tracer_index)
-        #         trajectory_values += (tracer_trajectory_values,)
 
         ## write trajectory
         trajectory_dir = tempfile.mkdtemp(dir=tmp_dir, prefix='trajectory_tmp_')
@@ -685,16 +623,28 @@ class Model():
         return load_trajectory_function
 
 
+        
 
     def _get_load_trajectory_function_for_points(self, points):
-        from .constants import LSM
+        from .constants import LSM, MODEL_INTERPOLATOR_NUMBER_OF_LINEAR_INTERPOLATOR
 
-        ## discard year
+        ## convert to map indices
         interpolation_points = []
         for tracer_points in points:
             tracer_interpolation_points = np.array(tracer_points, copy=True)
-            tracer_interpolation_points[:, 0] = (tracer_interpolation_points[:, 0] % 1) * LSM.t_dim
             tracer_interpolation_points = LSM.coordinates_to_map_indices(tracer_interpolation_points)
+            assert tracer_interpolation_points.ndim == 2 and tracer_interpolation_points.shape[1] == 4
+            
+            if MODEL_INTERPOLATOR_NUMBER_OF_LINEAR_INTERPOLATOR > 0:
+                for value_min, index in ([np.where(LSM.lsm > 0)[1].min(), 2], [0, 3]):
+                    for k in range(len(tracer_interpolation_points)):
+                        if tracer_interpolation_points[k, index] < value_min:
+                            tracer_interpolation_points[k, index] = value_min
+                for value_max, index in ([np.where(LSM.lsm > 0)[1].max(), 2], [LSM.z_dim - 1, 3]):
+                    for k in range(len(tracer_interpolation_points)):
+                        if tracer_interpolation_points[k, index] > value_max:
+                            tracer_interpolation_points[k, index] = value_max
+            
             interpolation_points.append(tracer_interpolation_points)
 
         ## load function
@@ -702,8 +652,50 @@ class Model():
             tracer_trajectory = ndop.model.data.load_trajectories_to_map_index_array(trajectory_path, tracer_index=tracer_index)
             interpolated_values_for_tracer = self._interpolate(tracer_trajectory, interpolation_points[tracer_index])
             return interpolated_values_for_tracer
+            
 
         return load_trajectory_function
+
+
+
+    def _interpolate(self, data, interpolation_points, use_cache=False):
+        from .constants import MODEL_INTERPOLATOR_FILE, MODEL_INTERPOLATOR_AMOUNT_OF_WRAP_AROUND, MODEL_INTERPOLATOR_NUMBER_OF_LINEAR_INTERPOLATOR, MODEL_INTERPOLATOR_TOTAL_OVERLAPPING_OF_LINEAR_INTERPOLATOR, METOS_DIM
+
+        data_points = data[:,:-1]
+        data_values = data[:,-1]
+        interpolator_file = MODEL_INTERPOLATOR_FILE
+
+        ## try to get cached interpolator
+        interpolator = self._interpolator_cached
+        if interpolator is not None:
+            interpolator.data_values = data_values
+            logger.debug('Returning cached interpolator.')
+        else:
+            ## otherwise try to get saved interpolator
+            if use_cache and os.path.exists(interpolator_file):
+                interpolator = util.math.interpolate.Interpolator_Base.load(interpolator_file)
+                interpolator.data_values = data_values
+                logger.debug('Returning interpolator loaded from {}.'.format(interpolator_file))
+            ## if no interpolator exists, create new interpolator
+            else:
+                interpolator = util.math.interpolate.Periodic_Interpolator(data_points=data_points, data_values=data_values, point_range_size=METOS_DIM, scaling_values=(METOS_DIM[1]/METOS_DIM[0], None, None, None), wrap_around_amount=MODEL_INTERPOLATOR_AMOUNT_OF_WRAP_AROUND, number_of_linear_interpolators=MODEL_INTERPOLATOR_NUMBER_OF_LINEAR_INTERPOLATOR, total_overlapping_linear_interpolators=MODEL_INTERPOLATOR_TOTAL_OVERLAPPING_OF_LINEAR_INTERPOLATOR)
+                logger.debug('Returning new created interpolator.')
+
+            self._interpolator_cached = interpolator
+
+        ## interpolate
+        interpolated_values = interpolator.interpolate(interpolation_points)
+
+        ## save interpolate if cache used
+        if use_cache and not os.path.exists(interpolator_file):
+            interpolator.save(interpolator_file)
+
+        ## return interpolated values
+        assert not np.any(np.isnan(interpolated_values))
+#         assert np.all(interpolator.data_points == data_points)
+#         assert np.all(interpolator.data_values == data_values)
+
+        return interpolated_values
 
 
 
