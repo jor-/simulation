@@ -2,7 +2,7 @@ import bisect
 import numpy as np
 
 import ndop.util.value_cache
-from ndop.model.eval import Model
+import ndop.model.eval
 
 import measurements.all.box.data
 import measurements.all.pw.values
@@ -22,22 +22,20 @@ DEFAULT_SPINUP_OPTIONS={'years':10000, 'tolerance':0.0, 'combination':'or'}
 
 class DataBase:
 
-    def __init__(self, spinup_options=DEFAULT_SPINUP_OPTIONS, time_step=1, df_accuracy_order=2, job_setup=None, F_cache_filename=None, DF_cache_filename=None):
+    def __init__(self, spinup_options=DEFAULT_SPINUP_OPTIONS, time_step=1, df_accuracy_order=2, job_setup=None):
         from .constants import CACHE_DIRNAME, BOXES_F_FILENAME, BOXES_DF_FILENAME
 
-        logger.debug('Initiating {} with spinup_options {}, time step {}, df_accuracy_order {}, job_setup {}, F_cache_filename {} and DF_cache_filename {}.'.format(self, spinup_options, time_step, df_accuracy_order, job_setup, F_cache_filename, DF_cache_filename))
+        logger.debug('Initiating {} with spinup_options {}, time step {}, df_accuracy_order {} and job_setup {}.'.format(self, spinup_options, time_step, df_accuracy_order, job_setup))
 
         self.spinup_options = spinup_options
         self.time_step = time_step
         self.df_accuracy_order = df_accuracy_order
 
-        self.cache = ndop.util.value_cache.Cache(spinup_options, time_step, df_accuracy_order=df_accuracy_order, cache_dirname=CACHE_DIRNAME, use_memory_cache=True)
         self.f_boxes_cache_filename = BOXES_F_FILENAME
         self.df_boxes_cache_filename = BOXES_DF_FILENAME
-        self.F_cache_filename = F_cache_filename
-        self.DF_cache_filename = DF_cache_filename
-
+        self.hdd_cache = ndop.util.value_cache.Cache(spinup_options, time_step, df_accuracy_order=df_accuracy_order, cache_dirname=CACHE_DIRNAME, use_memory_cache=True)
         self.memory_cache = util.cache.MemoryCache()
+        self.memory_cache_with_parameters = ndop.util.value_cache.MemoryCache()
 
         if job_setup is None:
             job_setup = {}
@@ -45,7 +43,7 @@ class DataBase:
             job_setup['name']
         except KeyError:
             job_setup['name'] = str(self)
-        self.model = Model(job_setup=job_setup)
+        self.model = ndop.model.eval.Model(job_setup=job_setup)
 
 
     def __str__(self):
@@ -54,6 +52,7 @@ class DataBase:
 
 
     ## model output
+    
     def f_boxes_calculate(self, parameters, time_dim=12):
         logger.debug('Calculating new model f_boxes with time dim {} for {}.'.format(time_dim, self))
         f_boxes = self.model.f_boxes(parameters, time_dim_desired=time_dim, spinup_options=self.spinup_options, time_step=self.time_step)
@@ -62,7 +61,7 @@ class DataBase:
 
     def f_boxes(self, parameters, time_dim=12, use_memmap=False):
         calculation_function = lambda p: self.f_boxes_calculate(p, time_dim=time_dim)
-        return self.cache.get_value(parameters, self.f_boxes_cache_filename.format(time_dim), calculation_function, derivative_used=False, save_also_txt=False, use_memmap=use_memmap)
+        return self.hdd_cache.get_value(parameters, self.f_boxes_cache_filename.format(time_dim), calculation_function, derivative_used=False, save_also_txt=False, use_memmap=use_memmap)
 
 
 
@@ -76,53 +75,85 @@ class DataBase:
 
     def df_boxes(self, parameters, time_dim=12, use_memmap=False, as_shared_array=False):
         calculation_function = lambda p: self.df_boxes_calculate(p, time_dim=time_dim)
-        return self.cache.get_value(parameters, self.df_boxes_cache_filename.format(time_dim), calculation_function, derivative_used=True, save_also_txt=False, use_memmap=use_memmap, as_shared_array=as_shared_array)
+        return self.hdd_cache.get_value(parameters, self.df_boxes_cache_filename.format(time_dim), calculation_function, derivative_used=True, save_also_txt=False, use_memmap=use_memmap, as_shared_array=as_shared_array)
 
 
 
     def F_calculate(self, parameters):
         raise NotImplementedError("Please implement this method")
-
+    
     def F(self, parameters):
-        return self.cache.get_value(parameters, self.F_cache_filename, self.F_calculate, derivative_used=False, save_also_txt=False)
+        values = self.memory_cache_with_parameters.get_value(parameters, 'F', self.F_calculate)
+        assert values.ndim == 1 and len(values) == self.m
+        return values
 
     def DF_calculate(self, parameters):
         raise NotImplementedError("Please implement this method")
 
     def DF(self, parameters):
-        return self.cache.get_value(parameters, self.DF_cache_filename, self.DF_calculate, derivative_used=True, save_also_txt=False)
+        values = self.memory_cache_with_parameters.get_value(parameters, 'DF', self.DF_calculate)
+        assert values.ndim == 2 and len(values) == self.m and values.shape[1] == len(parameters)
+        return values
 
+
+    ## m
+    
+    @property
+    def m(self):
+        return self.memory_cache.get_value('m', lambda: len(self.results))
+
+    ## results
+
+    def results_calculate(self):
+        raise NotImplementedError("Please implement this method")
+
+    @property
+    def results(self):
+        values = self.memory_cache.get_value('results', lambda: self.results_calculate())
+        assert values.ndim == 1
+        return values
 
 
     ## deviation
 
-    @property
     def deviations_calculate(self):
         raise NotImplementedError("Please implement this method")
 
     @property
     def deviations(self):
-        return self.memory_cache.get_value('deviations', lambda: self.deviations_calculate)
+        values = self.memory_cache.get_value('deviations', lambda: self.deviations_calculate())
+        assert values.ndim == 1 and len(values) == self.m
+        return values
 
     @property
     def inverse_deviations(self):
-        return self.memory_cache.get_value('inverse_deviations', lambda: 1 / self.deviations)
+        values = self.memory_cache.get_value('inverse_deviations', lambda: 1 / self.deviations)
+        assert values.ndim == 1 and len(values) == self.m
+        return values
 
     @property
     def variances(self):
-        return self.memory_cache.get_value('variances', lambda: self.deviations**2)
+        values = self.memory_cache.get_value('variances', lambda: self.deviations**2)
+        assert values.ndim == 1 and len(values) == self.m
+        return values
 
     @property
     def inverse_variances(self):
-        return self.memory_cache.get_value('inverse_variances', lambda: 1 / self.variances)
+        values = self.memory_cache.get_value('inverse_variances', lambda: 1 / self.variances)
+        assert values.ndim == 1 and len(values) == self.m
+        return values
 
     @property
     def average_variance(self):
-        return self.memory_cache.get_value('average_variance', lambda: self.variances.mean())
+        values = self.memory_cache.get_value('average_variance', lambda: self.variances.mean())
+        assert values.ndim == 1 and len(values) == self.m
+        return values
 
     @property
     def inverse_average_variance(self):
-        return self.memory_cache.get_value('inverse_average_variance', lambda: 1 / self.average_variance)
+        values = self.memory_cache.get_value('inverse_average_variance', lambda: 1 / self.average_variance)
+        assert values.ndim == 1 and len(values) == self.m
+        return values
 
 
 
@@ -135,21 +166,32 @@ class DataBase:
         return self.memory_cache.get_value('inverse_deviations_boxes_{}'.format(time_dim), lambda: 1 / self.deviations_boxes(time_dim=time_dim), as_shared_array=as_shared_array)
 
 
-    ## results
 
-    @property
-    def results_calculate(self):
-        raise NotImplementedError("Please implement this method")
+class DataBaseHDD(DataBase):
+    
+    def __init__(self, *args, F_cache_filename=None, DF_cache_filename=None, **kargs):
+        logger.debug('Initiating {} with F_cache_filename {} and DF_cache_filename {}.'.format(self, F_cache_filename, DF_cache_filename))
+        super().__init__(*args, **kargs)
+        self.F_cache_filename = F_cache_filename
+        self.DF_cache_filename = DF_cache_filename
+        
+    
+    def F(self, parameters):
+        values = self.hdd_cache.get_value(parameters, self.F_cache_filename, self.F_calculate, derivative_used=False, save_also_txt=False)
+        assert values.ndim == 1 and len(values) == self.m
+        return values
 
-    @property
-    def results(self):
-        return self.memory_cache.get_value('results', lambda: self.results_calculate)
+    def DF(self, parameters):
+        values = self.hdd_cache.get_value(parameters, self.DF_cache_filename, self.DF_calculate, derivative_used=True, save_also_txt=False)
+        assert values.ndim == 2 and len(values) == self.m and values.shape[1] == len(parameters)
+        return values
+    
 
 
 
-class WOA(DataBase):
+class WOA(DataBaseHDD):
 
-    def __init__(self, spinup_options=DEFAULT_SPINUP_OPTIONS, time_step=1, df_accuracy_order=2, job_setup=None, cache_dirname=None):
+    def __init__(self, spinup_options=DEFAULT_SPINUP_OPTIONS, time_step=1, df_accuracy_order=2, job_setup=None):
         ## super constructor
         from .constants import WOA_F_FILENAME, WOA_DF_FILENAME
         super().__init__(spinup_options, time_step=time_step, df_accuracy_order=df_accuracy_order, job_setup=job_setup, F_cache_filename=WOA_F_FILENAME, DF_cache_filename=WOA_DF_FILENAME)
@@ -187,7 +229,6 @@ class WOA(DataBase):
     def mean_deviations_boxes(self):
         return self.memory_cache.get_value('mean_deviations_boxes', lambda: (measurements.all.box.data.variances() / measurements.all.box.data.nobs())**(1/2))
 
-    @property
     def deviations_calculate(self):
         return self._get_data_with_annual_averaged(self.mean_deviations_boxes, annual_factor=1/12)
 
@@ -202,14 +243,8 @@ class WOA(DataBase):
     def results_boxes(self):
         return self.memory_cache.get_value('results_boxes', lambda: measurements.all.box.data.means())
 
-    @property
     def results_calculate(self):
         return self._get_data_with_annual_averaged(self.results_boxes)
-
-    @property
-    def m(self):
-        return self.memory_cache.get_value('m', lambda: len(self.results))
-
 
 
     ## diff
@@ -225,9 +260,56 @@ class WOA(DataBase):
 
 
 
-class WOD(DataBase):
 
-    def __init__(self, spinup_options=DEFAULT_SPINUP_OPTIONS, time_step=1, df_accuracy_order=2, job_setup=None, cache_dirname=None):
+class WOD_Base(DataBase):
+
+    def __init__(self, *args, **kargs):
+        super().__init__(*args, **kargs)
+
+
+    ## model output
+
+    def F_dop(self, parameters):
+        F = self.F(parameters)
+        return F[:self.m_dop]
+
+
+    def F_po4(self, parameters):
+        F = self.F(parameters)
+        return F[self.m_dop:]
+
+
+    ## measurements
+
+    @property
+    def points(self):
+        values = self.memory_cache.get_value('points', lambda: self.points_calculate())
+        assert len(values) == 2 
+        assert all([ndim == 2 for ndim in map(lambda a: a.ndim, values)])
+        return values
+
+
+    @property
+    def m_dop(self):
+        return self.memory_cache.get_value('m_dop', lambda: len(self.points[0]))
+
+    @property
+    def m_po4(self):
+        return self.memory_cache.get_value('m_po4', lambda: len(self.points[1]))
+
+    @property
+    def m(self):
+        m = super().m
+        assert self.m_dop + self.m_po4
+        return m
+
+
+
+
+
+class WOD(DataBaseHDD, WOD_Base):
+
+    def __init__(self, spinup_options=DEFAULT_SPINUP_OPTIONS, time_step=1, df_accuracy_order=2, job_setup=None):
         from .constants import WOD_F_FILENAME, WOD_DF_FILENAME
         super().__init__(spinup_options, time_step=time_step, df_accuracy_order=df_accuracy_order, job_setup=job_setup, F_cache_filename=WOD_F_FILENAME, DF_cache_filename=WOD_DF_FILENAME)
 
@@ -247,59 +329,55 @@ class WOD(DataBase):
         return DF
 
 
-    def F_dop(self, parameters):
-        F = self.F(parameters)
-        return F[:self.m_dop]
+    # def F_dop(self, parameters):
+    #     F = self.F(parameters)
+    #     return F[:self.m_dop]
 
 
-    def F_po4(self, parameters):
-        F = self.F(parameters)
-        return F[self.m_dop:]
+    #     def F_po4(self, parameters):
+    #     F = self.F(parameters)
+    #     return F[self.m_dop:]
 
 
     ## deviation
 
-    @property
     def deviations_calculate(self):
         (deviation_dop, deviation_po4) = measurements.all.pw.values.deviation()
         deviations = np.concatenate([deviation_dop, deviation_po4])
-        assert len(deviations) == self.m
         return deviations
 
 
     ## measurements
 
-    @property
     def points_calculate(self):
-        # [[points_dop, points_po4], [results_dop, results_po4]] = measurements.all.pw.values.points_and_results()
-        # return [points_dop, points_po4]
         return measurements.all.pw.values.points()
 
-    @property
-    def points(self):
-        return self.memory_cache.get_value('points', lambda: self.points_calculate)
+    # @property
+    # def points(self):
+    #     values = self.memory_cache.get_value('points', lambda: self.points_calculate())
+    #     assert len(values) == 2 
+    #     assert all([ndim == 2 for ndim in map(lambda a: a.ndim, values)])
+    #     return values
 
 
-    @property
     def results_calculate(self):
-        # [[points_dop, points_po4], [results_dop, results_po4]] = measurements.all.pw.values.points_and_results()
-        # results = np.concatenate([results_dop, results_po4])
         results = np.concatenate(measurements.all.pw.values.results())
-        assert len(results) == self.m
         return results
 
 
-    @property
-    def m_dop(self):
-        return self.memory_cache.get_value('m_dop', lambda: len(self.points[0]))
+    # @property
+    # def m_dop(self):
+    #     return self.memory_cache.get_value('m_dop', lambda: len(self.points[0]))
 
-    @property
-    def m_po4(self):
-        return self.memory_cache.get_value('m_po4', lambda: len(self.points[1]))
+    #   @property
+    # def m_po4(self):
+    #     return self.memory_cache.get_value('m_po4', lambda: len(self.points[1]))
 
-    @property
-    def m(self):
-        return self.memory_cache.get_value('m', lambda: self.m_dop + self.m_po4)
+    #   @property
+    # def m(self):
+    #     m = super().m
+    #     assert self.m_dop + self.m_po4
+    #     return m
 
 
     ## correlation matrix
@@ -316,19 +394,6 @@ class WOD(DataBase):
 
     def correlation_matrix_cholesky_decomposition(self, min_values, max_year_diff=float('inf')):
         return self.memory_cache.get_value('correlation_matrix_cholesky_decomposition_{:0>2}_{:0>2}'.format(min_values, max_year_diff), lambda: self.correlation_matrix_cholesky_decomposition_calculate(min_values, max_year_diff=max_year_diff))
-
-    # def correlation_matrix_L_calculate(self, min_values, max_year_diff=1):
-    #     return measurements.all.pw.correlation.CorrelationMatrix(min_values=min_values, max_year_diff=max_year_diff).correlation_matrix_cholesky_decomposition[0]
-    #
-    # def correlation_matrix_L(self, min_values, max_year_diff=1):
-    #     return self.memory_cache.get_value('correlation_matrix_L_{:0>2}_{:0>2}'.format(min_values, max_year_diff), lambda: self.correlation_matrix_L_calculate(min_values, max_year_diff=max_year_diff))
-    #
-    #
-    # def correlation_matrix_P_calculate(self, min_values, max_year_diff=1):
-    #     return measurements.all.pw.correlation.CorrelationMatrix(min_values=min_values, max_year_diff=max_year_diff)..correlation_matrix_cholesky_decomposition[1]
-    #
-    # def correlation_matrix_P(self, min_values, max_year_diff=1):
-    #     return self.memory_cache.get_value('correlation_matrix_P_{:0>2}_{:0>2}'.format(min_values, max_year_diff), lambda: self.correlation_matrix_P_calculate(min_values, max_year_diff=max_year_diff))
 
 
 
@@ -465,26 +530,85 @@ class WOD(DataBase):
 
         data_dop_map = convert_to_boxes_with_points(self.points[0], data[:self.m_dop])
         data_po4_map = convert_to_boxes_with_points(self.points[1], data[self.m_dop:])
-#         data_map = np.concatenate([data_dop_map[np.newaxis], data_po4_map[np.newaxis]], axis=0)
         data_map = [data_dop_map, data_po4_map]
 
         return data_map
 
 
 
+class WOD_TMM(WOD_Base):
+    
+    def __init__(self, *args, max_land_boxes=0, **kargs):
+        self.max_land_boxes = max_land_boxes
+        logger.debug('Initiating {} with max_land_boxes {}.'.format(self, max_land_boxes))
+        super().__init__(*args, **kargs)
+        self.wod = WOD(*args, **kargs)
+        self.lsm = measurements.land_sea_mask.data.LandSeaMaskTMM()
+    
+
+    def __str__(self):
+        return '{}_{}'.format(self.__class__.__name__, self.max_land_boxes)
+
+
+    def points_near_water_mask_calculate(self):
+        return measurements.all.pw.values.points_near_water_mask(self.lsm, max_land_boxes=self.max_land_boxes)
+
+    @property
+    def points_near_water_mask(self):
+        return self.memory_cache.get_value('points_near_water_mask', lambda: self.points_near_water_mask_calculate())
+
+    @property
+    def points_near_water_mask_concatenated(self):
+        return np.concatenate(self.points_near_water_mask)
+    
+
+    def points_calculate(self):
+        points_near_water_mask = self.points_near_water_mask
+        points = self.wod.points
+        points = list(points)
+        for i in range(len(points)):
+            points[i] = points[i][points_near_water_mask[i]]
+        return points
+
+
+    def results_calculate(self):
+        return self.wod.results[self.points_near_water_mask_concatenated]
+
+
+    def deviations_calculate(self):
+        return self.wod.deviations[self.points_near_water_mask_concatenated]
+
+
+    def F_calculate(self, parameters):
+        return self.wod.F(parameters)[self.points_near_water_mask_concatenated]
+
+    def DF_calculate(self, parameters):
+        return self.wod.DF(parameters)[self.points_near_water_mask_concatenated]
+
+    
+    
+
+
+## init
+
 def init_data_base(data_kind, spinup_options=DEFAULT_SPINUP_OPTIONS, time_step=1, df_accuracy_order=2, job_setup=None):
+    db_args = (spinup_options, time_step)
+    db_kargs = {'df_accuracy_order': df_accuracy_order, 'job_setup': job_setup}
     if data_kind.upper() == 'WOA':
-        data_base_class = WOA
+        return WOA(*db_args, **db_kargs)
     elif data_kind.upper() == 'WOD':
-        data_base_class = WOD
+        return WOD(*db_args, **db_kargs)
+    elif data_kind.upper().startswith('WOD'):
+        data_kind_splitted = data_kind.split('.')
+        assert len(data_kind_splitted) == 2 and data_kind_splitted[0] == 'WOD'
+        max_land_boxes = int(data_kind_splitted[1])
+        return WOD_TMM(*db_args, max_land_boxes=max_land_boxes, **db_kargs)
     else:
-        raise ValueError('Data_kind {} unknown. Must be "WOA" or "WOD".'.format(data_kind))
-
-    data_base = data_base_class(spinup_options, time_step, df_accuracy_order=df_accuracy_order, job_setup=job_setup)
-
-    return data_base
+        raise ValueError('Data_kind {} unknown. Must be "WOA", "WOD" or "WOD.".'.format(data_kind))
 
 
+
+## Family
 
 class Family():
     
