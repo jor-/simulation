@@ -1,13 +1,6 @@
-# import os
 import os.path
 
 import util.io.env
-
-# NDOP_DIR_ENVIRONMENT_NAME='NDOP_DIR'
-# try:
-#     BASE_DIR=os.environ[NDOP_DIR_ENVIRONMENT_NAME]
-# except KeyError:
-#     raise KeyError('The environment variable {} is not set.'.format(NDOP_DIR_ENVIRONMENT_NAME))
 
 BASE_DIR = util.io.env.load('NDOP_DIR')
 
