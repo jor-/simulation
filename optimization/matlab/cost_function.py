@@ -82,9 +82,10 @@ if __name__ == "__main__":
 
 
             ## choose cost function
-            kind_of_cost_function_splitted = kind_of_cost_function.split('.')
+            kind_of_cost_function_splitted = kind_of_cost_function.split('_')
             data_kind = kind_of_cost_function_splitted[0]
-            cf_kind = kind_of_cost_function_splitted[1]
+            cf_kind_splitted = kind_of_cost_function_splitted[1].split('.')
+            cf_kind = cf_kind_splitted[0]
 
             if cf_kind == 'OLS':
                 cf_class = ndop.optimization.cost_function.OLS
@@ -94,8 +95,8 @@ if __name__ == "__main__":
                 cf_class = ndop.optimization.cost_function.LWLS
             elif cf_kind == 'GLS':
                 cf_class = ndop.optimization.cost_function.GLS
-                correlation_min_values = int(kind_of_cost_function_splitted[2])
-                correlation_max_year_diff = int(kind_of_cost_function_splitted[3])
+                correlation_min_values = int(cf_kind_splitted[1])
+                correlation_max_year_diff = int(cf_kind_splitted[2])
                 if correlation_max_year_diff < 0:
                     correlation_max_year_diff = float('inf')
             else:
