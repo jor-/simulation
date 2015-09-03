@@ -14,15 +14,15 @@ logger = util.logging.logger
 
 class MemoryCache:
 
-    def __init__(self, enable=True):
-        logger.debug('Initiating {} with enable {}.'.format(self.__class__.__name__, enable))
+    def __init__(self, enabled=True):
+        logger.debug('Initiating {} with enabled {}.'.format(self.__class__.__name__, enabled))
         self.memory_cache = util.cache.MemoryCache()
         self.last_parameters = None
-        self.enable = enable
+        self.enabled = enabled
 
 
     def load_value(self, parameters, filename):
-        if self.enable and self.last_parameters is not None and np.allclose(parameters, self.last_parameters):
+        if self.enabled and self.last_parameters is not None and np.allclose(parameters, self.last_parameters):
             return self.memory_cache.load_value(filename)
         else:
             raise util.cache.CacheMissError(filename)
@@ -30,7 +30,7 @@ class MemoryCache:
 
     def save_value(self, parameters, filename, value):
         assert value is not None
-        if self.enable:
+        if self.enabled:
             if self.last_parameters is None or np.any(parameters != self.last_parameters):
                 self.last_parameters = parameters
                 self.memory_cache = util.cache.MemoryCache()
@@ -84,6 +84,11 @@ class Cache:
         ## prepare memory cache
         self.memory_cache = MemoryCache(use_memory_cache)
         self.last_parameters = None
+
+
+
+    def memory_cache_switch(self, enabled):
+        self.memory_cache.enabled  = enabled
 
 
 
