@@ -18,8 +18,18 @@ class CostFunctionJob(util.batch.universal.system.Job):
         from ndop.optimization.constants import COST_FUNCTION_NODES_SETUP_JOB
 
         super().__init__(output_dir)
+        
+        ## prepare job name
+        data_kind = cf_kargs['data_kind']
+        try:
+            job_name = cf_kargs['job_setup']['name']
+        except (KeyError, TypeError):
+            job_name = '{}_{}'.format(data_kind, cf_kind)
+            if cf_kind == 'GLS':
+                job_name = job_name + '_{}_{}'.format(cf_kargs['correlation_min_values'], cf_kargs['correlation_max_year_diff'])
+        job_name = 'CF_{}'.format(job_name)
 
-
+        ## prepare job_setup
         if 'job_setup' in cf_kargs:
             job_setup = cf_kargs['job_setup']
             del cf_kargs['job_setup']
@@ -34,28 +44,21 @@ class CostFunctionJob(util.batch.universal.system.Job):
         python_script_file = os.path.join(output_dir, 'run.py')
         self.options['/cf/run_file'] = python_script_file
 
-
         ## prepare job options and init job file
-        data_kind = cf_kargs['data_kind']
-        try:
-            job_name = cf_kargs['job_setup']['name']
-        except KeyError:
-            job_name = 'CF_{}_{}'.format(data_kind, cf_kind)
-            if cf_kind == 'GLS':
-                job_name = job_name + '_{}_{}'.format(cf_kargs['correlation_min_values'], cf_kargs['correlation_max_year_diff'])
-
         node_numbers = 1
         cpu_numbers = 1
 
         if data_kind == 'WOA':
             memory_gb = 2
             walltime_hours = 1
-        if data_kind == 'WOD':
+        if data_kind.startswith('WOD'):
             if cf_kind == 'GLS':
                 if cf_kargs['correlation_min_values'] >= 35:
                     memory_gb = 26
-                else:
+                elif cf_kargs['correlation_min_values'] >= 30:
                     memory_gb = 31
+                else:
+                    memory_gb = 40
             else:
                 memory_gb = 24
         nodes_setup = COST_FUNCTION_NODES_SETUP_JOB.copy()
@@ -98,7 +101,6 @@ class CostFunctionJob(util.batch.universal.system.Job):
         f = open(python_script_file, mode='w')
         f.write(script_str)
         util.io.fs.flush_and_close(f)
-
 
         ## prepare run command and write job file
         super().write_job_file('python3 {}'.format(python_script_file))
