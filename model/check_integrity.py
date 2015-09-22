@@ -11,7 +11,7 @@ import util.batch.universal.system
 #TODO check read only for finished jobs
 #TODO check cache option files available
 
-ERROR_IGNORE_LIST = ("librdmacm: Fatal: unable to get RDMA device list"+os.linesep, "librdmacm: Warning: couldn't read ABI version."+os.linesep, "librdmacm: Warning: assuming: 4"+os.linesep)
+ERROR_IGNORE_LIST = ("librdmacm: Fatal: unable to get RDMA device list"+os.linesep, "librdmacm: Warning: couldn't read ABI version."+os.linesep, "librdmacm: Warning: assuming: 4"+os.linesep, 'cpuinfo: error while loading shared libraries: libgcc_s.so.1: cannot open shared object file: No such file or directory'+os.linesep)
 
 def check_job_file_integrity_spinup(spinup_dir, is_spinup_dir):
     run_dirs = util.io.fs.get_dirs(spinup_dir)
