@@ -7,6 +7,8 @@ import ndop.model.eval
 import measurements.all.box.data
 import measurements.all.pw.values
 import measurements.all.pw.correlation
+import measurements.all.pw_nearest.data
+import measurements.all.pw_nearest.correlation
 import measurements.land_sea_mask.data
 import measurements.util.data
 
@@ -80,7 +82,7 @@ class DataBase:
 
 
     def F_calculate(self, parameters):
-        raise NotImplementedError("Please implement this method")
+        raise NotImplementedError("Please implement this method.")
     
     def F(self, parameters):
         values = self.memory_cache_with_parameters.get_value(parameters, 'F', self.F_calculate)
@@ -88,7 +90,7 @@ class DataBase:
         return values
 
     def DF_calculate(self, parameters):
-        raise NotImplementedError("Please implement this method")
+        raise NotImplementedError("Please implement this method.")
 
     def DF(self, parameters):
         values = self.memory_cache_with_parameters.get_value(parameters, 'DF', self.DF_calculate)
@@ -146,13 +148,13 @@ class DataBase:
     @property
     def average_variance(self):
         values = self.memory_cache.get_value('average_variance', lambda: self.variances.mean())
-        assert values.ndim == 1 and len(values) == self.m
+        assert np.isfinite(values)
         return values
 
     @property
     def inverse_average_variance(self):
         values = self.memory_cache.get_value('inverse_average_variance', lambda: 1 / self.average_variance)
-        assert values.ndim == 1 and len(values) == self.m
+        assert np.isfinite(values)
         return values
 
 
@@ -304,6 +306,21 @@ class WOD_Base(DataBase):
         return m
 
 
+    ## correlation matrix
+
+    def correlation_matrix_calculate(self, min_values, max_year_diff=float('inf')):
+        raise NotImplementedError("Please implement this method.")
+
+    def correlation_matrix(self, min_values, max_year_diff=float('inf')):
+        return self.memory_cache.get_value('correlation_matrix_{:0>2}_{:0>2}'.format(min_values, max_year_diff), lambda: self.correlation_matrix_calculate(min_values, max_year_diff=max_year_diff))
+
+
+    def correlation_matrix_cholesky_decomposition_calculate(self, min_values, max_year_diff=float('inf')):
+        raise NotImplementedError("Please implement this method.")
+
+    def correlation_matrix_cholesky_decomposition(self, min_values, max_year_diff=float('inf')):
+        return self.memory_cache.get_value('correlation_matrix_cholesky_decomposition_{:0>2}_{:0>2}'.format(min_values, max_year_diff), lambda: self.correlation_matrix_cholesky_decomposition_calculate(min_values, max_year_diff=max_year_diff))
+
 
 
 
@@ -329,15 +346,6 @@ class WOD(DataBaseHDD, WOD_Base):
         return DF
 
 
-    # def F_dop(self, parameters):
-    #     F = self.F(parameters)
-    #     return F[:self.m_dop]
-
-
-    #     def F_po4(self, parameters):
-    #     F = self.F(parameters)
-    #     return F[self.m_dop:]
-
 
     ## deviation
 
@@ -352,32 +360,10 @@ class WOD(DataBaseHDD, WOD_Base):
     def points_calculate(self):
         return measurements.all.pw.values.points()
 
-    # @property
-    # def points(self):
-    #     values = self.memory_cache.get_value('points', lambda: self.points_calculate())
-    #     assert len(values) == 2 
-    #     assert all([ndim == 2 for ndim in map(lambda a: a.ndim, values)])
-    #     return values
-
 
     def results_calculate(self):
         results = np.concatenate(measurements.all.pw.values.results())
         return results
-
-
-    # @property
-    # def m_dop(self):
-    #     return self.memory_cache.get_value('m_dop', lambda: len(self.points[0]))
-
-    #   @property
-    # def m_po4(self):
-    #     return self.memory_cache.get_value('m_po4', lambda: len(self.points[1]))
-
-    #   @property
-    # def m(self):
-    #     m = super().m
-    #     assert self.m_dop + self.m_po4
-    #     return m
 
 
     ## correlation matrix
@@ -385,15 +371,9 @@ class WOD(DataBaseHDD, WOD_Base):
     def correlation_matrix_calculate(self, min_values, max_year_diff=float('inf')):
         return measurements.all.pw.correlation.CorrelationMatrix(min_values=min_values, max_year_diff=max_year_diff).correlation_matrix_positive_definite
 
-    def correlation_matrix(self, min_values, max_year_diff=float('inf')):
-        return self.memory_cache.get_value('correlation_matrix_{:0>2}_{:0>2}'.format(min_values, max_year_diff), lambda: self.correlation_matrix_calculate(min_values, max_year_diff=max_year_diff))
-
 
     def correlation_matrix_cholesky_decomposition_calculate(self, min_values, max_year_diff=float('inf')):
         return measurements.all.pw.correlation.CorrelationMatrix(min_values=min_values, max_year_diff=max_year_diff).correlation_matrix_cholesky_decomposition
-
-    def correlation_matrix_cholesky_decomposition(self, min_values, max_year_diff=float('inf')):
-        return self.memory_cache.get_value('correlation_matrix_cholesky_decomposition_{:0>2}_{:0>2}'.format(min_values, max_year_diff), lambda: self.correlation_matrix_cholesky_decomposition_calculate(min_values, max_year_diff=max_year_diff))
 
 
 
@@ -551,7 +531,7 @@ class WOD_TMM(WOD_Base):
 
 
     def points_near_water_mask_calculate(self):
-        return measurements.all.pw.values.points_near_water_mask(self.lsm, max_land_boxes=self.max_land_boxes)
+        return measurements.all.pw_nearest.data.points_near_water_mask(self.lsm, max_land_boxes=self.max_land_boxes)
 
     @property
     def points_near_water_mask(self):
@@ -585,7 +565,15 @@ class WOD_TMM(WOD_Base):
     def DF_calculate(self, parameters):
         return self.wod.DF(parameters)[self.points_near_water_mask_concatenated]
 
-    
+
+    ## correlation matrix
+
+    def correlation_matrix_calculate(self, min_values, max_year_diff=float('inf')):
+        return measurements.all.pw_nearest.correlation.CorrelationMatrix(min_values=min_values, max_year_diff=max_year_diff, lsm=self.lsm, max_land_boxes=self.max_land_boxes).correlation_matrix_positive_definite
+
+    def correlation_matrix_cholesky_decomposition_calculate(self, min_values, max_year_diff=float('inf')):
+        return measurements.all.pw_nearest.correlation.CorrelationMatrix(min_values=min_values, max_year_diff=max_year_diff, lsm=self.lsm, max_land_boxes=self.max_land_boxes).correlation_matrix_cholesky_decomposition
+
     
 
 
