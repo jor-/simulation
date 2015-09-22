@@ -98,33 +98,9 @@ class Model():
         ## model output dir
         self.model_output_dir = MODEL_OUTPUT_DIR
 
-        # ## wait second
-        # self.wait_seconds_spinup = 120
-        # self.wait_seconds_derivative = 60
-        # self.wait_seconds_trajectory = 10
-
         ## empty interpolator cache
         self._interpolator_cached = None
 
-
-#     @property
-#     def land_sea_mask(self):
-#         """The land-sea-mask from metos3d as numpy array."""
-#
-#         logger.debug('Getting land-sea-mask.')
-#
-#         ## return land-sea-mask if loaded
-#         try:
-#             land_sea_mask = self.__land_sea_mask
-#             logger.debug('Returning cached land-sea-mask.')
-#         ## otherwise load land-sea-mask and return it
-#         except AttributeError:
-#             land_sea_mask = ndop.model.data.load_land_sea_mask()
-#             self.__land_sea_mask = land_sea_mask
-#
-#         logger.debug('Got land-sea-mask.')
-#
-#         return land_sea_mask
 
 
 
@@ -177,7 +153,6 @@ class Model():
         model_output_dir = self.model_output_dir
         logger.debug('Searching for directory for time step size {} in {}.'.format(time_step, model_output_dir))
 
-#         time_step_dirname = util.pattern.replace_int_pattern(MODEL_TIME_STEP_DIRNAME, time_step)
         time_step_dirname = MODEL_TIME_STEP_DIRNAME.format(time_step)
         time_step_dir = os.path.join(model_output_dir, time_step_dirname)
 
@@ -397,6 +372,8 @@ class Model():
     ## run job
 
     def run_job(self, model_parameters, output_path, years, tolerance, time_step, job_setup, write_trajectory=False, tracer_input_path=None, make_read_only=True, wait_until_finished=True):
+        from ndop.constants import BASE_DIR, BASE_DIR_ENV_NAME
+        
         logger.debug('Running job with years {} tolerance {} time_step {} tracer_input_path {}.'.format(years, tolerance, time_step, tracer_input_path))
         assert years >= 0
         assert tolerance >= 0
@@ -406,7 +383,8 @@ class Model():
         self.check_if_parameters_in_bounds(model_parameters)
 
         ## execute job
-        with ndop.model.job.Metos3D_Job(output_path) as job:
+        output_path_with_env = output_path.replace(BASE_DIR, '${{{}}}'.format(BASE_DIR_ENV_NAME))
+        with ndop.model.job.Metos3D_Job(output_path_with_env) as job:
             job.write_job_file(model_parameters, years=years, tolerance=tolerance, time_step=time_step, write_trajectory=write_trajectory, tracer_input_path=tracer_input_path, job_setup=job_setup)
             job.start()
             job.make_read_only_input(make_read_only)

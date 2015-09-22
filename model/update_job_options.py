@@ -23,7 +23,7 @@ def update_job_options(update_function):
         time_step_dir = os.path.join(MODEL_OUTPUT_DIR, time_step_dirname)
 
         parameter_sets_len = len(util.io.fs.get_dirs(time_step_dir))
-        logger.info('{} parameter set dirs found in {}.'.format(parameter_sets_len, time_step_dir))
+        logger.debug('{} parameter set dirs found in {}.'.format(parameter_sets_len, time_step_dir))
 
         for parameter_set_number in range(parameter_sets_len):
             parameter_set_dirname = MODEL_PARAMETERS_SET_DIRNAME.format(parameter_set_number)
@@ -57,7 +57,7 @@ def update_job_options_in_run_dirs(run_dir_path, update_function):
 
 
 def update_job_options_in_job_options_dir(job_options_dir, update_function):
-    logger.info('Updating job options in {}.'.format(job_options_dir))
+    logger.debug('Updating job options in {}.'.format(job_options_dir))
 
     options_file = os.path.join(job_options_dir, 'job_options.hdf5')
 
@@ -78,9 +78,8 @@ def update_output_dir():
 
 def add_finished_file():
     def update_function(job_options_dir):
-        options_file = os.path.join(job_options_dir, 'job_options.hdf5')
-
-        with util.options.Options(options_file) as options:
+        options_file = os.path.join(job_options_dir)
+        with util.options.Options(options_file, mode='r') as options:
             try:
                 options['/job/finished_file']
                 print('Finished file option already there in job option file {}.'.format(options_file))
@@ -92,7 +91,17 @@ def add_finished_file():
     update_job_options(update_function)
 
 
+
+def update_str_options(old_str, new_str):
+    def update_function(job_options_dir):
+        options_file = os.path.join(job_options_dir, 'job_options.hdf5')
+        with util.options.Options(options_file) as options:
+            options.replace_all_str_options(old_str, new_str)
+    update_job_options(update_function)
+
+
 if __name__ == "__main__":
     with util.logging.Logger():
-        add_finished_file()
+        update_str_options('/work_j2/sunip229/NDOP', '${NDOP_DIR}')
+        update_str_options('/sfs/fs3/work-sh1/sunip229/NDOP', '${NDOP_DIR}')
     print('Update completed.')

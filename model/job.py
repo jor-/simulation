@@ -17,14 +17,11 @@ class Metos3D_Job(util.batch.universal.system.Job):
 
     @property
     def last_spinup_line(self):
-        opt = self.options
-        output_file = opt['/job/output_file']
-
         self.wait_until_finished()
 
         # 9.704s 0010 Spinup Function norm 2.919666257647e+00
         last_spinup_line = None
-        with open(output_file) as f:
+        with open(self.output_file) as f:
             for line in f.readlines():
                 if 'Spinup Function norm' in line:
                     last_spinup_line = line
@@ -174,7 +171,6 @@ class Metos3D_Job(util.batch.universal.system.Job):
 
         ## best node setup
         nodes_setup = util.batch.universal.system.NodeSetup(memory=JOB_MEMORY_GB, node_kind=node_kind, total_cpus_min=cpus_min, nodes_max=nodes_max)
-        # nodes_setup.wait_for_needed_resources()
         logger.debug('Best nodes_setup is {}.'.format(nodes_setup))
 
         return nodes_setup
@@ -222,24 +218,21 @@ class Metos3D_Job(util.batch.universal.system.Job):
             nodes_setup = self.best_nodes_setup(years, node_kind=node_kind, nodes_max=nodes_max)
 
         ## chose walltime
-        nodes_setup_kind = nodes_setup.node_kind
-        nodes_setup_nodes = nodes_setup.nodes
-        nodes_setup_cpus = nodes_setup.cpus
-        # if nodes_setup_kind == 'f_ocean2':
-        #     factor = 1
-        # else:
-        #     factor = 8
-        factor = 1.25
-        walltime_hours = np.ceil(factor * years / (10 * nodes_setup_nodes * nodes_setup_cpus))
+        # nodes_setup_kind = nodes_setup.node_kind
+        # nodes_setup_nodes = nodes_setup.nodes
+        # nodes_setup_cpus = nodes_setup.cpus
+        # factor = 1.25
+        # walltime_hours = np.ceil(factor * years / (10 * nodes_setup_nodes * nodes_setup_cpus))
+        sec_per_year = 80 / (nodes_setup.nodes * nodes_setup.cpus) + 0.9
+        walltime_hours = np.ceil(years * sec_per_year / 60**2)
 
         ## init job
-        super().init_job_file(job_name, nodes_setup, walltime_hours=walltime_hours, write_output_file=True)
+        super().init_job_file(job_name, nodes_setup, walltime_hours=walltime_hours)
 
 
         ## get output path
         output_path = os.path.abspath(self.output_dir)
         output_path = os.path.join(output_path, "") # ending with separator
-
 
 
         ## set model options
@@ -253,7 +246,6 @@ class Metos3D_Job(util.batch.universal.system.Job):
         time_step_count = int(METOS_T_DIM / time_step)
         opt['/model/time_step_count'] = time_step_count
         opt['/model/time_step'] = 1 / time_step_count
-
 
 
         ## set metos3d options
@@ -290,7 +282,6 @@ class Metos3D_Job(util.batch.universal.system.Job):
         model_parameters_string = model_parameters_string.replace("'", '').replace('(', '').replace(')', '').replace(' ','')
 
         opt['/metos3d/parameters_string'] = model_parameters_string
-
 
 
         ## write metos3d option file
