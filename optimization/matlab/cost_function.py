@@ -110,9 +110,7 @@ if __name__ == "__main__":
             cf = cf_class(**cf_kargs)
 
             ## load parameter
-            parameters = util.io.matlab.load(p_file)
-            parameters = parameters['p']
-
+            parameters = util.io.matlab.load(p_file, 'p')
 
             ## if necessary start calculation job
             if (eval_function_value and not cf.f_available(parameters)) or (eval_grad_value and not cf.df_available(parameters)):
@@ -124,12 +122,8 @@ if __name__ == "__main__":
                 spinup_run_dir = cf.data_base.model.get_spinup_run_dir(parameter_set_dir, spinup_options, start_from_closest_parameters=MODEL_START_FROM_CLOSEST_PARAMETER_SET)
 
                 ## start cf calculation job
-                # with tempfile.TemporaryDirectory(dir=MODEL_TMP_DIR, prefix='cost_function_tmp_') as output_dir:
-                #     with ndop.optimization.job.CostFunctionJob(output_dir, parameters, cf_kind, eval_f=eval_function_value, eval_df=eval_grad_value, write_output_file=True, **cf_kargs) as cf_job:
-                #         cf_job.start()
-                #         cf_job.wait_until_finished()
                 output_dir = tempfile.mkdtemp(dir=TMP_DIR, prefix='cost_function_tmp_')
-                with ndop.optimization.job.CostFunctionJob(output_dir, parameters, cf_kind, eval_f=eval_function_value, eval_df=eval_grad_value, write_output_file=True, **cf_kargs) as cf_job:
+                with ndop.optimization.job.CostFunctionJob(output_dir, parameters, cf_kind, eval_f=eval_function_value, eval_df=eval_grad_value, **cf_kargs) as cf_job:
                     cf_job.start()
                     cf_job.wait_until_finished()
                 try:

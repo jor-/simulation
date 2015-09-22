@@ -14,7 +14,7 @@ logger = util.logging.logger
 
 class CostFunctionJob(util.batch.universal.system.Job):
 
-    def __init__(self, output_dir, parameters, cf_kind, eval_f=True, eval_df=True, write_output_file=True, **cf_kargs):
+    def __init__(self, output_dir, parameters, cf_kind, eval_f=True, eval_df=True, **cf_kargs):
         from ndop.optimization.constants import COST_FUNCTION_NODES_SETUP_JOB
 
         super().__init__(output_dir)
@@ -65,7 +65,7 @@ class CostFunctionJob(util.batch.universal.system.Job):
         nodes_setup['memory'] = memory_gb
         queue = None
         walltime_hours = None
-        super().init_job_file(job_name, nodes_setup, queue=queue, walltime_hours=walltime_hours, write_output_file=write_output_file)
+        super().init_job_file(job_name, nodes_setup, queue=queue, walltime_hours=walltime_hours)
 
         ## convert inf to negative for script
         if 'correlation_max_year_diff' in cf_kargs and cf_kargs['correlation_max_year_diff'] == float('inf'):

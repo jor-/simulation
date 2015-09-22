@@ -74,8 +74,8 @@ def save(parameter_sets=range(9999), data_kind='WOA', eval_f=True, eval_df=True,
                             from util.constants import TMP_DIR
                             output_dir = tempfile.TemporaryDirectory(dir=TMP_DIR, prefix='save_value_cost_function_tmp_').name
                             cf_kargs = cf.kargs
-                            cf_kargs['job_setup'] = {'name': 'save_{}:{}'.format(cf, parameter_set_number)}
-                            with ndop.optimization.job.CostFunctionJob(output_dir, p, cf.kind, eval_f=eval_f, eval_df=eval_df, write_output_file=False, **cf_kargs) as cf_job:
+                            cf_kargs['job_setup'] = {'name': 'S_{}:{}'.format(cf, parameter_set_number)}
+                            with ndop.optimization.job.CostFunctionJob(output_dir, p, cf.kind, eval_f=eval_f, eval_df=eval_df, **cf_kargs) as cf_job:
                                 cf_job.start()
                             time.sleep(10)
 
@@ -88,7 +88,7 @@ def save(parameter_sets=range(9999), data_kind='WOA', eval_f=True, eval_df=True,
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Calculating cost function values.')
 
-    parser.add_argument('-k', '--kind_of_cost_function', choices=('WOA', 'WOD'), help='The kind of the cost function to chose.')
+    parser.add_argument('-k', '--kind_of_cost_function', choices=tuple(ndop.optimization.cost_function.Family.member_classes.keys()), help='The kind of the cost function to chose.')
     parser.add_argument('-f', '--first', type=int, default=0, help='First parameter set number for which to calculate the values.')
     parser.add_argument('-l', '--last', type=int, default=9999, help='Last parameter set number for which to calculate the values.')
     parser.add_argument('-d', '--debug', action='store_true', help='Print debug infos.')
@@ -99,9 +99,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
     parameter_sets = range(args.first, args.last+1)
     
-    if args.as_jobs:
-        ndop.optimization.constants.COST_FUNCTION_NODES_SETUP_JOB = util.batch.universal.system.NodeSetup(memory=31, node_kind='clfocean', nodes=1, cpus=1, total_cpus_max=1, walltime=20)
-        ndop.optimization.constants.COST_FUNCTION_NODES_SETUP_TRAJECTORY = util.batch.universal.system.NodeSetup(memory=ndop.optimization.constants.JOB_MEMORY_GB, node_kind='clexpress', nodes=1, cpus=16, nodes_max=1, check_for_better=True, walltime=1)
-
     with util.logging.Logger(disp_stdout=args.debug):
         save(parameter_sets=parameter_sets, data_kind=args.kind_of_cost_function, eval_df=args.DF, as_jobs=args.as_jobs)

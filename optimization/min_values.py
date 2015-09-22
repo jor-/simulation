@@ -8,12 +8,11 @@ import util.pattern
 import util.io.fs
 
 
+COST_FUNCTION_NAMES = ['{}/{}'.format(dk, cf) for dk in ('WOA', 'WOD', 'WOD_TMM_1', 'WOD_TMM_0') for cf in ('OLS', 'WLS', 'LWLS')] + ['{}/GLS/min_values_{}/max_year_diff_inf'.format(dk, mv) for dk in ('WOD', 'WOD_TMM_1', 'WOD_TMM_0') for mv in (30, 35, 40)] + ['{}/GLS/min_values_{}/max_year_diff_inf'.format(dk, mv) for dk in ('WOD_TMM_0', ) for mv in (20, 25)]
+COST_FUNCTION_NAMES.sort()
 
 def min_cf_values():
     from ndop.model.constants import MODEL_OUTPUT_DIR, MODEL_TIME_STEP_DIRNAME, MODEL_PARAMETERS_FILENAME
-    # from ndop.optimization.constants import PARAMETER_BOUNDS
-
-    COST_FUNCTION_NAMES = ('WOA/OLS', 'WOA/WLS', 'WOA/LWLS', 'WOD/OLS', 'WOD/WLS', 'WOD/LWLS', 'WOD/GLS/min_values_40/max_year_diff_inf', 'WOD/GLS/min_values_35/max_year_diff_inf', 'WOD/GLS/min_values_30/max_year_diff_inf')
 
     for cost_function_name in COST_FUNCTION_NAMES:
         COST_FUNCTION_OUTPUT_DIRNAME = 'cost_functions/' + cost_function_name

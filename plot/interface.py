@@ -4,21 +4,21 @@ import os.path
 
 import measurements.util.data
 import ndop.optimization.results
+import ndop.optimization.min_values
 import ndop.util.data_base
-
 import ndop.constants
 
 import util.plot
-
 import util.logging
 logger = util.logging.logger
 
-WOD_KINDS = ('WOD/OLS', 'WOD/WLS', 'WOD/LWLS', 'WOD/GLS/40_inf', 'WOD/GLS/35_inf', 'WOD/GLS/30_inf')
-WOA_KINDS = ('WOA/OLS', 'WOA/WLS', 'WOA/LWLS')
 
-KINDS = WOD_KINDS + WOA_KINDS
-LABELS = {'WOD/OLS':'WOD-OLS', 'WOD/WLS':'WOD-WLS', 'WOD/LWLS':'WOD-LWLS', 'WOD/GLS/40_inf':'WOD-GLS-40', 'WOD/GLS/35_inf':'WOD-GLS-35', 'WOD/GLS/30_inf':'WOD-GLS-30', 'WOA/OLS':'WOA-OLS', 'WOA/WLS':'WOA-WLS', 'WOA/LWLS':'WOA-LWLS'}
+def get_kind(data_kind):
+    data_kind = data_kind.upper()+'/'
+    return [cfn for cfn in ndop.optimization.min_values.COST_FUNCTION_NAMES if cfn.startswith(data_kind)]
 
+def get_label(kind):
+    return kind.replace('/', '-').replace('min_values_', '').replace('max_year_diff_', '').replace('inf', '')
 
 
 ## optimization results
@@ -26,28 +26,11 @@ LABELS = {'WOD/OLS':'WOD-OLS', 'WOD/WLS':'WOD-WLS', 'WOD/LWLS':'WOD-LWLS', 'WOD/
 def optimization_cost_function_for_kind(data_kind='WOD', path='/tmp', y_max=None, with_line_search_steps=True):
 
     ## init
-    if data_kind == 'WOD':
-        kind_of_cost_functions = WOD_KINDS
-        # kind_of_cost_functions = ('WOD_OLS_1', 'WOD_WLS_1', 'WOD_GLS_1', 'WOD_LWLS_1')
-        # kind_of_cost_functions = ('WOD/OLS', 'WOD/WLS', 'WOD/LWLS', 'WOD/GLS/40_99')
-        # line_labels_all = ('WOD-OLS', 'WOD-WLS', 'WOD-LWLS', 'WOD-GLS-40')
-    elif data_kind == 'WOA':
-        kind_of_cost_functions = WOA_KINDS
-        # kind_of_cost_functions = ('WOA_OLS_1', 'WOA_WLS_1', 'WOA_LWLS_1')
-        # kind_of_cost_functions = ('WOA/OLS', 'WOA/WLS', 'WOA/LWLS')
-        # line_labels_all = ('WOA-OLS', 'WOA-WLS', 'WOA-LWLS')
-    # elif data_kind == 'OLD_WOD':
-    #     kind_of_cost_functions = ('OLD_WOD_WLS_1', 'OLD_WOD_OLD_LWLS_1')
-    #     line_labels_all = ('OLD_WOD_WLS', 'OLD_WOD_LWLS')
-    else:
-        raise ValueError('Unknown data kind {}.'.format(data_kind))
-
+    kind_of_cost_functions = get_kind(data_kind)
 
     file = os.path.join(path, 'optimization_cost_function_-_{}.png'.format(data_kind))
     n = len(kind_of_cost_functions)
-    # line_colors_all = ('b', 'r', 'g', 'k')
     line_colors_all = util.plot.get_colors(n)
-
 
     xs = []
     ys = []
@@ -88,24 +71,11 @@ def optimization_cost_function_for_kind(data_kind='WOD', path='/tmp', y_max=None
                 line_colors.append(line_colors_all[i])
                 line_widths.append(3)
                 if j == 0:
-                    line_label = LABELS[kind_of_cost_function]
+                    # line_label = LABELS[kind_of_cost_function]
+                    line_label = get_label(kind_of_cost_function)
                     line_labels.append(line_label)
                 else:
                     line_labels.append(None)
-
-
-
-#             xs.append(x)
-#             ys.append(y)
-#             line_labels.append(line_labels_all[i])
-#             line_styles.append('-')
-#             line_colors.append(line_colors_all[i])
-
-#             xs.append(x)
-#             ys.append(y)
-#             line_labels.append(None)
-#             line_styles.append('o')
-#             line_colors.append(line_colors_all[i])
 
 
     x_label = 'number of function evaluations'
@@ -115,15 +85,15 @@ def optimization_cost_function_for_kind(data_kind='WOD', path='/tmp', y_max=None
 
 
 def optimization_cost_functions(path='/tmp', y_max=10, with_line_search_steps=True):
-    optimization_cost_function_for_kind(data_kind='WOD', path=path, y_max=y_max, with_line_search_steps=with_line_search_steps)
-    optimization_cost_function_for_kind(data_kind='WOA', path=path, y_max=y_max, with_line_search_steps=with_line_search_steps)
-    # optimization_cost_function_for_kind(path=path, data_kind='OLD_WOD', y_max=y_max, with_line_search_steps=with_line_search_steps)
+    for data_kind in ('WOA', 'WOD', 'WOD_TMM_1', 'WOD_TMM_0'):
+        optimization_cost_function_for_kind(data_kind=data_kind, path=path, y_max=y_max, with_line_search_steps=with_line_search_steps)
 
 
 def optimization_parameters_for_kind(kind, path='/tmp', all_parameters_in_one_plot=True, with_line_search_steps=True):
     # from ndop.optimization.constants import PARAMETER_BOUNDS
     p_labels = [r'$\lambda}$', r'$\alpha$', r'$\sigma$', r'$K_{phy}$', r'$I_{C}$', r'$K_{w}$', r'$b$']
-    kind_label = LABELS[kind]
+    # kind_label = LABELS[kind]
+    kind_label = get_label(kind)
 
 #     p_bounds = np.array([[0.05, 0.95], [0.5, 10], [0.05, 0.95], [0.005, 10], [10, 50], [0.001, 0.2], [0.7 , 1.3]])
 
@@ -233,8 +203,7 @@ def optimization_parameters_for_kind(kind, path='/tmp', all_parameters_in_one_pl
 
 
 def optimization_parameters(path='/tmp', with_line_search_steps=True):
-    # kinds = os.listdir(ndop.constants.PARAMETER_OPTIMIZATION_DIR)
-    for kind in KINDS:
+    for kind in ndop.optimization.min_values.COST_FUNCTION_NAMES:
         optimization_parameters_for_kind(path=path, kind=kind, with_line_search_steps=with_line_search_steps)
 
 

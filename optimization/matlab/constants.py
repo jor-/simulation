@@ -3,4 +3,4 @@ MATLAB_F_FILENAME = 'f.mat'
 MATLAB_DF_FILENAME = 'df.mat'
 NODES_MAX_FILENAME = 'max_nodes.txt'
 
-KIND_OF_COST_FUNCTIONS=('WOA_OLS', 'WOA_WLS', 'WOA_LWLS', 'WOD_OLS', 'WOD_WLS', 'WOD_LWLS', 'WOD_GLS.40.-1', 'WOD_GLS.35.-1', 'WOD_GLS.30.-1', 'WOD_GLS.30.01', 'WOD.1_OLS', 'WOD.1_WLS', 'WOD.1_LWLS')
+KIND_OF_COST_FUNCTIONS = ['{}_{}'.format(dk, cf) for dk in ('WOA', 'WOD', 'WOD.1', 'WOD.0') for cf in ('OLS', 'WLS', 'LWLS')] + ['{}_GLS.{}.-1'.format(dk, mv) for dk in ('WOD', 'WOD.1', 'WOD.0') for mv in (30, 35, 40)] + ['{}_GLS.{}.-1'.format(dk, mv) for dk in ('WOD.0',) for mv in (20, 25)]
