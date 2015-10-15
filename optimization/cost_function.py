@@ -155,6 +155,9 @@ class BaseWeighted(Base):
 class BaseGeneralized(BaseWeighted):
 
     def __init__(self, *args, correlation_min_values=10, correlation_max_year_diff=float('inf'), **kargs):
+        from measurements.constants import CORRELATION_MIN_DIAG_VALUE_POSITIVE_DEFINITE_APPROXIMATION
+        self.min_diag_value = CORRELATION_MIN_DIAG_VALUE_POSITIVE_DEFINITE_APPROXIMATION
+        
         ## save additional kargs
         self.correlation_min_values = correlation_min_values
         if correlation_max_year_diff is None or correlation_max_year_diff < 0:
@@ -175,7 +178,7 @@ class BaseGeneralized(BaseWeighted):
 
     @property
     def cache_dirname(self):
-        return os.path.join(COST_FUNCTION_DIRNAME, str(self.data_base), self.__class__.__name__, 'min_values_{}'.format(self.correlation_min_values), 'max_year_diff_{}'.format(self.correlation_max_year_diff))
+        return os.path.join(COST_FUNCTION_DIRNAME, str(self.data_base), self.__class__.__name__, 'min_values_{}'.format(self.correlation_min_values), 'max_year_diff_{}'.format(self.correlation_max_year_diff), 'min_diag_{:.0e}'.format(self.min_diag_value))
 
 
     @property
@@ -538,7 +541,7 @@ class Family(ndop.util.data_base.Family):
    
     member_classes = {'WOA': [(OLS, [{}]), (WLS, [{}]), (LWLS, [{}])], 
                       'WOD': [(OLS, [{}]), (WLS, [{}]), (LWLS, [{}]), (GLS, [{'correlation_min_values': correlation_min_values, 'correlation_max_year_diff': float('inf')} for correlation_min_values in (40, 35, 30)])],
-                      'WOD.1': [(OLS, [{}]), (WLS, [{}]), (LWLS, [{}]), (GLS, [{'correlation_min_values': correlation_min_values, 'correlation_max_year_diff': float('inf')} for correlation_min_values in (40, 35, 30)])],
+                      'WOD.1': [(OLS, [{}]), (WLS, [{}]), (LWLS, [{}]), (GLS, [{'correlation_min_values': correlation_min_values, 'correlation_max_year_diff': float('inf')} for correlation_min_values in (40, 35, 30, 25)])],
                       'WOD.0': [(OLS, [{}]), (WLS, [{}]), (LWLS, [{}]), (GLS, [{'correlation_min_values': correlation_min_values, 'correlation_max_year_diff': float('inf')} for correlation_min_values in (40, 35, 30, 25, 20)])]
                       } 
 
