@@ -118,6 +118,18 @@ class Cache:
             file = None
 
         return file
+    
+    
+    def get_real_spinup_options(self, parameters):
+        from ndop.model.constants import MODEL_SPINUP_DIRNAME
+        parameter_set_dir = self.get_parameter_set_dir(parameters)
+        spinup_dir = os.path.join(parameter_set_dir, MODEL_SPINUP_DIRNAME)
+        last_run_dir = self.model.get_last_run_dir(spinup_dir)
+        years = self.model.get_total_years(last_run_dir)
+        tolerance = self.model.get_real_tolerance(last_run_dir)
+        # spinup_options = {'years':years, 'tolerance':tolerance, 'combination':'and'}
+        spinup_options = (years, tolerance, True)
+        return spinup_options
 
 
     def load_file(self, parameters, filename, use_memmap=False, as_shared_array=False):
@@ -169,11 +181,11 @@ class Cache:
             return matches
 
         matches_spinup_options = is_matching(self.spinup_options)
-        logger.debug('Loaded spinup options {} match needed spinup options {} is {}.'.format(loaded_options, self.spinup_options, matches_spinup_options))
+        logger.debug('Loaded spinup options {} matches needed spinup options {}: {}.'.format(loaded_options, self.spinup_options, matches_spinup_options))
 
         if not matches_spinup_options:
             matches_spinup_options = is_matching(self.max_spinup_options)
-            logger.debug('Loaded spinup options {} match max spinup options {} is {}.'.format(loaded_options, self.max_spinup_options, matches_spinup_options))
+            logger.debug('Loaded spinup options {} matches max spinup options {}: {}.'.format(loaded_options, self.max_spinup_options, matches_spinup_options))
 
         return matches_spinup_options
 
@@ -203,9 +215,11 @@ class Cache:
                 self.save_file(parameters, filename, value, save_also_txt=save_also_txt)
 
                 ## saving options
-                spinup_options = self.spinup_options
+                spinup_options = self.get_real_spinup_options(parameters)
                 if not derivative_used:
                     spinup_options = spinup_options[:-1]
+                if derivative_used:
+                    spinup_options = spinup_options + (self.spinup_options[-1],)
                 self.save_file(parameters, option_filename, spinup_options, save_also_txt=True)
 
             ## load value if matching or memmap used
