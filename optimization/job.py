@@ -27,7 +27,6 @@ class CostFunctionJob(util.batch.universal.system.Job):
             job_name = '{}_{}'.format(data_kind, cf_kind)
             if cf_kind == 'GLS':
                 job_name = job_name + '_{}_{}'.format(cf_kargs['correlation_min_values'], cf_kargs['correlation_max_year_diff'])
-        job_name = 'CF_{}'.format(job_name)
 
         ## prepare job_setup
         if 'job_setup' in cf_kargs:

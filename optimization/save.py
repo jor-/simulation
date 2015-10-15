@@ -74,7 +74,7 @@ def save(parameter_sets=range(9999), data_kind='WOA', eval_f=True, eval_df=True,
                             from util.constants import TMP_DIR
                             output_dir = tempfile.TemporaryDirectory(dir=TMP_DIR, prefix='save_value_cost_function_tmp_').name
                             cf_kargs = cf.kargs
-                            cf_kargs['job_setup'] = {'name': 'S_{}:{}'.format(cf, parameter_set_number)}
+                            cf_kargs['job_setup'] = {'name': '{}:{}'.format(cf, parameter_set_number)}
                             with ndop.optimization.job.CostFunctionJob(output_dir, p, cf.kind, eval_f=eval_f, eval_df=eval_df, **cf_kargs) as cf_job:
                                 cf_job.start()
                             time.sleep(10)
