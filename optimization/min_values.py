@@ -7,8 +7,8 @@ import numpy as np
 import util.pattern
 import util.io.fs
 
-
-COST_FUNCTION_NAMES = ['{}/{}'.format(dk, cf) for dk in ('WOA', 'WOD', 'WOD_TMM_1', 'WOD_TMM_0') for cf in ('OLS', 'WLS', 'LWLS')] + ['{}/GLS/min_values_{}/max_year_diff_inf'.format(dk, mv) for dk in ('WOD', 'WOD_TMM_1', 'WOD_TMM_0') for mv in (30, 35, 40)] + ['{}/GLS/min_values_{}/max_year_diff_inf'.format(dk, mv) for dk in ('WOD_TMM_0', ) for mv in (20, 25)]
+from ndop.optimization.matlab.constants import GLS_DICT
+COST_FUNCTION_NAMES = ['{}/{}'.format(dk, cf) for dk in ('WOA', 'WOD', 'WOD_TMM_1', 'WOD_TMM_0') for cf in ('OLS', 'WLS', 'LWLS')] + ['{}/GLS/min_values_{}/max_year_diff_inf/min_diag_1e-02'.format(dk.replace('.', '_TMM_'), mv) for dk in GLS_DICT.keys() for mv in GLS_DICT[dk]]
 COST_FUNCTION_NAMES.sort()
 
 def min_cf_values():
@@ -39,7 +39,6 @@ def min_cf_values():
                     parameters_file = os.path.join(parameter_set_dir, MODEL_PARAMETERS_FILENAME)
                     p = np.loadtxt(parameters_file)
 
-                    # if all(p >= PARAMETER_BOUNDS[0]) and all(p <= PARAMETER_BOUNDS[1]):
                     min_cf_value = cf_value
                     min_cf_parameter_set_dir = parameter_set_dir
 
