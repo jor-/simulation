@@ -19,14 +19,16 @@ CONCENTRATION_MIN_VALUE = 10**(-6)
 if util.batch.universal.system.IS_RZ:
     COST_FUNCTION_NODES_SETUP_SPINUP = util.batch.universal.system.NodeSetup(memory=JOB_MEMORY_GB, node_kind='f_ocean2', nodes=6, cpus=16, check_for_better=True, walltime=24)
     COST_FUNCTION_NODES_SETUP_DERIVATIVE = util.batch.universal.system.NodeSetup(memory=JOB_MEMORY_GB, node_kind='f_ocean2', total_cpus_min=48, check_for_better=True, walltime=1)
-    COST_FUNCTION_NODES_SETUP_TRAJECTORY = util.batch.universal.system.NodeSetup(memory=JOB_MEMORY_GB, node_kind=('westmere', 'shanghai', 'f_ocean2'), nodes=1, nodes_max=1, check_for_better=True, walltime=1)
-    COST_FUNCTION_NODES_SETUP_JOB = util.batch.universal.system.NodeSetup(memory=50, node_kind=('westmere', 'shanghai'), nodes=1, cpus=1, total_cpus_max=1, check_for_better=True, walltime=24)
+    # COST_FUNCTION_NODES_SETUP_TRAJECTORY = util.batch.universal.system.NodeSetup(memory=JOB_MEMORY_GB, node_kind=('westmere', 'shanghai', 'f_ocean2'), nodes=1, nodes_max=1, check_for_better=True, walltime=1)
+    # COST_FUNCTION_NODES_SETUP_JOB = util.batch.universal.system.NodeSetup(memory=50, node_kind=('westmere', 'shanghai'), nodes=1, cpus=1, total_cpus_max=1, check_for_better=True, walltime=24)
+    COST_FUNCTION_NODES_SETUP_TRAJECTORY = util.batch.universal.system.NodeSetup(memory=JOB_MEMORY_GB, node_kind=('westmere', 'shanghai'), nodes=1, nodes_max=1, walltime=1)
+    COST_FUNCTION_NODES_SETUP_JOB = util.batch.universal.system.NodeSetup(memory=40, node_kind='f_ocean2', nodes=1, cpus=1, total_cpus_max=1, walltime=24)
 
 if util.batch.universal.system.IS_NEC:
     # COST_FUNCTION_NODES_SETUP_SPINUP = util.batch.universal.system.NodeSetup(memory=JOB_MEMORY_GB, node_kind='clfo2', nodes=6, cpus=24, total_cpus_max=6*24, check_for_better=True, walltime=24)
     # COST_FUNCTION_NODES_SETUP_SPINUP = util.batch.universal.system.NodeSetup(memory=JOB_MEMORY_GB, node_kind='clfo2', nodes=6, cpus=24, check_for_better=True, walltime=24)
-    COST_FUNCTION_NODES_SETUP_SPINUP = util.batch.universal.system.NodeSetup(memory=JOB_MEMORY_GB, node_kind='clmedium', nodes=9, cpus=16, check_for_better=True, walltime=24)
-    COST_FUNCTION_NODES_SETUP_DERIVATIVE = util.batch.universal.system.NodeSetup(memory=JOB_MEMORY_GB, node_kind='clmedium', nodes=4, cpus=16, check_for_better=True, walltime=1)
+    COST_FUNCTION_NODES_SETUP_SPINUP = util.batch.universal.system.NodeSetup(memory=JOB_MEMORY_GB, node_kind='clmedium', nodes=9, cpus=16, nodes_max=20, check_for_better=True, walltime=24)
+    COST_FUNCTION_NODES_SETUP_DERIVATIVE = util.batch.universal.system.NodeSetup(memory=JOB_MEMORY_GB, node_kind='clmedium', nodes=4, cpus=16, nodes_max=10, check_for_better=True, walltime=1)
     COST_FUNCTION_NODES_SETUP_TRAJECTORY = util.batch.universal.system.NodeSetup(memory=JOB_MEMORY_GB, node_kind='clexpress', nodes=1, cpus=16, nodes_max=1, total_cpus_max=16, check_for_better=True, walltime=1)
     COST_FUNCTION_NODES_SETUP_JOB = util.batch.universal.system.NodeSetup(memory=50, node_kind='clmedium', nodes=1, cpus=1, total_cpus_max=1, check_for_better=True, walltime=24)
 
