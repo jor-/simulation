@@ -53,7 +53,7 @@ class MemoryCache:
 
 class Cache:
 
-    def __init__(self, spinup_options, time_step=1, df_accuracy_order=2, cache_dirname=None, use_memory_cache=True):
+    def __init__(self, spinup_options=None, time_step=1, df_accuracy_order=2, cache_dirname=None, use_memory_cache=True):
         logger.debug('Initiating {} with cache dirname {}, spinup_options {} time step {}, df_accuracy_order {} and use_memory_cache {}.'.format(self.__class__.__name__, cache_dirname, spinup_options, time_step, df_accuracy_order, use_memory_cache))
         from ndop.model.constants import MODEL_SPINUP_MAX_YEARS
 
@@ -69,15 +69,21 @@ class Cache:
         self.time_step = time_step
 
         ## prepare spinup options
-        (years, tolerance, combination) = self.model.all_spinup_options(spinup_options)
-        if combination == 'and':
-            combination = True
-        elif combination == 'or':
-            combination = False
-        else:
-            raise ValueError('Combination "{}" unknown.'.format(combination))
-        spinup_options = (years, tolerance, combination, df_accuracy_order)
-        self.spinup_options = spinup_options
+        if spinup_options is not None:
+            if len(spinup_options) != 3:
+                raise ValueError('spinup_options must have len 3 but the len of {} is {}.'.format(spinup_options, len(spinup_options)))
+            years = spinup_options['years']
+            tolerance = spinup_options['tolerance']
+            combination = spinup_options['combination']
+            if combination == 'and':
+                combination = True
+            elif combination == 'or':
+                combination = False
+            elif not combination in (0, 1):
+                raise ValueError('Combination "{}" unknown.'.format(combination))
+            spinup_options = (years, tolerance, combination)
+        self._desired_spinup_options = spinup_options
+        self.df_accuracy_order = df_accuracy_order
 
         self.max_spinup_options = (MODEL_SPINUP_MAX_YEARS, 0, False, df_accuracy_order)
 
@@ -86,9 +92,28 @@ class Cache:
         self.last_parameters = None
 
 
-
     def memory_cache_switch(self, enabled):
         self.memory_cache.enabled  = enabled
+    
+    
+    def real_spinup_options(self, parameters):
+        from ndop.model.constants import MODEL_SPINUP_DIRNAME
+        parameter_set_dir = self.get_parameter_set_dir(parameters)
+        spinup_dir = os.path.join(parameter_set_dir, MODEL_SPINUP_DIRNAME)
+        last_run_dir = self.model.get_last_run_dir(spinup_dir)
+        years = self.model.get_total_years(last_run_dir)
+        tolerance = self.model.get_real_tolerance(last_run_dir)
+        spinup_options = (years, tolerance, True)
+        return spinup_options
+    
+    
+    def desired_spinup_options(self, parameters):
+        if self._desired_spinup_options is not None:
+            desired_spinup_options = self._desired_spinup_options
+        else:
+            desired_spinup_options = self.real_spinup_options(parameters)
+        desired_spinup_options = desired_spinup_options + (self.df_accuracy_order,)
+        return desired_spinup_options
 
 
 
@@ -112,26 +137,12 @@ class Cache:
 
         if parameter_set_dir is not None:
             cache_dir = os.path.join(parameter_set_dir, self.cache_dirname)
-            # os.makedirs(cache_dir, exist_ok=True)
             file = os.path.join(cache_dir, filename)
         else:
             file = None
 
         return file
     
-    
-    def get_real_spinup_options(self, parameters):
-        from ndop.model.constants import MODEL_SPINUP_DIRNAME
-        parameter_set_dir = self.get_parameter_set_dir(parameters)
-        spinup_dir = os.path.join(parameter_set_dir, MODEL_SPINUP_DIRNAME)
-        last_run_dir = self.model.get_last_run_dir(spinup_dir)
-        years = self.model.get_total_years(last_run_dir)
-        tolerance = self.model.get_real_tolerance(last_run_dir)
-        # spinup_options = {'years':years, 'tolerance':tolerance, 'combination':'and'}
-        spinup_options = (years, tolerance, True)
-        return spinup_options
-
-
     def load_file(self, parameters, filename, use_memmap=False, as_shared_array=False):
         file = self.get_file(parameters, filename)
         if file is not None and os.path.exists(file):
@@ -180,8 +191,9 @@ class Cache:
                 matches = False
             return matches
 
-        matches_spinup_options = is_matching(self.spinup_options)
-        logger.debug('Loaded spinup options {} matches needed spinup options {}: {}.'.format(loaded_options, self.spinup_options, matches_spinup_options))
+        desired_spinup_options = self.desired_spinup_options(parameters)
+        matches_spinup_options = is_matching(desired_spinup_options)
+        logger.debug('Loaded spinup options {} matches desired spinup options {}: {}.'.format(loaded_options, desired_spinup_options, matches_spinup_options))
 
         if not matches_spinup_options:
             matches_spinup_options = is_matching(self.max_spinup_options)
@@ -215,11 +227,12 @@ class Cache:
                 self.save_file(parameters, filename, value, save_also_txt=save_also_txt)
 
                 ## saving options
-                spinup_options = self.get_real_spinup_options(parameters)
+                spinup_options = self.desired_spinup_options(parameters)
                 if not derivative_used:
                     spinup_options = spinup_options[:-1]
-                if derivative_used:
-                    spinup_options = spinup_options + (self.spinup_options[-1],)
+                    assert len(spinup_options) == 3
+                else:
+                    assert len(spinup_options) == 4
                 self.save_file(parameters, option_filename, spinup_options, save_also_txt=True)
 
             ## load value if matching or memmap used
