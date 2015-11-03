@@ -103,7 +103,6 @@ class Model():
 
 
 
-
     def check_if_parameters_in_bounds(self, parameters):
         if any(parameters < self.parameters_lower_bound):
             indices = np.where(parameters < self.parameters_lower_bound)
@@ -127,6 +126,12 @@ class Model():
 
 
 
+    def get_job_setup(self, kind):
+        job_setup = self.job_setup_collection[kind]
+        job_setup = job_setup.copy()
+        job_setup['nodes_setup'] = job_setup['nodes_setup'].copy()
+        return job_setup
+        
 
 
     def get_parameters_diff(self, parameters, parameter_set_dir):
@@ -320,7 +325,7 @@ class Model():
             years, tolerance, combination = self.all_spinup_options(spinup_options)
 
             if combination == 'or':
-                run_dir = self.make_run(spinup_dir, parameters, years, tolerance, time_step, self.job_setup_collection['spinup'], tracer_input_path=last_run_dir)
+                run_dir = self.make_run(spinup_dir, parameters, years, tolerance, time_step, self.get_job_setup('spinup'), tracer_input_path=last_run_dir)
             elif combination == 'and':
                 run_dir = self.get_spinup_run_dir(parameter_set_dir, {'years':years, 'tolerance':0, 'combination':'or'}, start_from_closest_parameters)
                 run_dir = self.get_spinup_run_dir(parameter_set_dir, {'years':MODEL_SPINUP_MAX_YEARS, 'tolerance':tolerance, 'combination':'or'}, start_from_closest_parameters)
@@ -580,7 +585,7 @@ class Model():
 
         ## write trajectory
         trajectory_dir = tempfile.mkdtemp(dir=tmp_dir, prefix='trajectory_tmp_')
-        self.run_job(parameters, trajectory_dir, years=1, tolerance=0, time_step=run_time_step, job_setup=self.job_setup_collection['trajectory'], tracer_input_path=run_dir, write_trajectory=True, make_read_only=False)
+        self.run_job(parameters, trajectory_dir, years=1, tolerance=0, time_step=run_time_step, job_setup=self.get_job_setup('trajectory'), tracer_input_path=run_dir, write_trajectory=True, make_read_only=False)
 
         ## read trajectory
         trajectory_output_dir = os.path.join(trajectory_dir, 'trajectory')
@@ -761,7 +766,7 @@ class Model():
         parameters_lower_bound = self.parameters_lower_bound
         parameters_upper_bound = self.parameters_upper_bound
 
-        job_setup = self.job_setup_collection['derivative'].copy()
+        job_setup = self.get_job_setup('derivative')
         partial_derivative_run_dirs = np.empty([parameters_len, h_factors_len], dtype=object)
 
         ## start derivative runs
