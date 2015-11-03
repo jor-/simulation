@@ -8,7 +8,7 @@ import util.pattern
 import util.io.fs
 
 from ndop.optimization.matlab.constants import GLS_DICT
-COST_FUNCTION_NAMES = ['{}/{}'.format(dk, cf) for dk in ('WOA', 'WOD', 'WOD_TMM_1', 'WOD_TMM_0') for cf in ('OLS', 'WLS', 'LWLS')] + ['{}/GLS/min_values_{}/max_year_diff_inf/min_diag_1e-02'.format(dk.replace('.', '_TMM_'), mv) for dk in GLS_DICT.keys() for mv in GLS_DICT[dk]]
+COST_FUNCTION_NAMES = ['setup_{setup}/{data_kind}/{cost_function}'.format(data_kind=dk, cost_function=cf, setup=setup) for dk in ('WOA', 'WOD', 'WOD_TMM_1', 'WOD_TMM_0') for cf in ('OLS', 'WLS', 'LWLS') for setup in (1, 2)] + ['setup_{setup}/{data_kind}/GLS/min_values_{min_values}/max_year_diff_inf/min_diag_1e-02'.format(data_kind=dk.replace('.', '_TMM_'), min_values=mv, setup=setup) for dk in GLS_DICT.keys() for mv in GLS_DICT[dk] for setup in (1, 2)]
 COST_FUNCTION_NAMES.sort()
 
 def min_cf_values():
