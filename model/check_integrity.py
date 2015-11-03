@@ -20,9 +20,10 @@ def check_job_file_integrity_spinup(spinup_dir, is_spinup_dir):
     if n == 0:
         print('No run dirs in ' + spinup_dir + '.')
     else:
+        
+        ## check run dirs
         for run_dir_index in range(n):
             run_dir = run_dirs[run_dir_index]
-
 
             ## check if dirs in run dir exist
             dirs = util.io.fs.get_dirs(run_dir)
@@ -130,6 +131,16 @@ def check_job_file_integrity_spinup(spinup_dir, is_spinup_dir):
                 else:
                     print('Job output file {} does not exist!'.format(job_output_file))
 
+                with Metos3D_Job(run_dir, force_load=True) as job:
+                    try:
+                        job.last_year
+                    except e:
+                        print('The job output file {} format is not correct! Last year could not be computed'.format(job_output_file))
+                    try:
+                        job.last_tolerance
+                    except e:
+                        print('The job output file {} format is not correct! Last tolerance could not be computed'.format(job_output_file))
+        
 
 
 
@@ -148,15 +159,16 @@ def check_job_file_integrity(time_step_size=1, parameter_set_dirs_to_check=None,
         parameter_set_dirs_to_check = parameter_set_dirs_all
 
     for parameter_set_dir in parameter_set_dirs_to_check:
-
+        
+        ## check spinup dir
         spinup_dir = os.path.join(parameter_set_dir, MODEL_SPINUP_DIRNAME)
         check_job_file_integrity_spinup(spinup_dir, True)
-
+        
+        ## check derivative dir
         derivative_dir = os.path.join(parameter_set_dir, MODEL_DERIVATIVE_DIRNAME.format(df_step_size))
         partial_derivative_dirs = util.io.fs.get_dirs(derivative_dir)
         for partial_derivative_dir in partial_derivative_dirs:
             check_job_file_integrity_spinup(partial_derivative_dir, False)
-
 
         ## check for parameters
         p = np.loadtxt(os.path.join(parameter_set_dir, MODEL_PARAMETERS_FILENAME))
@@ -191,6 +203,14 @@ def check_job_file_integrity(time_step_size=1, parameter_set_dirs_to_check=None,
             if df_wod.ndim != 2 or len(df_wod) != wod_m or df_wod.shape[1] != len(p):
                 print('Wod df file {} has wrong shape {}!'.format(df_wod_file, df_wod.shape))
 
+        ## check value cache
+        value_cache_option_files = util.io.fs.filter_files(parameter_set_dir, lambda s: s.endswith('options.npy'), recursive=True)
+        for value_cache_option_file in value_cache_option_files:
+            value_cache_option = np.load(value_cache_option_file)
+            if not value_cache_option.ndim == 1:
+                print('Value cache option {} has ndim {}!'.format(value_cache_option_file, value_cache_option.ndim))
+            if not len(value_cache_option) in [3, 4]:
+                print('Value cache option {} has len {}!'.format(value_cache_option_file, len(value_cache_option)))
 
 
 
