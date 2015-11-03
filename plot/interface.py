@@ -14,11 +14,11 @@ logger = util.logging.logger
 
 
 def get_kind(data_kind):
-    data_kind = data_kind.upper()+'/'
+    data_kind = 'setup_1/' + data_kind.upper()
     return [cfn for cfn in ndop.optimization.min_values.COST_FUNCTION_NAMES if cfn.startswith(data_kind)]
 
 def get_label(kind):
-    return kind.replace('/', '-').replace('min_values_', '').replace('max_year_diff_', '').replace('inf', '')
+    return kind.replace('min_values_', '').replace('max_year_diff_', '').replace('inf', '').replace('//', '/').replace('/', '-')
 
 
 ## optimization results
