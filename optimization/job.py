@@ -63,8 +63,7 @@ class CostFunctionJob(util.batch.universal.system.Job):
         nodes_setup = COST_FUNCTION_NODES_SETUP_JOB.copy()
         nodes_setup['memory'] = memory_gb
         queue = None
-        walltime_hours = None
-        super().init_job_file(job_name, nodes_setup, queue=queue, walltime_hours=walltime_hours)
+        super().init_job_file(job_name, nodes_setup, queue=queue)
 
         ## convert inf to negative for script
         if 'correlation_max_year_diff' in cf_kargs and cf_kargs['correlation_max_year_diff'] == float('inf'):
@@ -81,7 +80,7 @@ class CostFunctionJob(util.batch.universal.system.Job):
             for setup_name in ('spinup', 'derivative', 'trajectory'):
                 if setup_name in job_setup:
                     nodes_setup = job_setup[setup_name]['nodes_setup']
-                    nodes_setup_str = "util.batch.universal.system.NodeSetup(memory={}, node_kind='{}', nodes={}, cpus={})".format(nodes_setup.memory, nodes_setup.node_kind, nodes_setup.nodes, nodes_setup.cpus)
+                    nodes_setup_str = "util.batch.universal.system.NodeSetup(memory={}, node_kind='{}', nodes={}, cpus={}, walltime={})".format(nodes_setup.memory, nodes_setup.node_kind, nodes_setup.nodes, nodes_setup.cpus, nodes_setup.walltime)
                     job_setup_str = "{'" + setup_name + "':{'nodes_setup':" + nodes_setup_str + "}}"
                     commands += ["    job_setup.update({})".format(job_setup_str)]
             commands += ["    cf_kargs.update({'job_setup':job_setup})"]

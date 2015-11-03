@@ -217,22 +217,23 @@ class Metos3D_Job(util.batch.universal.system.Job):
         if nodes_setup is None:
             nodes_setup = self.best_nodes_setup(years, node_kind=node_kind, nodes_max=nodes_max)
 
-        ## chose walltime
-        # nodes_setup_kind = nodes_setup.node_kind
-        # nodes_setup_nodes = nodes_setup.nodes
-        # nodes_setup_cpus = nodes_setup.cpus
-        # factor = 1.25
-        # walltime_hours = np.ceil(factor * years / (10 * nodes_setup_nodes * nodes_setup_cpus))
+        ## check/set walltime
         sec_per_year = 80 / (nodes_setup.nodes * nodes_setup.cpus) + 0.9
-        walltime_hours = np.ceil(years * sec_per_year / 60**2)
+        estimated_walltime_hours = np.ceil(years * sec_per_year / 60**2)
+        if nodes_setup.walltime is None:
+            nodes_setup.walltime = estimated_walltime_hours
+        else:
+            if nodes_setup.walltime < estimated_walltime_hours:
+                logger.debug('The chosen walltime {} for the job with {} years, {} nodes and {} cpus is below the estimated walltime {}.'.format(nodes_setup.walltime, years, nodes_setup.nodes, nodes_setup.cpus, estimated_walltime_hours))
 
         ## init job
-        super().init_job_file(job_name, nodes_setup, walltime_hours=walltime_hours)
+        super().init_job_file(job_name, nodes_setup)
 
 
-        ## get output path
-        output_path = os.path.abspath(self.output_dir)
-        output_path = os.path.join(output_path, "") # ending with separator
+        ## get output dir
+        # output_path = os.path.abspath(self.output_dir)
+        output_dir = self.output_dir
+        output_dir_not_expanded = os.path.join(self.output_dir_not_expanded, "") # ending with separator
 
 
         ## set model options
@@ -240,7 +241,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
 
         model_parameters = np.array(model_parameters, dtype=np.float64)
         opt['/model/parameters'] = model_parameters
-        opt['/model/parameters_file'] = os.path.join(output_path, 'model_parameter.txt')
+        opt['/model/parameters_file'] = os.path.join(output_dir_not_expanded, 'model_parameter.txt')
         np.savetxt(opt['/model/parameters_file'], opt['/model/parameters'], fmt=MODEL_PARAMETERS_FORMAT_STRING_OLD_STYLE)
 
         time_step_count = int(METOS_T_DIM / time_step)
@@ -257,12 +258,13 @@ class Metos3D_Job(util.batch.universal.system.Job):
             opt['/metos3d/tolerance'] = tolerance
 
         if write_trajectory:
-            tracer_output_path = os.path.join(output_path, 'trajectory/')
-            os.makedirs(tracer_output_path, exist_ok=True)
-            opt['/metos3d/tracer_output_path'] = tracer_output_path
+            tracer_output_dir = os.path.join(output_dir, 'trajectory/')
+            os.makedirs(tracer_output_dir, exist_ok=True)
+            tracer_output_dir_not_expanded = os.path.join(output_dir_not_expanded, 'trajectory/')
+            opt['/metos3d/tracer_output_path'] = tracer_output_dir_not_expanded
 
-        opt['/metos3d/output_path'] = output_path
-        opt['/metos3d/option_file'] = os.path.join(output_path, 'metos3d_options.txt')
+        opt['/metos3d/output_path'] = output_dir_not_expanded
+        opt['/metos3d/option_file'] = os.path.join(output_dir_not_expanded, 'metos3d_options.txt')
         opt['/metos3d/debuglevel'] = 1
         opt['/metos3d/po4_output_filename'] = 'po4_output.petsc'
         opt['/metos3d/dop_output_filename'] = 'dop_output.petsc'
@@ -271,12 +273,12 @@ class Metos3D_Job(util.batch.universal.system.Job):
             opt['/metos3d/po4_input_filename'] = 'po4_input.petsc'
             opt['/metos3d/dop_input_filename'] = 'dop_input.petsc'
 
-            tracer_input_path = os.path.relpath(tracer_input_path, start=output_path)
+            tracer_input_dir = os.path.relpath(tracer_input_path, start=output_dir)
 
-            os.symlink(os.path.join(tracer_input_path, opt['metos3d/po4_output_filename']), os.path.join(output_path, opt['/metos3d/po4_input_filename']))
-            os.symlink(os.path.join(tracer_input_path, opt['metos3d/dop_output_filename']), os.path.join(output_path, opt['/metos3d/dop_input_filename']))
+            os.symlink(os.path.join(tracer_input_dir, opt['metos3d/po4_output_filename']), os.path.join(output_dir, opt['/metos3d/po4_input_filename']))
+            os.symlink(os.path.join(tracer_input_dir, opt['metos3d/dop_output_filename']), os.path.join(output_dir, opt['/metos3d/dop_input_filename']))
 
-            opt['/metos3d/tracer_input_path'] = output_path
+            opt['/metos3d/tracer_input_path'] = output_dir_not_expanded
 
         model_parameters_string = str(tuple(map(lambda f: MODEL_PARAMETERS_FORMAT_STRING.format(f), model_parameters)))
         model_parameters_string = model_parameters_string.replace("'", '').replace('(', '').replace(')', '').replace(' ','')
