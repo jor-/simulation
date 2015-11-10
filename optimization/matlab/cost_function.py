@@ -1,8 +1,8 @@
-import argparse
-import sys
-import os.path
-import tempfile
 if __name__ == "__main__":
+    import argparse
+    import sys
+    import os.path
+    import tempfile
 
     import numpy as np
     
@@ -19,18 +19,18 @@ if __name__ == "__main__":
     
     
     ## parse arguments
-    parser = argparse.ArgumentParser(description='Evaluating cost function for matlab.')
+    parser = argparse.ArgumentParser(description='Evaluating a cost function for matlab.')
 
-    parser.add_argument('-c', '--kind_of_cost_function', choices=KIND_OF_COST_FUNCTIONS, help='The kind of the cost function to chose.')
+    parser.add_argument('-c', '--kind_of_cost_function', choices=KIND_OF_COST_FUNCTIONS, help='The cost function which should be evaluated.')
 
-    parser.add_argument('-y', '--years', type=int, help='Number of maximal years for the spinup.')
-    parser.add_argument('-t', '--tolerance', default=0, type=float, help='The tolerance at which the spinup terminates.')
-    parser.add_argument('-a', '--and_combination', action='store_true', help='If year and tolerance both have to be satisfied.')
+    parser.add_argument('-y', '--years', type=int, help='The number of years for the spinup.')
+    parser.add_argument('-t', '--tolerance', default=0, type=float, help='The tolerance for the spinup.')
+    parser.add_argument('-a', '--and_combination', action='store_true', help='If used, the spinup is terminated if years and tolerance have been satisfied. Otherwise, the spinup is terminated as soon as years or tolerance have been satisfied.')
 
     parser.add_argument('-f', '--eval_function_value', action='store_true', help='Save the value of the cost function.')
     parser.add_argument('-g', '--eval_grad_value', action='store_true', help='Save the values of the derivative of the cost function.')
 
-    parser.add_argument('-p', '--exchange_dir', help='The directory from which to load the parameters and save the values.')
+    parser.add_argument('-p', '--exchange_dir', help='The directory from where to load the parameters and where to save the cost function values.')
     parser.add_argument('-d', '--debug_logging_file', default=None, help='File to store debug informations.')
 
     parser.add_argument('--node_kind', default=None, help='The node kind to use for the spinup.')
@@ -59,7 +59,6 @@ if __name__ == "__main__":
 
     spinup_options = {'years':years, 'tolerance':tolerance, 'combination':combination}
     time_step = 1
-    df_accuracy_order = 2
 
     if args.node_kind is not None:
         from ndop.model.constants import JOB_MEMORY_GB
@@ -102,7 +101,7 @@ if __name__ == "__main__":
             else:
                 raise ValueError('Unknown cf kind {}.'.format(cf_kind))
 
-            cf_kargs = {'data_kind': data_kind, 'spinup_options': spinup_options, 'time_step': time_step, 'df_accuracy_order': df_accuracy_order, 'job_setup': job_setup}
+            cf_kargs = {'data_kind': data_kind, 'spinup_options': spinup_options, 'time_step': time_step, 'job_setup': job_setup}
             if cf_kind == 'GLS':
                 cf_kargs['correlation_min_values'] = correlation_min_values
                 cf_kargs['correlation_max_year_diff'] = correlation_max_year_diff

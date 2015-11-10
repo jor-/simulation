@@ -24,9 +24,9 @@ from ndop.optimization.constants import COST_FUNCTION_DIRNAME, COST_FUNCTION_F_F
 
 class Base():
 
-    def __init__(self, data_kind, spinup_options, time_step=1, df_accuracy_order=2, job_setup=None):
+    def __init__(self, data_kind, spinup_options=None, derivative_options=None, time_step=1, job_setup=None):
         ## save kargs
-        self.kargs = {'data_kind':data_kind, 'spinup_options':spinup_options, 'time_step':time_step, 'df_accuracy_order':df_accuracy_order, 'job_setup':job_setup}
+        self.kargs = {'data_kind':data_kind, 'spinup_options':spinup_options, 'time_step':time_step, 'derivative_options':derivative_options, 'job_setup':job_setup}
 
         ##
         cf_kind = str(self)
@@ -68,9 +68,11 @@ class Base():
                 job_setup['trajectory']['nodes_setup'] = COST_FUNCTION_NODES_SETUP_TRAJECTORY
 
         ## prepare cache and data base
-        self.data_base = ndop.util.data_base.init_data_base(data_kind, spinup_options, time_step, df_accuracy_order=df_accuracy_order, job_setup=job_setup)
+        # self.data_base = ndop.util.data_base.init_data_base(data_kind, spinup_options, time_step, df_accuracy_order=df_accuracy_order, job_setup=job_setup)
 
-        self.cache = ndop.util.value_cache.Cache(spinup_options, time_step, df_accuracy_order=df_accuracy_order, cache_dirname=self.cache_dirname, use_memory_cache=True)
+        #   self.cache = ndop.util.value_cache.Cache(spinup_options, time_step, df_accuracy_order=df_accuracy_order, cache_dirname=self.cache_dirname, use_memory_cache=True)
+        self.data_base = ndop.util.data_base.init_data_base(data_kind, spinup_options=spinup_options, derivative_options=derivative_options, time_step=time_step, job_setup=job_setup)
+        self.cache = ndop.util.value_cache.Cache(spinup_options=spinup_options, derivative_options=derivative_options, time_step=time_step, cache_dirname=self.cache_dirname, use_memory_cache=True)
 
 
     def __str__(self):
@@ -337,11 +339,12 @@ class GLS(BaseGeneralized):
 
 class GLS_P3(Base):
 
-    def __init__(self, data_kind, spinup_options, time_step=1, df_accuracy_order=2, job_setup=None):
+    # def __init__(self, data_kind, spinup_options, time_step=1, df_accuracy_order=2, job_setup=None):
+    def __init__(self, *args, **kargs):
         ## super init
         if data_kind.upper() != 'WOD':
             raise ValueError('Data_kind {} not supported. Must be "WOD".'.format(data_kind))
-        super().__init__(data_kind, spinup_options, time_step=1, df_accuracy_order=2, job_setup=job_setup)
+        super().__init__(*args, **kargs)
 
         ## setup correlation bounds and last correlations
         self.converted_correlation_parameters_bounds = ((0, 0.99), (0, 0.99), (0, 0.75))
@@ -544,6 +547,13 @@ class Family(ndop.util.data_base.Family):
                       'WOD.1': [(OLS, [{}]), (WLS, [{}]), (LWLS, [{}]), (GLS, [{'correlation_min_values': correlation_min_values, 'correlation_max_year_diff': float('inf')} for correlation_min_values in (40, 35, 30, 25)])],
                       'WOD.0': [(OLS, [{}]), (WLS, [{}]), (LWLS, [{}]), (GLS, [{'correlation_min_values': correlation_min_values, 'correlation_max_year_diff': float('inf')} for correlation_min_values in (40, 35, 30, 25, 20)])]
                       } 
+
+   
+    # member_classes = {'WOA': [(OLS, [{}]), (WLS, [{}]), (LWLS, [{}])], 
+    #                   'WOD': [(OLS, [{}]), (WLS, [{}]), (LWLS, [{}]), (GLS, [{'correlation_min_values': correlation_min_values, 'correlation_max_year_diff': float('inf')} for correlation_min_values in (40, 35, 30)])],
+    #                   'WOD.1': [(GLS, [{'correlation_min_values': correlation_min_values, 'correlation_max_year_diff': float('inf')} for correlation_min_values in (25,)]), ],
+    #                   'WOD.0': [(OLS, [{}]), (WLS, [{}]), (LWLS, [{}]), (GLS, [{'correlation_min_values': correlation_min_values, 'correlation_max_year_diff': float('inf')} for correlation_min_values in (40, 35, 30, 25, 20)])]
+    #                   } 
 
     def f(self, parameters):
         fun = lambda o: o.f(parameters)
