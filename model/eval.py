@@ -7,6 +7,7 @@ import numpy as np
 
 import ndop.model.data
 import ndop.model.job
+import ndop.model.constants
 
 import measurements.util.interpolate
 
@@ -18,16 +19,36 @@ import util.logging
 logger = util.logging.logger
 
 
-# spinup_options: years, tolerance=0, combination='or'
+
 
 class Model():
 
-    def __init__(self, job_setup=None, default_spinup_options={'years':10000, 'tolerance':0.0, 'combination':'or'}, df_options= {'years':100, 'step_size': 10**(-7)}):
+    def __init__(self, job_setup=None, spinup_options=ndop.model.constants.MODEL_DEFAULT_SPINUP_OPTIONS, derivative_options=ndop.model.constants.MODEL_DEFAULT_DERIVATIVE_OPTIONS, time_step=1):
         from .constants import MODEL_PARAMETER_LOWER_BOUND, MODEL_PARAMETER_UPPER_BOUND, MODEL_OUTPUT_DIR, METOS_TRACER_DIM
-
-        logger.debug('Model initiated with job setup {}, default spinup options {} and df options.'.format(job_setup, default_spinup_options, df_options))
-
-        ## job setup collection
+        
+        logger.debug('Model initiated with job setup {}, spinup options {} and derivative options {}.'.format(job_setup, spinup_options, derivative_options))
+        
+        ## set spinup and df values
+        def set_default_options(current_options, default_options):            
+            if current_options is not None:
+                for key, value in default_options.items():
+                    try:
+                        current_options[key]
+                    except KeyError:
+                        current_options[key] = value
+                return current_options
+            else:
+                return default_options
+        
+        self.spinup_options = set_default_options(spinup_options, ndop.model.constants.MODEL_DEFAULT_SPINUP_OPTIONS)
+        if self.spinup_options['combination'] not in ['and', 'or']:
+            raise ValueError('Combination "{}" unknown.'.format(self.spinup_options['combination']))
+        self.derivative_options = set_default_options(derivative_options, ndop.model.constants.MODEL_DEFAULT_DERIVATIVE_OPTIONS)
+        
+        ## set time steo
+        self.time_step = time_step
+        
+        ## set job setup collection
         # convert job setup to job setup collection
         if job_setup is None:
             job_setup = {}
@@ -68,28 +89,6 @@ class Model():
                 job_setup_collection[kind]['name'] = default_name
 
         self.job_setup_collection = job_setup_collection
-
-
-
-#         ## job options
-#         if job_setup is not None:
-#             self.job_setup_spinup = job_setup_spinup.copy()
-#         else:
-#             self.job_setup_spinup = {}
-#
-#         self.job_setup_best = self.job_setup_spinup.copy()
-#         self.job_setup_best['nodes_setup'] = None
-#
-#         if jop_setup_derivative is not None:
-#             self.jop_setup_derivative = jop_setup_derivative.copy()
-#         else:
-#             self.jop_setup_derivative = self.job_setup_best.copy()
-
-        ## default spinup options
-        self.default_spinup_options = default_spinup_options
-
-        ## df options
-        self.df_options = df_options
 
         ## parameter bounds
         self.parameters_lower_bound = MODEL_PARAMETER_LOWER_BOUND
@@ -322,7 +321,9 @@ class Model():
                 self.wait_until_job_finished(last_run_dir)
 
             ## make new run
-            years, tolerance, combination = self.all_spinup_options(spinup_options)
+            years = spinup_options['years']
+            tolerance = spinup_options['tolerance']
+            combination = spinup_options['combination']
 
             if combination == 'or':
                 run_dir = self.make_run(spinup_dir, parameters, years, tolerance, time_step, self.get_job_setup('spinup'), tracer_input_path=last_run_dir)
@@ -409,39 +410,13 @@ class Model():
 
 
 
-    ## access to spinup options
-
-    def spinup_option(self, option, spinup_options=None):
-        if spinup_options is not None:
-            try:
-                option_value = spinup_options[option]
-            except KeyError:
-                option_value = None
-
-            if option is 'combination':
-                valid_values = ('and', 'or')
-                if option_value in valid_values:
-                    return option_value
-                else:
-                    warnings.warn('The combination value {} is not valid. Only the values {} are supported.'.format(option_value, valid_values))
-            else:
-                return option_value
-
-        return self.spinup_option(option, self.default_spinup_options)
-
-    def all_spinup_options(self, spinup_options=None):
-        all_spinup_options = []
-        for option in ('years', 'tolerance', 'combination'):
-            all_spinup_options.append(self.spinup_option(option, spinup_options))
-        return all_spinup_options
-
-
-
     ## access to runs
     def is_run_matching_options(self, run_dir, spinup_options=None):
         from .constants import MODEL_SPINUP_MAX_YEARS
 
-        years, tolerance, combination = self.all_spinup_options(spinup_options)
+        years = spinup_options['years']
+        tolerance = spinup_options['tolerance']
+        combination = spinup_options['combination']
 
         if run_dir is not None:
             run_years = self.get_total_years(run_dir)
@@ -566,7 +541,7 @@ class Model():
 
 
 
-    ## access to model values
+    ## access to model values (auxiliary)
 
     def _get_trajectory(self, load_trajectory_function, run_dir, parameters):
         from .constants import METOS_TRACER_DIM
@@ -694,57 +669,37 @@ class Model():
         return f
 
 
-    def f_boxes(self, parameters, time_dim_desired, spinup_options=None, time_step=1):
-        logger.debug('Calculating all f values for parameters {} with time dimension {} and spinup options {}.'.format(parameters, time_dim_desired, spinup_options))
 
-        f = self._f(self._get_load_trajectory_function_for_all(time_dim_desired), parameters, spinup_options, time_step=time_step)
-
-        assert len(f) == 2
-        return f
-
-
-    def f_points(self, parameters, points, spinup_options=None, time_step=1):
-        logger.debug('Calculating f values for parameters {} at {} points and spinup options {}.'.format(parameters, tuple(map(len, points)), spinup_options))
-
-        if len(points) != 2:
-            raise ValueError('Points have to be a sequence of 2 point arrays. But its length is {}.'.format(len(points)))
-
-        f = self._f(self._get_load_trajectory_function_for_points(points), parameters, spinup_options, time_step=time_step)
-
-        assert len(f) == 2
-        assert (not np.any(np.isnan(f[0]))) and (not np.any(np.isnan(f[1])))
-        return f
-
-
-
-
-    def _df(self, load_trajectory_function, parameters, spinup_options=None, time_step=1, accuracy_order=2):
+    def _df(self, load_trajectory_function, parameters, spinup_options=None, time_step=1):
         from .constants import MODEL_OUTPUT_DIR, MODEL_DERIVATIVE_DIRNAME, MODEL_SPINUP_DIRNAME, MODEL_PARTIAL_DERIVATIVE_DIRNAME, METOS_TRACER_DIM, MODEL_START_FROM_CLOSEST_PARAMETER_SET, MODEL_PARAMETER_TYPICAL
 
-        MODEL_DERIVATIVE_SPINUP_YEARS = self.df_options['years']
-        MODEL_DERIVATIVE_STEP_SIZE = self.df_options['step_size']
+        MODEL_DERIVATIVE_SPINUP_YEARS = self.derivative_options['years']
+        MODEL_DERIVATIVE_STEP_SIZE = self.derivative_options['step_size']
+        MODEL_DERIVATIVE_ACCURACY_ORDER = self.derivative_options['accuracy_order']
 
         parameters = np.asanyarray(parameters)
 
         ## chose h factors
-        if accuracy_order == 1:
+        if MODEL_DERIVATIVE_ACCURACY_ORDER == 1:
             h_factors = (1,)
-        elif accuracy_order == 2:
+        elif MODEL_DERIVATIVE_ACCURACY_ORDER == 2:
             h_factors = (1, -1)
         else:
-            raise ValueError('Accuracy order {} not supported.'.format(accuracy_order))
+            raise ValueError('Accuracy order {} not supported.'.format(MODEL_DERIVATIVE_ACCURACY_ORDER))
 
         ## search directories
         parameter_set_dir = self.get_parameter_set_dir(time_step, parameters, create=True)
         derivative_dir = os.path.join(parameter_set_dir, MODEL_DERIVATIVE_DIRNAME.format(MODEL_DERIVATIVE_STEP_SIZE))
 
         ## get spinup run
-        years, tolerance, combination = self.all_spinup_options(spinup_options)
+        years = spinup_options['years']
+        tolerance = spinup_options['tolerance']
+        combination = spinup_options['combination']
         spinup_run_dir = self.get_spinup_run_dir(parameter_set_dir, {'years':years - MODEL_DERIVATIVE_SPINUP_YEARS, 'tolerance':tolerance, 'combination':combination}, start_from_closest_parameters=MODEL_START_FROM_CLOSEST_PARAMETER_SET)
         spinup_run_years = self.get_total_years(spinup_run_dir)
 
         ## get f if accuracy_order is 1
-        if accuracy_order == 1:
+        if MODEL_DERIVATIVE_ACCURACY_ORDER == 1:
             previous_spinup_run_dir = self.get_previous_run_dir(spinup_run_dir)
             previous_spinup_run_years = self.get_total_years(previous_spinup_run_dir)
             if previous_spinup_run_years == spinup_run_years - MODEL_DERIVATIVE_SPINUP_YEARS:
@@ -784,7 +739,7 @@ class Model():
                 violates_lower_bound = parameters_for_derivative[parameter_index, h_factor_index, parameter_index] < parameters_lower_bound[parameter_index]
                 violates_upper_bound = parameters_for_derivative[parameter_index, h_factor_index, parameter_index] > parameters_upper_bound[parameter_index]
 
-                if accuracy_order == 1:
+                if MODEL_DERIVATIVE_ACCURACY_ORDER == 1:
                     if violates_lower_bound or violates_upper_bound:
                         h[parameter_index, h_factor_index] *= -1
                         parameters_for_derivative[parameter_index, h_factor_index, parameter_index] = parameters[parameter_index] + h[parameter_index, h_factor_index]
@@ -841,7 +796,7 @@ class Model():
 
             ## calculate df
             for tracer_index in range(METOS_TRACER_DIM):
-                if accuracy_order == 1:
+                if MODEL_DERIVATIVE_ACCURACY_ORDER == 1:
                     df[tracer_index][parameter_index] -= f[tracer_index]
                     df[tracer_index][parameter_index] /= h[parameter_index]
                 else:
@@ -850,19 +805,43 @@ class Model():
         return df
 
 
-    def df_boxes(self, parameters, time_dim_desired, spinup_options=None, time_step=1, accuracy_order=2):
-        logger.debug('Calculating all df values for parameters {} with time dimension {}, spinup options {} and accuracy order {}.'.format(parameters, time_dim_desired, spinup_options, accuracy_order))
+    ## access to model values
 
-        df = self._df(self._get_load_trajectory_function_for_all(time_dim_desired=time_dim_desired), parameters, spinup_options, time_step=time_step, accuracy_order=accuracy_order)
+    def f_boxes(self, parameters, time_dim_desired):
+        logger.debug('Calculating all f values for parameters {} with time dimension {}.'.format(parameters, time_dim_desired))
+        
+        f = self._f(self._get_load_trajectory_function_for_all(time_dim_desired), parameters, self.spinup_options, time_step=self.time_step)
+        
+        assert len(f) == 2
+        return f
+
+
+    def f_points(self, parameters, points):
+        logger.debug('Calculating f values for parameters {} at {} points.'.format(parameters, tuple(map(len, points))))
+
+        if len(points) != 2:
+            raise ValueError('Points have to be a sequence of 2 point arrays. But its length is {}.'.format(len(points)))
+
+        f = self._f(self._get_load_trajectory_function_for_points(points), parameters, self.spinup_options, time_step=self.time_step)
+
+        assert len(f) == 2
+        assert (not np.any(np.isnan(f[0]))) and (not np.any(np.isnan(f[1])))
+        return f
+    
+
+    def df_boxes(self, parameters, time_dim_desired):
+        logger.debug('Calculating all df values for parameters {} with time dimension {}.'.format(parameters, time_dim_desired))
+
+        df = self._df(self._get_load_trajectory_function_for_all(time_dim_desired=time_dim_desired), parameters, self.spinup_options, time_step=self.time_step)
 
         assert len(df) == 2
         return df
 
 
-    def df_points(self, parameters, points, spinup_options=None, time_step=1, accuracy_order=2):
-        logger.debug('Calculating df values for parameters {} at {} points with spinup options {} and accuracy order {}.'.format(parameters, tuple(map(len, points)), spinup_options, accuracy_order))
+    def df_points(self, parameters, points):
+        logger.debug('Calculating df values for parameters {} at {} points.'.format(parameters, tuple(map(len, points))))
 
-        df = self._df(self._get_load_trajectory_function_for_points(points), parameters, spinup_options, time_step=time_step, accuracy_order=accuracy_order)
+        df = self._df(self._get_load_trajectory_function_for_points(points), parameters, self.spinup_options, time_step=self.time_step)
 
         assert len(df) == 2
         assert (not np.any(np.isnan(df[0]))) and (not np.any(np.isnan(df[1])))

@@ -53,8 +53,8 @@ class MemoryCache:
 
 class Cache:
 
-    def __init__(self, spinup_options=None, time_step=1, df_accuracy_order=2, cache_dirname=None, use_memory_cache=True):
-        logger.debug('Initiating {} with cache dirname {}, spinup_options {} time step {}, df_accuracy_order {} and use_memory_cache {}.'.format(self.__class__.__name__, cache_dirname, spinup_options, time_step, df_accuracy_order, use_memory_cache))
+    def __init__(self, spinup_options=None, derivative_options=None, time_step=1, cache_dirname=None, use_memory_cache=True):
+        logger.debug('Initiating {} with cache dirname {}, spinup_options {} time step {}, derivative_options {} and use_memory_cache {}.'.format(self.__class__.__name__, cache_dirname, spinup_options, time_step, derivative_options, use_memory_cache))
         from ndop.model.constants import MODEL_SPINUP_MAX_YEARS
 
         ## prepare cache dirname
@@ -63,18 +63,16 @@ class Cache:
         self.cache_dirname = cache_dirname
 
         ## prepare model
-        self.model = ndop.model.eval.Model()
+        self.model = ndop.model.eval.Model(spinup_options=spinup_options, derivative_options=derivative_options, time_step=time_step)
 
         ## prepare time step
         self.time_step = time_step
 
         ## prepare spinup options
         if spinup_options is not None:
-            if len(spinup_options) != 3:
-                raise ValueError('spinup_options must have len 3 but the len of {} is {}.'.format(spinup_options, len(spinup_options)))
-            years = spinup_options['years']
-            tolerance = spinup_options['tolerance']
-            combination = spinup_options['combination']
+            years = self.model.spinup_options['years']
+            tolerance = self.model.spinup_options['tolerance']
+            combination = self.model.spinup_options['combination']
             if combination == 'and':
                 combination = True
             elif combination == 'or':
@@ -82,10 +80,13 @@ class Cache:
             elif not combination in (0, 1):
                 raise ValueError('Combination "{}" unknown.'.format(combination))
             spinup_options = (years, tolerance, combination)
-        self._desired_spinup_options = spinup_options
-        self.df_accuracy_order = df_accuracy_order
+        self.desired_spinup_options = spinup_options
+        
+        ## prepare df options
+        derivative_options = (self.model.derivative_options['years'], self.model.derivative_options['step_size'], self.model.derivative_options['accuracy_order'])
+        self.derivative_options = derivative_options
 
-        self.max_spinup_options = (MODEL_SPINUP_MAX_YEARS, 0, False, df_accuracy_order)
+        self.max_options = (MODEL_SPINUP_MAX_YEARS, 0, False) + derivative_options
 
         ## prepare memory cache
         self.memory_cache = MemoryCache(use_memory_cache)
@@ -107,13 +108,15 @@ class Cache:
         return spinup_options
     
     
-    def desired_spinup_options(self, parameters):
-        if self._desired_spinup_options is not None:
-            desired_spinup_options = self._desired_spinup_options
+    def desired_options(self, parameters):
+        if self.desired_spinup_options is not None:
+            desired_options = self.desired_spinup_options
         else:
-            desired_spinup_options = self.real_spinup_options(parameters)
-        desired_spinup_options = desired_spinup_options + (self.df_accuracy_order,)
-        return desired_spinup_options
+            desired_options = self.real_spinup_options(parameters)
+        desired_options = desired_options + self.derivative_options
+        
+        assert len(desired_options) == 6
+        return desired_options
 
 
 
@@ -175,31 +178,41 @@ class Cache:
             util.io.np.save(file, value, make_read_only=True, overwrite=True)
 
 
-    def matches_spinup_options(self, parameters, spinup_options_filename):
-        loaded_options = self.load_file(parameters, spinup_options_filename)
+    def matches_options(self, parameters, options_filename):
+        loaded_options = self.load_file(parameters, options_filename)
+        desired_options = self.desired_options(parameters)
 
-        def is_matching(needed_options):
+        def is_matching(loaded_options, desired_options):
+            assert loaded_options is None or len(loaded_options) in [3, 6]
+            assert len(desired_options) == 6
+            
             if loaded_options is not None:
-                if needed_options[2]:
-                    matches = needed_options[0] <= loaded_options[0] and needed_options[1] >= loaded_options[1]
+                ## check spinup options
+                matches_year = desired_options[0] <= loaded_options[0] or np.isclose(desired_options[0], loaded_options[0])
+                matches_tolerance = desired_options[1] >= loaded_options[1] or np.isclose(desired_options[1], loaded_options[1])
+                if desired_options[2]:
+                    matches = matches_year and matches_tolerance
                 else:
-                    matches = needed_options[0] <= loaded_options[0] or needed_options[1] >= loaded_options[1]
+                    matches = matches_year or matches_tolerance
 
-                if len(loaded_options) == 4:
-                    matches = matches and needed_options[3] <= loaded_options[3]
+                ## check derivative options
+                if len(loaded_options) == 6:
+                    matches_year = desired_options[3] <= loaded_options[3] or np.isclose(desired_options[3], loaded_options[3])
+                    matches_step_size = np.isclose(desired_options[4], loaded_options[4])
+                    matches_accuracy_order = desired_options[5] <= loaded_options[5] or np.isclose(desired_options[5], loaded_options[5])
+                    matches = matches and matches_year and matches_step_size and matches_accuracy_order
             else:
                 matches = False
             return matches
 
-        desired_spinup_options = self.desired_spinup_options(parameters)
-        matches_spinup_options = is_matching(desired_spinup_options)
-        logger.debug('Loaded spinup options {} matches desired spinup options {}: {}.'.format(loaded_options, desired_spinup_options, matches_spinup_options))
+        matches_options = is_matching(loaded_options, desired_options)
+        logger.debug('Loaded options {} matches desired options {}: {}.'.format(loaded_options, desired_options, matches_options))
 
-        if not matches_spinup_options:
-            matches_spinup_options = is_matching(self.max_spinup_options)
-            logger.debug('Loaded spinup options {} matches max spinup options {}: {}.'.format(loaded_options, self.max_spinup_options, matches_spinup_options))
+        if not matches_options:
+            matches_options = is_matching(loaded_options, self.max_options)
+            logger.debug('Loaded options {} matches max options {}: {}.'.format(loaded_options, self.max_options, matches_options))
 
-        return matches_spinup_options
+        return matches_options
 
 
     ## value
@@ -217,7 +230,7 @@ class Cache:
             filename_root, filename_ext = os.path.splitext(filename)
             option_filename = filename_root + OPTION_FILE_SUFFIX + filename_ext
 
-            is_matchig = self.matches_spinup_options(parameters, option_filename)
+            is_matchig = self.matches_options(parameters, option_filename)
 
             ## if not matching calculate and save value
             if not is_matchig:
@@ -227,13 +240,13 @@ class Cache:
                 self.save_file(parameters, filename, value, save_also_txt=save_also_txt)
 
                 ## saving options
-                spinup_options = self.desired_spinup_options(parameters)
+                options = self.desired_options(parameters)
                 if not derivative_used:
-                    spinup_options = spinup_options[:-1]
-                    assert len(spinup_options) == 3
+                    options = options[:-3]
+                    assert len(options) == 3
                 else:
-                    assert len(spinup_options) == 4
-                self.save_file(parameters, option_filename, spinup_options, save_also_txt=True)
+                    assert len(options) == 6
+                self.save_file(parameters, option_filename, options, save_also_txt=True)
 
             ## load value if matching or memmap used
             if is_matchig or use_memmap or as_shared_array:
@@ -249,7 +262,7 @@ class Cache:
         from .constants import OPTION_FILE_SUFFIX
         filename_root, filename_ext = os.path.splitext(filename)
         option_filename = filename_root + OPTION_FILE_SUFFIX + filename_ext
-        return self.matches_spinup_options(parameters, option_filename)
+        return self.matches_options(parameters, option_filename)
 
 
 

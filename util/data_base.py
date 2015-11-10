@@ -19,23 +19,21 @@ import util.logging
 logger = util.logging.logger
 
 
-DEFAULT_SPINUP_OPTIONS={'years':10000, 'tolerance':0.0, 'combination':'or'}
 
 
 class DataBase:
 
-    def __init__(self, spinup_options=DEFAULT_SPINUP_OPTIONS, time_step=1, df_accuracy_order=2, job_setup=None):
+    def __init__(self, spinup_options=None, derivative_options=None, time_step=1, job_setup=None):
         from .constants import CACHE_DIRNAME, BOXES_F_FILENAME, BOXES_DF_FILENAME
 
-        logger.debug('Initiating {} with spinup_options {}, time step {}, df_accuracy_order {} and job_setup {}.'.format(self, spinup_options, time_step, df_accuracy_order, job_setup))
-
-        self.spinup_options = spinup_options
-        self.time_step = time_step
-        self.df_accuracy_order = df_accuracy_order
+        logger.debug('Initiating {} with spinup_options {}, derivative_options {}, time step {} and job_setup {}.'.format(self, spinup_options, derivative_options, time_step, job_setup))
+        
+        self.model = ndop.model.eval.Model(job_setup=job_setup, spinup_options=spinup_options, derivative_options=derivative_options, time_step=time_step)
 
         self.f_boxes_cache_filename = BOXES_F_FILENAME
         self.df_boxes_cache_filename = BOXES_DF_FILENAME
-        self.hdd_cache = ndop.util.value_cache.Cache(spinup_options, time_step, df_accuracy_order=df_accuracy_order, cache_dirname=CACHE_DIRNAME, use_memory_cache=True)
+        
+        self.hdd_cache = ndop.util.value_cache.Cache(spinup_options=self.model.spinup_options, derivative_options=self.model.derivative_options, time_step=self.model.time_step, cache_dirname=CACHE_DIRNAME, use_memory_cache=True)
         self.memory_cache = util.cache.MemoryCache()
         self.memory_cache_with_parameters = ndop.util.value_cache.MemoryCache()
 
@@ -45,7 +43,6 @@ class DataBase:
             job_setup['name']
         except KeyError:
             job_setup['name'] = str(self)
-        self.model = ndop.model.eval.Model(job_setup=job_setup)
 
 
     def __str__(self):
@@ -57,7 +54,7 @@ class DataBase:
     
     def f_boxes_calculate(self, parameters, time_dim=12):
         logger.debug('Calculating new model f_boxes with time dim {} for {}.'.format(time_dim, self))
-        f_boxes = self.model.f_boxes(parameters, time_dim_desired=time_dim, spinup_options=self.spinup_options, time_step=self.time_step)
+        f_boxes = self.model.f_boxes(parameters, time_dim_desired=time_dim)
         f_boxes = np.asanyarray(f_boxes)
         return f_boxes
 
@@ -69,7 +66,7 @@ class DataBase:
 
     def df_boxes_calculate(self, parameters, time_dim=12):
         logger.debug('Calculating new model df_boxes with time dim {} for {}.'.format(time_dim, self))
-        df_boxes = self.model.df_boxes(parameters, time_dim_desired=time_dim, spinup_options=self.spinup_options, time_step=self.time_step, accuracy_order=self.df_accuracy_order)
+        df_boxes = self.model.df_boxes(parameters, time_dim_desired=time_dim)
         df_boxes = np.asanyarray(df_boxes)
         for i in range(1, df_boxes.ndim-1):
             df_boxes = np.swapaxes(df_boxes, i, i+1)
@@ -193,7 +190,7 @@ class DataBaseHDD(DataBase):
 
 class WOA(DataBaseHDD):
 
-    def __init__(self, spinup_options=DEFAULT_SPINUP_OPTIONS, time_step=1, df_accuracy_order=2, job_setup=None):
+    def __init__(self, spinup_options=ndop.model.constants.MODEL_DEFAULT_SPINUP_OPTIONS, time_step=1, df_accuracy_order=2, job_setup=None):
         ## super constructor
         from .constants import WOA_F_FILENAME, WOA_DF_FILENAME
         super().__init__(spinup_options, time_step=time_step, df_accuracy_order=df_accuracy_order, job_setup=job_setup, F_cache_filename=WOA_F_FILENAME, DF_cache_filename=WOA_DF_FILENAME)
@@ -326,21 +323,21 @@ class WOD_Base(DataBase):
 
 class WOD(DataBaseHDD, WOD_Base):
 
-    def __init__(self, spinup_options=DEFAULT_SPINUP_OPTIONS, time_step=1, df_accuracy_order=2, job_setup=None):
+    def __init__(self, spinup_options=None, derivative_options=None, time_step=1, job_setup=None):
         from .constants import WOD_F_FILENAME, WOD_DF_FILENAME
-        super().__init__(spinup_options, time_step=time_step, df_accuracy_order=df_accuracy_order, job_setup=job_setup, F_cache_filename=WOD_F_FILENAME, DF_cache_filename=WOD_DF_FILENAME)
+        super().__init__(spinup_options=spinup_options, derivative_options=derivative_options, time_step=time_step, job_setup=job_setup, F_cache_filename=WOD_F_FILENAME, DF_cache_filename=WOD_DF_FILENAME)
 
 
     ## model output
 
     def F_calculate(self, parameters):
-        (f_dop, f_po4) = self.model.f_points(parameters, self.points, spinup_options=self.spinup_options, time_step=self.time_step)
+        (f_dop, f_po4) = self.model.f_points(parameters, self.points)
         F = np.concatenate([f_dop, f_po4])
         return F
 
 
     def DF_calculate(self, parameters):
-        (df_dop, df_po4) = self.model.df_points(parameters, self.points, spinup_options=self.spinup_options, time_step=self.time_step, accuracy_order=self.df_accuracy_order)
+        (df_dop, df_po4) = self.model.df_points(parameters, self.points)
         DF = np.concatenate([df_dop, df_po4], axis=-1)
         DF = np.swapaxes(DF, 0, 1)
         return DF
@@ -579,9 +576,9 @@ class WOD_TMM(WOD_Base):
 
 ## init
 
-def init_data_base(data_kind, spinup_options=DEFAULT_SPINUP_OPTIONS, time_step=1, df_accuracy_order=2, job_setup=None):
-    db_args = (spinup_options, time_step)
-    db_kargs = {'df_accuracy_order': df_accuracy_order, 'job_setup': job_setup}
+def init_data_base(data_kind, spinup_options=None, derivative_options=None, time_step=1, job_setup=None):
+    db_args = ()
+    db_kargs = {'spinup_options': spinup_options, 'derivative_options': derivative_options, 'time_step':time_step, 'job_setup': job_setup}
     if data_kind.upper() == 'WOA':
         return WOA(*db_args, **db_kargs)
     elif data_kind.upper() == 'WOD':
