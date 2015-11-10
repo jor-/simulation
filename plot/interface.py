@@ -23,7 +23,7 @@ def get_label(kind):
 
 ## optimization results
 
-def optimization_cost_function_for_kind(data_kind='WOD', path='/tmp', y_max=None, with_line_search_steps=True):
+def optimization_cost_function_for_data_kind(data_kind='WOD', path='/tmp', y_max=None, with_line_search_steps=True):
 
     ## init
     kind_of_cost_functions = get_kind(data_kind)
@@ -86,7 +86,7 @@ def optimization_cost_function_for_kind(data_kind='WOD', path='/tmp', y_max=None
 
 def optimization_cost_functions(path='/tmp', y_max=10, with_line_search_steps=True):
     for data_kind in ('WOA', 'WOD', 'WOD_TMM_1', 'WOD_TMM_0'):
-        optimization_cost_function_for_kind(data_kind=data_kind, path=path, y_max=y_max, with_line_search_steps=with_line_search_steps)
+        optimization_cost_function_for_data_kind(data_kind=data_kind, path=path, y_max=y_max, with_line_search_steps=with_line_search_steps)
 
 
 def optimization_parameters_for_kind(kind, path='/tmp', all_parameters_in_one_plot=True, with_line_search_steps=True):
@@ -201,6 +201,12 @@ def optimization_parameters_for_kind(kind, path='/tmp', all_parameters_in_one_pl
 
                 util.plot.line(xs, ys, file, line_style=line_styles, line_width=3, tick_font_size=20, legend_font_size=16, x_label=x_label, y_label=y_label, y_min=y_min, y_max=y_max)
 
+
+
+def optimization_parameters_for_data_kind(data_kind, path='/tmp', all_parameters_in_one_plot=True, with_line_search_steps=True):
+    for kind in get_kind(data_kind):
+        optimization_parameters_for_kind(path=path, kind=kind, with_line_search_steps=with_line_search_steps)
+    
 
 def optimization_parameters(path='/tmp', with_line_search_steps=True):
     for kind in ndop.optimization.min_values.COST_FUNCTION_NAMES:
