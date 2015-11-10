@@ -38,7 +38,9 @@ class CostFunctionJob(util.batch.universal.system.Job):
         ## save CF options
         self.options['/cf/kind'] = cf_kind
         self.options['/cf/parameters'] = parameters
-        self.options['/cf/kargs'] = cf_kargs
+        for key, value in cf_kargs.items():
+            if value is not None:
+                self.options['/cf/{}'.format(key)] = value
 
         python_script_file = os.path.join(output_dir, 'run.py')
         self.options['/cf/run_file'] = python_script_file
