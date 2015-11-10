@@ -126,7 +126,7 @@ def check_job_file_integrity_spinup(spinup_dir, is_spinup_dir):
                                     if line not in ERROR_IGNORE_LIST:
                                         print('There are errors in the job output file {}: {}.'.format(job_output_file, line))
                                         break
-                    except e:
+                    except:
                         print('The job output file {} could not be opened!'.format(job_output_file))
                 else:
                     print('Job output file {} does not exist!'.format(job_output_file))
@@ -134,11 +134,11 @@ def check_job_file_integrity_spinup(spinup_dir, is_spinup_dir):
                 with Metos3D_Job(run_dir, force_load=True) as job:
                     try:
                         job.last_year
-                    except e:
+                    except:
                         print('The job output file {} format is not correct! Last year could not be computed'.format(job_output_file))
                     try:
                         job.last_tolerance
-                    except e:
+                    except:
                         print('The job output file {} format is not correct! Last tolerance could not be computed'.format(job_output_file))
         
 
@@ -209,7 +209,7 @@ def check_job_file_integrity(time_step_size=1, parameter_set_dirs_to_check=None,
             value_cache_option = np.load(value_cache_option_file)
             if not value_cache_option.ndim == 1:
                 print('Value cache option {} has ndim {}!'.format(value_cache_option_file, value_cache_option.ndim))
-            if not len(value_cache_option) in [3, 4]:
+            if not len(value_cache_option) in [3, 6]:
                 print('Value cache option {} has len {}!'.format(value_cache_option_file, len(value_cache_option)))
 
 
