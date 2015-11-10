@@ -120,8 +120,30 @@ class Metos3D_Job(util.batch.universal.system.Job):
         except KeyError:
             output_path = self.options['/metos3d/output_path']
         return os.path.join(output_path, self.options['/metos3d/po4_output_filename'])
+    
 
-
+    @property
+    def exit_code(self):
+        ## get metos3d exit code
+        exit_code = super().exit_code
+        if exit_code != 0:
+            return exit_code
+        
+        ## check output file
+        IGNORE_ERRORS = ('Error_Path = ', 'cpuinfo: error while loading shared libraries: libgcc_s.so.1: cannot open shared object file: No such file or directory')
+        if self.output_file is not None:
+            ## check if exists
+            if not os.path.exists(self.output_file):
+                ValueError('Output file {} does not exist. The job is not finished'.format(self.output_file))
+            ## check content
+            with open(self.output_file) as f:
+                for line in f.readlines():
+                    for ingore_error in IGNORE_ERRORS:
+                        line = line.replace(ingore_error, '')
+                    line = line.lower()
+                    if 'error' in line:
+                        return 255
+        return 0
 
     def make_read_only_input(self, read_only=True):
         super().make_read_only_input(read_only=read_only)
