@@ -111,17 +111,13 @@ class CostFunctionJob(util.batch.universal.system.Job):
         ## prepare run command and write job file
         def export_env_command(env_name):
             env_value = util.io.env.load(env_name)
-            export_env_command = 'export {env_name}={env_value}'.format(env_name=env_name, env_value=env_value)
+            return 'export {env_name}={env_value}'.format(env_name=env_name, env_value=env_value)
         env_names = [ndop.constants.BASE_DIR_ENV_NAME, util.batch.universal.system.BATCH_SYSTEM_ENV_NAME, util.io.env.PYTHONPATH_ENV_NAME]
         env_commands = []
         for env_name in env_names:
             env_commands.append(export_env_command(env_name))
         export_env_command = os.linesep.join(env_commands)
             
-        # export_python_path_command = 'export {env_name}={env_value}'.format(env_name=util.io.env.PYTHONPATH_ENV_NAME, env_value=util.io.env.pythonpath())
-        # export_ndop_path_command = 'export {env_name}={env_value}'.format(env_name=ndop.constants.BASE_DIR_ENV_NAME, env_value=ndop.constants.BASE_DIR)
-        # pre_run_command = '{}\n{}'.format(export_python_path_command, export_ndop_path_command)
-        
         python_command = util.batch.universal.system.BATCH_SYSTEM.commands['python']
         run_command = '{python_command} {python_script_file}'.format(python_command=python_command, python_script_file=python_script_file)
         
