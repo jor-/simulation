@@ -1,5 +1,6 @@
 import argparse
 import os
+import stat
 import numpy as np
 
 from ndop.model.job import Metos3D_Job
@@ -211,6 +212,18 @@ def check_job_file_integrity(time_step_size=1, parameter_set_dirs_to_check=None,
                 print('Value cache option {} has ndim {}!'.format(value_cache_option_file, value_cache_option.ndim))
             if not len(value_cache_option) in [3, 6]:
                 print('Value cache option {} has len {}!'.format(value_cache_option_file, len(value_cache_option)))
+        
+        ## check file permissions
+        def check_file(file):
+            permissions = os.stat(file)[stat.ST_MODE]
+            if not (permissions & stat.S_IRUSR and permissions & stat.S_IRGRP):
+                print('File {} is not readable!'.format(file))
+        def check_dir(file):
+            permissions = os.stat(file)[stat.ST_MODE]
+            if not (permissions & stat.S_IRUSR and permissions & stat.S_IXUSR and permissions & stat.S_IRGRP and permissions & stat.S_IXGRP):
+                print('Dir {} is not readable!'.format(file))
+        
+        util.io.fs.walk_path(parameter_set_dir, check_file, check_dir, exclude_dir=False, topdown=True)
 
 
 

@@ -21,66 +21,87 @@ if __name__ == "__main__":
     ## parse arguments
     parser = argparse.ArgumentParser(description='Evaluating a cost function for matlab.')
 
-    parser.add_argument('-c', '--kind_of_cost_function', choices=KIND_OF_COST_FUNCTIONS, help='The cost function which should be evaluated.')
+    parser.add_argument('--kind_of_cost_function', '-c', choices=KIND_OF_COST_FUNCTIONS, help='The cost function which should be evaluated.')
+    parser.add_argument('--exchange_dir', '-p', help='The directory from where to load the parameters and where to save the cost function values.')
+    parser.add_argument('--debug_logging_file', '-d', default=None, help='File to store debug informations.')
 
-    parser.add_argument('-y', '--years', type=int, help='The number of years for the spinup.')
-    parser.add_argument('-t', '--tolerance', default=0, type=float, help='The tolerance for the spinup.')
-    parser.add_argument('-a', '--and_combination', action='store_true', help='If used, the spinup is terminated if years and tolerance have been satisfied. Otherwise, the spinup is terminated as soon as years or tolerance have been satisfied.')
+    parser.add_argument('--eval_function_value', '-f', action='store_true', help='Save the value of the cost function.')
+    parser.add_argument('--eval_grad_value', '-g', action='store_true', help='Save the values of the derivative of the cost function.')
 
-    parser.add_argument('-f', '--eval_function_value', action='store_true', help='Save the value of the cost function.')
-    parser.add_argument('-g', '--eval_grad_value', action='store_true', help='Save the values of the derivative of the cost function.')
+    parser.add_argument('--spinup_years', '-y', '--years', type=int, default=10000, help='The number of years for the spinup.')
+    parser.add_argument('--spinup_tolerance', '-t', '--tolerance', type=float, default=0, help='The tolerance for the spinup.')
+    parser.add_argument('--spinup_satisfy_years_and_tolerance', '-a', '--and_combination', action='store_true', help='If used, the spinup is terminated if years and tolerance have been satisfied. Otherwise, the spinup is terminated as soon as years or tolerance have been satisfied.')
 
-    parser.add_argument('-p', '--exchange_dir', help='The directory from where to load the parameters and where to save the cost function values.')
-    parser.add_argument('-d', '--debug_logging_file', default=None, help='File to store debug informations.')
+    parser.add_argument('--nodes_setup_node_kind', '--node_kind', default=None, help='The node kind to use for the spinup.')
+    parser.add_argument('--nodes_setup_number_of_nodes', '--nodes', type=int, default=0, help='The number of nodes to use for the spinup.')
+    parser.add_argument('--nodes_setup_number_of_cpus', '--cpus', type=int, default=0, help='The number of cpus to use for the spinup.')
 
-    parser.add_argument('--node_kind', default=None, help='The node kind to use for the spinup.')
-    parser.add_argument('--nodes', default=0, type=int, help='The number of nodes to use for the spinup.')
-    parser.add_argument('--cpus', default=0, type=int, help='The number of cpus to use for the spinup.')
+    parser.add_argument('--parameters_relative_tolerance', type=float, nargs='+', default=None, help='The relative tolerance up to which two parameter vectors are considered equal.')
+    parser.add_argument('--parameters_absolute_tolerance', type=float, nargs='+', default=None, help='The absolute tolerance up to which two parameter vectors are considered equal.')
+
+    parser.add_argument('--derivative_step_size', type=float, default=None, help='The step size used for the finite difference approximation.')
+    parser.add_argument('--derivative_years', type=int, default=None, help='The number of years for the finite difference approximation spinup.')
+    parser.add_argument('--derivative_accuracy_order', type=int, default=None, help='The accuracy order used for the finite difference approximation. 1 = forward differences. 2 = central differences.')
 
     parser.add_argument('--version', action='version', version='%(prog)s 0.1')
 
 
     args = parser.parse_args()
 
-    kind_of_cost_function = args.kind_of_cost_function
-
-    years = args.years
-    tolerance = args.tolerance
-    if args.and_combination:
-        combination='and'
-    else:
-        combination='or'
-
+    ## check wich values to evaluate
     eval_function_value = args.eval_function_value
     eval_grad_value = args.eval_grad_value
 
-    exchange_dir = args.exchange_dir
-    log_file = args.debug_logging_file
-
-    spinup_options = {'years':years, 'tolerance':tolerance, 'combination':combination}
+    ## prepare spinup options
+    if args.spinup_satisfy_years_and_tolerance:
+        combination='and'
+    else:
+        combination='or'
+    spinup_options = {'years': args.spinup_years, 'tolerance': args.spinup_tolerance, 'combination':combination}
+    
+    ## prepare time step
     time_step = 1
 
-    if args.node_kind is not None:
+    ## prepare job setup
+    if args.nodes_setup_node_kind is not None:
         from ndop.model.constants import JOB_MEMORY_GB
-        nodes_setup_dict = {'memory': JOB_MEMORY_GB, 'node_kind':args.node_kind, 'nodes':args.nodes, 'cpus':args.cpus}
+        nodes_setup_dict = {'memory': JOB_MEMORY_GB, 'node_kind':args.nodes_setup_node_kind, 'nodes':args.nodes_setup_number_of_nodes, 'cpus':args.nodes_setup_number_of_cpus}
         nodes_setup = util.batch.universal.system.NodeSetup(check_for_better=True, **nodes_setup_dict)
         job_setup = {'spinup':{'nodes_setup':nodes_setup}}
     else:
         job_setup = None
+    
+    ## prepare parameter tolerance options
+    parameter_tolerance_options = {}
+    if args.parameters_relative_tolerance is not None:
+        assert len(args.parameters_relative_tolerance) in (1, 7)
+        parameter_tolerance_options['relative'] = np.array(args.parameters_relative_tolerance)
+    if args.parameters_absolute_tolerance is not None:
+        assert len(args.parameters_absolute_tolerance) in (1, 7)
+        parameter_tolerance_options['absolute'] = np.array(args.parameters_absolute_tolerance)
 
+    ## prepare derivative options
+    derivative_options = {}
+    if args.derivative_step_size is not None:
+        derivative_options['step_size'] = args.derivative_step_size
+    if args.derivative_years is not None:
+        derivative_options['years'] = args.derivative_years
+    if args.derivative_accuracy_order is not None:
+        derivative_options['accuracy_order'] = args.derivative_accuracy_order
 
     ## run cost function evaluation
+    log_file = args.debug_logging_file
     with util.logging.Logger(log_file=log_file, disp_stdout=log_file is None):
         with np.errstate(invalid='ignore'):
 
             ## calculate file locations
+            exchange_dir = args.exchange_dir
             p_file = os.path.join(exchange_dir, MATLAB_PARAMETER_FILENAME)
             f_file = os.path.join(exchange_dir, MATLAB_F_FILENAME)
             df_file = os.path.join(exchange_dir, MATLAB_DF_FILENAME)
-            # job_nodes_max_file = os.path.join(exchange_dir, NODES_MAX_FILENAME)
-
 
             ## choose cost function
+            kind_of_cost_function = args.kind_of_cost_function
             kind_of_cost_function_splitted = kind_of_cost_function.split('_')
             data_kind = kind_of_cost_function_splitted[0]
             cf_kind_splitted = kind_of_cost_function_splitted[1].split('.')
@@ -101,7 +122,8 @@ if __name__ == "__main__":
             else:
                 raise ValueError('Unknown cf kind {}.'.format(cf_kind))
 
-            cf_kargs = {'data_kind': data_kind, 'spinup_options': spinup_options, 'time_step': time_step, 'job_setup': job_setup}
+            ## init cost function
+            cf_kargs = {'data_kind': data_kind, 'spinup_options': spinup_options, 'time_step': time_step, 'parameter_tolerance_options': parameter_tolerance_options, 'derivative_options': derivative_options, 'job_setup': job_setup}
             if cf_kind == 'GLS':
                 cf_kargs['correlation_min_values'] = correlation_min_values
                 cf_kargs['correlation_max_year_diff'] = correlation_max_year_diff
@@ -121,6 +143,7 @@ if __name__ == "__main__":
                 spinup_run_dir = cf.data_base.model.get_spinup_run_dir(parameter_set_dir, spinup_options, start_from_closest_parameters=MODEL_START_FROM_CLOSEST_PARAMETER_SET)
 
                 ## start cf calculation job
+                util.io.fs.makedirs(TMP_DIR, exist_ok=True)
                 output_dir = tempfile.mkdtemp(dir=TMP_DIR, prefix='cost_function_tmp_')
                 with ndop.optimization.job.CostFunctionJob(output_dir, parameters, cf_kind, eval_f=eval_function_value, eval_df=eval_grad_value, **cf_kargs) as cf_job:
                     cf_job.start()

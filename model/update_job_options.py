@@ -61,9 +61,9 @@ def update_job_options_in_job_options_dir(job_options_dir, update_function):
 
     options_file = os.path.join(job_options_dir, 'job_options.hdf5')
 
-    os.chmod(options_file, stat.S_IRUSR | stat.S_IWUSR)
+    util.io.fs.make_writable(options_file)
     update_function(job_options_dir)
-    os.chmod(options_file, stat.S_IRUSR)
+    util.io.fs.make_read_only(options_file)
 
 
 ## specific update functions

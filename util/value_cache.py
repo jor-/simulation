@@ -53,8 +53,8 @@ class MemoryCache:
 
 class Cache:
 
-    def __init__(self, spinup_options=None, derivative_options=None, time_step=1, cache_dirname=None, use_memory_cache=True):
-        logger.debug('Initiating {} with cache dirname {}, spinup_options {} time step {}, derivative_options {} and use_memory_cache {}.'.format(self.__class__.__name__, cache_dirname, spinup_options, time_step, derivative_options, use_memory_cache))
+    def __init__(self, spinup_options=None, derivative_options=None, time_step=1, parameter_tolerance_options=None, cache_dirname=None, use_memory_cache=True):
+        logger.debug('Initiating {} with cache dirname {}, spinup_options {}, derivative_options {}, time step {}, parameter_tolerance_options {} and use_memory_cache {}.'.format(self.__class__.__name__, cache_dirname, spinup_options, derivative_options, time_step, parameter_tolerance_options, use_memory_cache))
         from ndop.model.constants import MODEL_SPINUP_MAX_YEARS
 
         ## prepare cache dirname
@@ -63,7 +63,7 @@ class Cache:
         self.cache_dirname = cache_dirname
 
         ## prepare model
-        self.model = ndop.model.eval.Model(spinup_options=spinup_options, derivative_options=derivative_options, time_step=time_step)
+        self.model = ndop.model.eval.Model(spinup_options=spinup_options, derivative_options=derivative_options, time_step=time_step, parameter_tolerance_options=parameter_tolerance_options)
 
         ## prepare time step
         self.time_step = time_step
@@ -124,7 +124,6 @@ class Cache:
 
     def get_parameter_set_dir(self, parameters):
         VALUE_NAME = 'parameter_set_dir'
-
         try:
             parameter_set_dir = self.memory_cache.load_value(parameters, VALUE_NAME)
         except util.cache.CacheMissError:
@@ -136,6 +135,7 @@ class Cache:
 
 
     def get_file(self, parameters, filename):
+        assert filename is not None
         parameter_set_dir = self.get_parameter_set_dir(parameters)
 
         if parameter_set_dir is not None:
@@ -166,15 +166,17 @@ class Cache:
     def save_file(self, parameters, filename, value, save_also_txt=True):
         if value is None:
             raise ValueError('Value for {} with parameters {} is None!'.format(filename, parameters))
+        if filename is None:
+            raise ValueError('Filename for parameters {} is None!'.format(parameters))
 
         file = self.get_file(parameters, filename)
-        os.makedirs(os.path.dirname(file), exist_ok=True)
+        logger.debug('Saving value to {} file with save_also_txt {}.'.format(file, save_also_txt))
+        assert file is not None
+        util.io.fs.makedirs(file, exist_ok=True)
         assert file is not None
         if save_also_txt:
-            logger.debug('Saving value to {} and corresponding text file.'.format(file))
-            util.io.np.save_npy_and_txt(value, file, make_read_only=True, overwrite=True)
+            util.io.np.save_npy_and_txt(file, value, make_read_only=True, overwrite=True)
         else:
-            logger.debug('Saving value to {}.'.format(file))
             util.io.np.save(file, value, make_read_only=True, overwrite=True)
 
 

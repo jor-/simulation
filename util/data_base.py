@@ -23,17 +23,17 @@ logger = util.logging.logger
 
 class DataBase:
 
-    def __init__(self, spinup_options=None, derivative_options=None, time_step=1, job_setup=None):
+    def __init__(self, spinup_options=None, derivative_options=None, time_step=1, parameter_tolerance_options=None, job_setup=None):
         from .constants import CACHE_DIRNAME, BOXES_F_FILENAME, BOXES_DF_FILENAME
 
-        logger.debug('Initiating {} with spinup_options {}, derivative_options {}, time step {} and job_setup {}.'.format(self, spinup_options, derivative_options, time_step, job_setup))
+        logger.debug('Initiating {} with spinup_options {}, derivative_options {}, time step {}, parameter_tolerance_options {} and job_setup {}.'.format(self, spinup_options, derivative_options, time_step, parameter_tolerance_options, job_setup))
         
-        self.model = ndop.model.eval.Model(job_setup=job_setup, spinup_options=spinup_options, derivative_options=derivative_options, time_step=time_step)
+        self.model = ndop.model.eval.Model(job_setup=job_setup, spinup_options=spinup_options, derivative_options=derivative_options, time_step=time_step, parameter_tolerance_options=parameter_tolerance_options)
 
         self.f_boxes_cache_filename = BOXES_F_FILENAME
         self.df_boxes_cache_filename = BOXES_DF_FILENAME
         
-        self.hdd_cache = ndop.util.value_cache.Cache(spinup_options=self.model.spinup_options, derivative_options=self.model.derivative_options, time_step=self.model.time_step, cache_dirname=CACHE_DIRNAME, use_memory_cache=True)
+        self.hdd_cache = ndop.util.value_cache.Cache(spinup_options=self.model.spinup_options, derivative_options=self.model.derivative_options, time_step=self.model.time_step, parameter_tolerance_options=parameter_tolerance_options, cache_dirname=CACHE_DIRNAME, use_memory_cache=True)
         self.memory_cache = util.cache.MemoryCache()
         self.memory_cache_with_parameters = ndop.util.value_cache.MemoryCache()
 
@@ -171,8 +171,16 @@ class DataBaseHDD(DataBase):
     def __init__(self, *args, F_cache_filename=None, DF_cache_filename=None, **kargs):
         logger.debug('Initiating {} with F_cache_filename {} and DF_cache_filename {}.'.format(self, F_cache_filename, DF_cache_filename))
         super().__init__(*args, **kargs)
-        self.F_cache_filename = F_cache_filename
-        self.DF_cache_filename = DF_cache_filename
+        self._F_cache_filename = F_cache_filename
+        self._DF_cache_filename = DF_cache_filename
+
+    @property
+    def F_cache_filename(self):
+        return self._F_cache_filename
+
+    @property
+    def DF_cache_filename(self):
+        return self._DF_cache_filename.format(step_size=self.model.derivative_options['step_size'])
         
     
     def F(self, parameters):
@@ -190,10 +198,10 @@ class DataBaseHDD(DataBase):
 
 class WOA(DataBaseHDD):
 
-    def __init__(self, spinup_options=ndop.model.constants.MODEL_DEFAULT_SPINUP_OPTIONS, time_step=1, df_accuracy_order=2, job_setup=None):
+    def __init__(self, spinup_options=None, derivative_options=None, time_step=1, parameter_tolerance_options=None, job_setup=None):
         ## super constructor
         from .constants import WOA_F_FILENAME, WOA_DF_FILENAME
-        super().__init__(spinup_options, time_step=time_step, df_accuracy_order=df_accuracy_order, job_setup=job_setup, F_cache_filename=WOA_F_FILENAME, DF_cache_filename=WOA_DF_FILENAME)
+        super().__init__(sspinup_options=spinup_options, derivative_options=derivative_options, time_step=time_step, parameter_tolerance_options=parameter_tolerance_options, job_setup=job_setup, F_cache_filename=WOA_F_FILENAME, DF_cache_filename=WOA_DF_FILENAME)
 
         ## compute annual box index
         from measurements.po4.woa.data13.constants import ANNUAL_THRESHOLD
@@ -323,9 +331,9 @@ class WOD_Base(DataBase):
 
 class WOD(DataBaseHDD, WOD_Base):
 
-    def __init__(self, spinup_options=None, derivative_options=None, time_step=1, job_setup=None):
+    def __init__(self, spinup_options=None, derivative_options=None, time_step=1, parameter_tolerance_options=None, job_setup=None):
         from .constants import WOD_F_FILENAME, WOD_DF_FILENAME
-        super().__init__(spinup_options=spinup_options, derivative_options=derivative_options, time_step=time_step, job_setup=job_setup, F_cache_filename=WOD_F_FILENAME, DF_cache_filename=WOD_DF_FILENAME)
+        super().__init__(spinup_options=spinup_options, derivative_options=derivative_options, time_step=time_step, parameter_tolerance_options=parameter_tolerance_options, job_setup=job_setup, F_cache_filename=WOD_F_FILENAME, DF_cache_filename=WOD_DF_FILENAME)
 
 
     ## model output
@@ -576,9 +584,9 @@ class WOD_TMM(WOD_Base):
 
 ## init
 
-def init_data_base(data_kind, spinup_options=None, derivative_options=None, time_step=1, job_setup=None):
+def init_data_base(data_kind, spinup_options=None, derivative_options=None, time_step=1, parameter_tolerance_options=None, job_setup=None):
     db_args = ()
-    db_kargs = {'spinup_options': spinup_options, 'derivative_options': derivative_options, 'time_step':time_step, 'job_setup': job_setup}
+    db_kargs = {'spinup_options': spinup_options, 'derivative_options': derivative_options, 'time_step':time_step, 'parameter_tolerance_options': parameter_tolerance_options, 'job_setup': job_setup}
     if data_kind.upper() == 'WOA':
         return WOA(*db_args, **db_kargs)
     elif data_kind.upper() == 'WOD':

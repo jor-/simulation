@@ -1,11 +1,13 @@
-import os.path
+import os
 
 import numpy as np
 
+import ndop.constants
 import ndop.optimization.constants
 
 import util.batch.universal.system
 import util.io.fs
+import util.io.env
 
 import util.logging
 logger = util.logging.logger
@@ -16,6 +18,8 @@ class CostFunctionJob(util.batch.universal.system.Job):
 
     def __init__(self, output_dir, parameters, cf_kind, eval_f=True, eval_df=True, **cf_kargs):
         from ndop.optimization.constants import COST_FUNCTION_NODES_SETUP_JOB
+        
+        logger.debug('Initiating cost function job with cf_kind {}, eval_f {} and eval_df {}.'.format(cf_kind, eval_f, eval_df))
 
         super().__init__(output_dir)
         
@@ -73,6 +77,7 @@ class CostFunctionJob(util.batch.universal.system.Job):
 
         ## write python script
         commands = ['import util.logging']
+        commands += ['import numpy as np']
         commands += ['with util.logging.Logger():']
         commands += ['    import ndop.optimization.cost_function']
         commands += ["    cf_kargs = {}".format(cf_kargs)]
@@ -96,12 +101,29 @@ class CostFunctionJob(util.batch.universal.system.Job):
         if eval_df:
             commands += ['    cf.df({})'.format(parameters_str)]
 
-
-        script_str = "\n".join(commands)
+        script_str = os.linesep.join(commands)
+        script_str = script_str.replace('array', 'np.array')
+        
         f = open(python_script_file, mode='w')
         f.write(script_str)
         util.io.fs.flush_and_close(f)
 
         ## prepare run command and write job file
-        super().write_job_file('python3 {}'.format(python_script_file))
+        def export_env_command(env_name):
+            env_value = util.io.env.load(env_name)
+            export_env_command = 'export {env_name}={env_value}'.format(env_name=env_name, env_value=env_value)
+        env_names = [ndop.constants.BASE_DIR_ENV_NAME, util.batch.universal.system.BATCH_SYSTEM_ENV_NAME, util.io.env.PYTHONPATH_ENV_NAME]
+        env_commands = []
+        for env_name in env_names:
+            env_commands.append(export_env_command(env_name))
+        export_env_command = os.linesep.join(env_commands)
+            
+        # export_python_path_command = 'export {env_name}={env_value}'.format(env_name=util.io.env.PYTHONPATH_ENV_NAME, env_value=util.io.env.pythonpath())
+        # export_ndop_path_command = 'export {env_name}={env_value}'.format(env_name=ndop.constants.BASE_DIR_ENV_NAME, env_value=ndop.constants.BASE_DIR)
+        # pre_run_command = '{}\n{}'.format(export_python_path_command, export_ndop_path_command)
+        
+        python_command = util.batch.universal.system.BATCH_SYSTEM.commands['python']
+        run_command = '{python_command} {python_script_file}'.format(python_command=python_command, python_script_file=python_script_file)
+        
+        super().write_job_file(run_command, pre_run_command=export_env_command, modules=['intel'])
 

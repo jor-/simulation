@@ -114,12 +114,20 @@ class Metos3D_Job(util.batch.universal.system.Job):
         return os.path.join(output_path, self.options['/metos3d/dop_output_filename'])
 
     @property
+    def dop_output_info_file(self):
+        return self.dop_output_file + '.info'
+
+    @property
     def po4_output_file(self):
         try:
             output_path = self.options['/metos3d/tracer_output_path']
         except KeyError:
             output_path = self.options['/metos3d/output_path']
         return os.path.join(output_path, self.options['/metos3d/po4_output_filename'])
+
+    @property
+    def po4_output_info_file(self):
+        return self.po4_output_file + '.info'
     
 
     @property
@@ -129,21 +137,47 @@ class Metos3D_Job(util.batch.universal.system.Job):
         if exit_code != 0:
             return exit_code
         
-        ## check output file
+        ## check if output file exists
+        if self.output_file is not None and not os.path.exists(self.output_file):
+            ValueError('Output file {} does not exist. The job is not finished'.format(self.output_file))
+
+        ## check output file for errors
         IGNORE_ERRORS = ('Error_Path = ', 'cpuinfo: error while loading shared libraries: libgcc_s.so.1: cannot open shared object file: No such file or directory')
-        if self.output_file is not None:
-            ## check if exists
-            if not os.path.exists(self.output_file):
-                ValueError('Output file {} does not exist. The job is not finished'.format(self.output_file))
-            ## check content
-            with open(self.output_file) as f:
-                for line in f.readlines():
-                    for ingore_error in IGNORE_ERRORS:
-                        line = line.replace(ingore_error, '')
-                    line = line.lower()
-                    if 'error' in line:
-                        return 255
-        return 0
+        output = self.output
+        for ingore_error in IGNORE_ERRORS:
+            output = output.replace(ingore_error, '')
+        output = output.lower()
+        if 'error' in output:
+            return 255
+        else:
+            return 0
+    
+
+    def is_finished(self, check_exit_code=True):
+        ## check if finished without exit code check
+        if not super().is_finished(check_exit_code=False):
+            return False
+        
+        ## ensure that output file exists for error check
+        if check_exit_code and self.output_file is not None and not os.path.exists(self.output_file):
+            return False
+
+        ## check if finished with exit code check
+        if check_exit_code and not super().is_finished(check_exit_code=check_exit_code):
+            return False
+            
+        ## check if output file is completely written
+        job_output = self.output
+        if 'Metos3DFinal' in job_output:
+            return True
+        else:
+            time.sleep(30)
+            if self.output != job_output:
+                return False
+            else:
+                raise JobError(self.id, self.output_dir, 'The job output file is not completely written!', job_output)
+    
+    
 
     def make_read_only_input(self, read_only=True):
         super().make_read_only_input(read_only=read_only)
@@ -155,7 +189,9 @@ class Metos3D_Job(util.batch.universal.system.Job):
         super().make_read_only_output(read_only=read_only)
         if read_only:
             util.io.fs.make_read_only(self.dop_output_file)
+            util.io.fs.make_read_only(self.dop_output_info_file)
             util.io.fs.make_read_only(self.po4_output_file)
+            util.io.fs.make_read_only(self.po4_output_info_file)
 
 
 
@@ -241,6 +277,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
 
         ## check/set walltime
         sec_per_year = 80 / (nodes_setup.nodes * nodes_setup.cpus) + 0.9
+        sec_per_year *= 1.1
         estimated_walltime_hours = np.ceil(years * sec_per_year / 60**2)
         if nodes_setup.walltime is None:
             nodes_setup.walltime = estimated_walltime_hours

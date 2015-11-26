@@ -44,10 +44,8 @@ def save(parameter_sets=range(9999), data_kind='WOA', eval_f=True, eval_df=True,
                 tolerance = model.get_real_tolerance(last_run_dir)
                 time_step = model.get_time_step(last_run_dir)
 
-                df_accuracy_order = 2
-
                 ## create cost functions
-                cf_kargs = {'data_kind':data_kind, 'spinup_options':{'years':years, 'tolerance':tolerance, 'combination':'and'}, 'df_accuracy_order':df_accuracy_order, 'job_setup':{'name': 'SCF_' + data_kind}}
+                cf_kargs = {'data_kind':data_kind, 'spinup_options':{'years':years, 'tolerance':tolerance, 'combination':'and'}, 'job_setup':{'name': 'SCF_' + data_kind}}
                 cost_function_family = ndop.optimization.cost_function.Family(**cf_kargs)
 
         ## eval cf family

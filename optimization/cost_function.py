@@ -24,9 +24,9 @@ from ndop.optimization.constants import COST_FUNCTION_DIRNAME, COST_FUNCTION_F_F
 
 class Base():
 
-    def __init__(self, data_kind, spinup_options=None, derivative_options=None, time_step=1, job_setup=None):
+    def __init__(self, data_kind, spinup_options=None, derivative_options=None, parameter_tolerance_options=None, time_step=1, job_setup=None):
         ## save kargs
-        self.kargs = {'data_kind':data_kind, 'spinup_options':spinup_options, 'time_step':time_step, 'derivative_options':derivative_options, 'job_setup':job_setup}
+        self.kargs = {'data_kind':data_kind, 'spinup_options':spinup_options, 'derivative_options':derivative_options, 'time_step':time_step, 'parameter_tolerance_options':parameter_tolerance_options, 'job_setup':job_setup}
 
         ##
         cf_kind = str(self)
@@ -68,11 +68,8 @@ class Base():
                 job_setup['trajectory']['nodes_setup'] = COST_FUNCTION_NODES_SETUP_TRAJECTORY
 
         ## prepare cache and data base
-        # self.data_base = ndop.util.data_base.init_data_base(data_kind, spinup_options, time_step, df_accuracy_order=df_accuracy_order, job_setup=job_setup)
-
-        #   self.cache = ndop.util.value_cache.Cache(spinup_options, time_step, df_accuracy_order=df_accuracy_order, cache_dirname=self.cache_dirname, use_memory_cache=True)
-        self.data_base = ndop.util.data_base.init_data_base(data_kind, spinup_options=spinup_options, derivative_options=derivative_options, time_step=time_step, job_setup=job_setup)
-        self.cache = ndop.util.value_cache.Cache(spinup_options=spinup_options, derivative_options=derivative_options, time_step=time_step, cache_dirname=self.cache_dirname, use_memory_cache=True)
+        self.data_base = ndop.util.data_base.init_data_base(data_kind, spinup_options=spinup_options, derivative_options=derivative_options, time_step=time_step, parameter_tolerance_options=parameter_tolerance_options, job_setup=job_setup)
+        self.cache = ndop.util.value_cache.Cache(spinup_options=spinup_options, derivative_options=derivative_options, time_step=time_step, parameter_tolerance_options=parameter_tolerance_options, cache_dirname=self.cache_dirname, use_memory_cache=True)
 
 
     def __str__(self):
@@ -105,19 +102,22 @@ class Base():
     def f_normalized(self, parameters):
         return self.cache.get_value(parameters, COST_FUNCTION_F_NORMALIZED_FILENAME, self.f_normalized_calculate, derivative_used=False)
 
+    def f_available(self, parameters):
+        return self.cache.has_value(parameters, COST_FUNCTION_F_FILENAME)
+
+
+    @property
+    def df_filename(self):
+        return COST_FUNCTION_DF_FILENAME.format(step_size=self.data_base.model.derivative_options['step_size'])
 
     def df_calculate(self, parameters):
         raise NotImplementedError("Please implement this method")
 
     def df(self, parameters):
-        return self.cache.get_value(parameters, COST_FUNCTION_DF_FILENAME, self.df_calculate, derivative_used=True)
-
-
-    def f_available(self, parameters):
-        return self.cache.has_value(parameters, COST_FUNCTION_F_FILENAME)
+        return self.cache.get_value(parameters, self.df_filename, self.df_calculate, derivative_used=True)
 
     def df_available(self, parameters):
-        return self.cache.has_value(parameters, COST_FUNCTION_DF_FILENAME)
+        return self.cache.has_value(parameters, self.df_filename)
 
 
     ## model and data values
