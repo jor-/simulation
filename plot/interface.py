@@ -90,12 +90,8 @@ def optimization_cost_functions(path='/tmp', y_max=10, with_line_search_steps=Tr
 
 
 def optimization_parameters_for_kind(kind, path='/tmp', all_parameters_in_one_plot=True, with_line_search_steps=True):
-    # from ndop.optimization.constants import PARAMETER_BOUNDS
     p_labels = [r'$\lambda}$', r'$\alpha$', r'$\sigma$', r'$K_{phy}$', r'$I_{C}$', r'$K_{w}$', r'$b$']
-    # kind_label = LABELS[kind]
     kind_label = get_label(kind)
-
-#     p_bounds = np.array([[0.05, 0.95], [0.5, 10], [0.05, 0.95], [0.005, 10], [10, 50], [0.001, 0.2], [0.7 , 1.3]])
 
     ## get values
     all_ps = ndop.optimization.results.all_p(kind).swapaxes(0,1)
@@ -109,7 +105,9 @@ def optimization_parameters_for_kind(kind, path='/tmp', all_parameters_in_one_pl
         x_label = 'number of function evaluations'
         n = len(all_ps)
 
-        p_bounds =  ndop.optimization.results.p_bounds(kind)
+        # p_bounds =  ndop.optimization.results.p_bounds(kind)
+        p_bounds =  np.ones([2, solver_ps.shape[0]])
+        p_bounds[0] = - p_bounds[0]
 
         ## plot all normalized parameters in one plot
         if all_parameters_in_one_plot:
