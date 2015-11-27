@@ -58,27 +58,6 @@ if __name__ == "__main__":
     else:
         combination='or'
     spinup_options = {'years': args.spinup_years, 'tolerance': args.spinup_tolerance, 'combination':combination}
-    
-    ## prepare time step
-    time_step = 1
-
-    ## prepare job setup
-    if args.nodes_setup_node_kind is not None:
-        from ndop.model.constants import JOB_MEMORY_GB
-        nodes_setup_dict = {'memory': JOB_MEMORY_GB, 'node_kind':args.nodes_setup_node_kind, 'nodes':args.nodes_setup_number_of_nodes, 'cpus':args.nodes_setup_number_of_cpus}
-        nodes_setup = util.batch.universal.system.NodeSetup(check_for_better=True, **nodes_setup_dict)
-        job_setup = {'spinup':{'nodes_setup':nodes_setup}}
-    else:
-        job_setup = None
-    
-    ## prepare parameter tolerance options
-    parameter_tolerance_options = {}
-    if args.parameters_relative_tolerance is not None:
-        assert len(args.parameters_relative_tolerance) in (1, 7)
-        parameter_tolerance_options['relative'] = np.array(args.parameters_relative_tolerance)
-    if args.parameters_absolute_tolerance is not None:
-        assert len(args.parameters_absolute_tolerance) in (1, 7)
-        parameter_tolerance_options['absolute'] = np.array(args.parameters_absolute_tolerance)
 
     ## prepare derivative options
     derivative_options = {}
@@ -88,6 +67,31 @@ if __name__ == "__main__":
         derivative_options['years'] = args.derivative_years
     if args.derivative_accuracy_order is not None:
         derivative_options['accuracy_order'] = args.derivative_accuracy_order
+    
+    ## prepare time step
+    time_step = 1
+    
+    ## prepare parameter tolerance options
+    parameter_tolerance_options = {}
+    if args.parameters_relative_tolerance is not None:
+        assert len(args.parameters_relative_tolerance) in (1, 7)
+        parameter_tolerance_options['relative'] = np.array(args.parameters_relative_tolerance)
+    if args.parameters_absolute_tolerance is not None:
+        assert len(args.parameters_absolute_tolerance) in (1, 7)
+        parameter_tolerance_options['absolute'] = np.array(args.parameters_absolute_tolerance)
+    
+    ## prepare model options
+    model_options = {'spinup_options': spinup_options, 'derivative_options': derivative_options, 'time_step': time_step, 'parameter_tolerance_options': parameter_tolerance_options}
+
+    ## prepare job setup
+    if args.nodes_setup_node_kind is not None:
+        from ndop.model.constants import JOB_MEMORY_GB
+        nodes_setup_dict = {'memory': JOB_MEMORY_GB, 'node_kind':args.nodes_setup_node_kind, 'nodes':args.nodes_setup_number_of_nodes, 'cpus':args.nodes_setup_number_of_cpus}
+        nodes_setup = util.batch.universal.system.NodeSetup(check_for_better=True, **nodes_setup_dict)
+        job_setup = {'spinup':{'nodes_setup':nodes_setup}}
+    else:
+        job_setup = None
+
 
     ## run cost function evaluation
     log_file = args.debug_logging_file
@@ -123,7 +127,7 @@ if __name__ == "__main__":
                 raise ValueError('Unknown cf kind {}.'.format(cf_kind))
 
             ## init cost function
-            cf_kargs = {'data_kind': data_kind, 'spinup_options': spinup_options, 'time_step': time_step, 'parameter_tolerance_options': parameter_tolerance_options, 'derivative_options': derivative_options, 'job_setup': job_setup}
+            cf_kargs = {'data_kind': data_kind, 'model_options': model_options, 'job_setup': job_setup}
             if cf_kind == 'GLS':
                 cf_kargs['correlation_min_values'] = correlation_min_values
                 cf_kargs['correlation_max_year_diff'] = correlation_max_year_diff
@@ -139,8 +143,8 @@ if __name__ == "__main__":
                 from util.constants import TMP_DIR
 
                 ## start spinup job
-                parameter_set_dir = cf.data_base.model.get_parameter_set_dir(time_step, parameters, create=True)
-                spinup_run_dir = cf.data_base.model.get_spinup_run_dir(parameter_set_dir, spinup_options, start_from_closest_parameters=MODEL_START_FROM_CLOSEST_PARAMETER_SET)
+                parameter_set_dir = cf.data_base.model.get_parameter_set_dir(cf.data_base.model.time_step, parameters, create=True)
+                spinup_run_dir = cf.data_base.model.get_spinup_run_dir(parameter_set_dir, cf.data_base.model.spinup_options, start_from_closest_parameters=MODEL_START_FROM_CLOSEST_PARAMETER_SET)
 
                 ## start cf calculation job
                 util.io.fs.makedirs(TMP_DIR, exist_ok=True)

@@ -243,8 +243,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
 
         ## check input
         if METOS_T_DIM % time_step != 0:
-            raise ValueError('Wrong time_step passed. ' + str(METOS_T_DIM) + ' has to be divisible by time_step. But time_step is ' + str(time_step) + '.')
-
+            raise ValueError('Wrong time_step in model options. {} has to be divisible by time_step. But time_step is {}.'.format(METOS_T_DIM, time_step))
 
         ## unpack job setup
         if job_setup is not None:
@@ -278,6 +277,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
         ## check/set walltime
         sec_per_year = 80 / (nodes_setup.nodes * nodes_setup.cpus) + 0.9
         sec_per_year *= 1.1
+        sec_per_year /= time_step
         estimated_walltime_hours = np.ceil(years * sec_per_year / 60**2)
         if nodes_setup.walltime is None:
             nodes_setup.walltime = estimated_walltime_hours

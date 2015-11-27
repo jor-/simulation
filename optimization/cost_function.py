@@ -24,9 +24,9 @@ from ndop.optimization.constants import COST_FUNCTION_DIRNAME, COST_FUNCTION_F_F
 
 class Base():
 
-    def __init__(self, data_kind, spinup_options=None, derivative_options=None, parameter_tolerance_options=None, time_step=1, job_setup=None):
+    def __init__(self, data_kind, model_options=None, job_setup=None):
         ## save kargs
-        self.kargs = {'data_kind':data_kind, 'spinup_options':spinup_options, 'derivative_options':derivative_options, 'time_step':time_step, 'parameter_tolerance_options':parameter_tolerance_options, 'job_setup':job_setup}
+        self.kargs = {'data_kind': data_kind, 'model_options': model_options, 'job_setup': job_setup}
 
         ##
         cf_kind = str(self)
@@ -68,8 +68,8 @@ class Base():
                 job_setup['trajectory']['nodes_setup'] = COST_FUNCTION_NODES_SETUP_TRAJECTORY
 
         ## prepare cache and data base
-        self.data_base = ndop.util.data_base.init_data_base(data_kind, spinup_options=spinup_options, derivative_options=derivative_options, time_step=time_step, parameter_tolerance_options=parameter_tolerance_options, job_setup=job_setup)
-        self.cache = ndop.util.value_cache.Cache(spinup_options=spinup_options, derivative_options=derivative_options, time_step=time_step, parameter_tolerance_options=parameter_tolerance_options, cache_dirname=self.cache_dirname, use_memory_cache=True)
+        self.data_base = ndop.util.data_base.init_data_base(data_kind, model_options=model_options, job_setup=job_setup)
+        self.cache = ndop.util.value_cache.Cache(model_options=model_options, cache_dirname=self.cache_dirname, use_memory_cache=True)
 
 
     def __str__(self):
@@ -336,10 +336,8 @@ class GLS(BaseGeneralized):
 
 
 
-
 class GLS_P3(Base):
 
-    # def __init__(self, data_kind, spinup_options, time_step=1, df_accuracy_order=2, job_setup=None):
     def __init__(self, *args, **kargs):
         ## super init
         if data_kind.upper() != 'WOD':

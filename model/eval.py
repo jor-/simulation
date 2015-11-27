@@ -23,12 +23,17 @@ logger = util.logging.logger
 
 class Model():
 
-    def __init__(self, job_setup=None, spinup_options=None, derivative_options=None, time_step=1, parameter_tolerance_options=None):
+    def __init__(self, model_options=None, job_setup=None):
         from .constants import MODEL_PARAMETER_LOWER_BOUND, MODEL_PARAMETER_UPPER_BOUND, MODEL_OUTPUT_DIR, METOS_TRACER_DIM
         
-        logger.debug('Model initiated with job setup {}, spinup options {}, derivative options {}, time_step {} and parameter_tolerance_options {}.'.format(job_setup, spinup_options, derivative_options, time_step, parameter_tolerance_options))
+        logger.debug('Model initiated with job setup {} and model_options {}.'.format(job_setup, model_options))
         
-        ## set spinup and df values
+        ## extract options
+        if model_options is None:
+            model_options = {}
+        self.model_options = model_options
+        
+        ## set spinup and derivative values
         def set_default_options(current_options, default_options):            
             if current_options is not None:
                 for key, value in default_options.items():
@@ -39,19 +44,38 @@ class Model():
                 return current_options
             else:
                 return default_options
-        
-        self.spinup_options = set_default_options(spinup_options, ndop.model.constants.MODEL_DEFAULT_SPINUP_OPTIONS)
-        if self.spinup_options['combination'] not in ['and', 'or']:
-            raise ValueError('Combination "{}" unknown.'.format(self.spinup_options['combination']))
+
+        try:
+            spinup_options = model_options['spinup_options']
+        except KeyError:
+            spinup_options = None
+        spinup_options = set_default_options(spinup_options, ndop.model.constants.MODEL_DEFAULT_SPINUP_OPTIONS)
+        if spinup_options['combination'] not in ['and', 'or']:
+            raise ValueError('Combination "{}" unknown.'.format(spinup_options['combination']))
+        self.model_options['spinup_options'] = spinup_options
         logger.debug('Using spinup options {}.'.format(self.spinup_options))
-        self.derivative_options = set_default_options(derivative_options, ndop.model.constants.MODEL_DEFAULT_DERIVATIVE_OPTIONS)
+
+        try:
+            derivative_options = model_options['derivative_options']
+        except KeyError:
+            derivative_options = None
+        derivative_options = set_default_options(derivative_options, ndop.model.constants.MODEL_DEFAULT_DERIVATIVE_OPTIONS)
+        self.model_options['derivative_options'] = derivative_options
         logger.debug('Using derivative options {}.'.format(self.derivative_options))
         
         ## set time step
-        self.time_step = time_step
+        try:
+            time_step = model_options['time_step']
+        except KeyError:
+            self.model_options['time_step'] = 1
+        else:
+            if ndop.model.constants.METOS_T_DIM % time_step != 0:
+                raise ValueError('Wrong time_step in model options. {} has to be divisible by time_step. But time_step is {}.'.format(ndop.model.constants.METOS_T_DIM, time_step))
         
         ## set tolerance options
-        if parameter_tolerance_options is None:
+        try:
+            parameter_tolerance_options = model_options['parameter_tolerance_options']
+        except KeyError:
             parameter_tolerance_options = {}
         
         try:
@@ -82,7 +106,7 @@ class Model():
                     util.logging.warn('The parameters_absolute_tolerance {} is not support. Using smallest supported parameters_absolute_tolerance {}.'.format(parameter_tolerance_options['absolute'], parameters_min_absolute_tolerance))
                     parameter_tolerance_options['absolute'][parameter_tolerance_options['absolute'] < parameters_min_absolute_tolerance] = parameters_min_absolute_tolerance
         
-        self.parameter_tolerance_options = parameter_tolerance_options
+        self.model_options['parameter_tolerance_options'] = parameter_tolerance_options
         logger.debug('Using parameter tolerance options {}.'.format(self.parameter_tolerance_options))
 
         ## set job setup collection
@@ -139,6 +163,40 @@ class Model():
 
 
 
+    ## options
+    
+    @property
+    def spinup_options(self):
+        try:
+            return self.model_options['spinup_options']
+        except KeyError:
+            return None
+    
+    @property
+    def derivative_options(self):
+        try:
+            return self.model_options['derivative_options']
+        except KeyError:
+            return None
+    
+    @property
+    def time_step(self):
+        try:
+            return self.model_options['time_step']
+        except KeyError:
+            return 1
+    
+    @property
+    def parameter_tolerance_options(self):
+        try:
+            return self.model_options['parameter_tolerance_options']
+        except KeyError:
+            return None
+
+
+
+    ## other
+
     def check_if_parameters_in_bounds(self, parameters):
         if any(parameters < self.parameters_lower_bound):
             indices = np.where(parameters < self.parameters_lower_bound)
@@ -147,7 +205,6 @@ class Model():
         if any(parameters > self.parameters_upper_bound):
             indices = np.where(parameters > self.parameters_upper_bound)
             raise ValueError('The parameters {} are not allowed. The parameters with the indices {} are above their upper bound {}.'.format(parameters, indices, self.parameters_upper_bound[indices]))
-
 
 
     def get_job_setup(self, kind):

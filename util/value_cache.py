@@ -53,8 +53,8 @@ class MemoryCache:
 
 class Cache:
 
-    def __init__(self, spinup_options=None, derivative_options=None, time_step=1, parameter_tolerance_options=None, cache_dirname=None, use_memory_cache=True):
-        logger.debug('Initiating {} with cache dirname {}, spinup_options {}, derivative_options {}, time step {}, parameter_tolerance_options {} and use_memory_cache {}.'.format(self.__class__.__name__, cache_dirname, spinup_options, derivative_options, time_step, parameter_tolerance_options, use_memory_cache))
+    def __init__(self, model_options=None, cache_dirname=None, use_memory_cache=True):
+        logger.debug('Initiating {} with cache dirname {}, model_options {} and use_memory_cache {}.'.format(self.__class__.__name__, cache_dirname, model_options, use_memory_cache))
         from ndop.model.constants import MODEL_SPINUP_MAX_YEARS
 
         ## prepare cache dirname
@@ -63,23 +63,24 @@ class Cache:
         self.cache_dirname = cache_dirname
 
         ## prepare model
-        self.model = ndop.model.eval.Model(spinup_options=spinup_options, derivative_options=derivative_options, time_step=time_step, parameter_tolerance_options=parameter_tolerance_options)
+        self.model = ndop.model.eval.Model(model_options=model_options)
 
         ## prepare time step
-        self.time_step = time_step
+        self.time_step = self.model.time_step
 
         ## prepare spinup options
-        if spinup_options is not None:
-            years = self.model.spinup_options['years']
-            tolerance = self.model.spinup_options['tolerance']
-            combination = self.model.spinup_options['combination']
-            if combination == 'and':
-                combination = True
-            elif combination == 'or':
-                combination = False
-            elif not combination in (0, 1):
-                raise ValueError('Combination "{}" unknown.'.format(combination))
-            spinup_options = (years, tolerance, combination)
+        # spinup_options = self.model.spinup_options
+        # if spinup_options is not None:
+        years = self.model.spinup_options['years']
+        tolerance = self.model.spinup_options['tolerance']
+        combination = self.model.spinup_options['combination']
+        if combination == 'and':
+            combination = True
+        elif combination == 'or':
+            combination = False
+        elif not combination in (0, 1):
+            raise ValueError('Combination "{}" unknown.'.format(combination))
+        spinup_options = (years, tolerance, combination)
         self.desired_spinup_options = spinup_options
         
         ## prepare df options

@@ -45,7 +45,7 @@ def save(parameter_sets=range(9999), data_kind='WOA', eval_f=True, eval_df=True,
                 time_step = model.get_time_step(last_run_dir)
 
                 ## create cost functions
-                cf_kargs = {'data_kind':data_kind, 'spinup_options':{'years':years, 'tolerance':tolerance, 'combination':'and'}, 'job_setup':{'name': 'SCF_' + data_kind}}
+                cf_kargs = {'data_kind': data_kind, 'model_options': {'spinup_options': {'years':years, 'tolerance':tolerance, 'combination':'and'}}, 'job_setup':{'name': 'SCF_' + data_kind}}
                 cost_function_family = ndop.optimization.cost_function.Family(**cf_kargs)
 
         ## eval cf family
