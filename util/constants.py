@@ -5,8 +5,8 @@ OPTION_FILE_SUFFIX = '_options'
 CACHE_DIRNAME = 'output'
 
 BOXES_CACHE_DIRNAME = 'boxes'
-BOXES_F_FILENAME = os.path.join(BOXES_CACHE_DIRNAME, 'f.npy')
-BOXES_DF_FILENAME = os.path.join(BOXES_CACHE_DIRNAME, 'df_-_step_size_{step_size:g}.npy')
+BOXES_F_FILENAME = os.path.join(BOXES_CACHE_DIRNAME, 'f_-_time_dim_{time_dim:d}.npy')
+BOXES_DF_FILENAME = os.path.join(BOXES_CACHE_DIRNAME, 'df_-_time_dim_{time_dim:d}_-_step_size_{step_size:g}.npy')
 
 WOA_CACHE_DIRNAME = 'WOA'
 WOA_F_FILENAME = os.path.join(WOA_CACHE_DIRNAME, 'f_pw.npy')

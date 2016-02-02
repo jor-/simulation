@@ -30,8 +30,8 @@ class DataBase:
         
         self.model = ndop.model.eval.Model(model_options=model_options, job_setup=job_setup)
 
-        self.f_boxes_cache_filename = BOXES_F_FILENAME
-        self.df_boxes_cache_filename = BOXES_DF_FILENAME
+        self._F_boxes_cache_filename = BOXES_F_FILENAME
+        self._DF_boxes_cache_filename = BOXES_DF_FILENAME
         
         self.hdd_cache = ndop.util.value_cache.Cache(model_options=model_options, cache_dirname=CACHE_DIRNAME, use_memory_cache=True)
         self.memory_cache = util.cache.MemoryCache()
@@ -48,6 +48,14 @@ class DataBase:
     def __str__(self):
         return self.__class__.__name__
 
+    
+    ## boxes cache filenames
+
+    def F_boxes_cache_filename(self, time_dim):
+        return self._F_boxes_cache_filename.format(time_dim=time_dim)
+
+    def DF_boxes_cache_filename(self, time_dim):
+        return self._DF_boxes_cache_filename.format(time_dim=time_dim, step_size=self.model.derivative_options['step_size'])
 
 
     ## model output
@@ -60,7 +68,7 @@ class DataBase:
 
     def f_boxes(self, parameters, time_dim=12, use_memmap=False):
         calculation_function = lambda p: self.f_boxes_calculate(p, time_dim=time_dim)
-        return self.hdd_cache.get_value(parameters, self.f_boxes_cache_filename.format(time_dim), calculation_function, derivative_used=False, save_also_txt=False, use_memmap=use_memmap)
+        return self.hdd_cache.get_value(parameters, self.F_boxes_cache_filename(time_dim), calculation_function, derivative_used=False, save_also_txt=False, use_memmap=use_memmap)
 
 
 
@@ -74,7 +82,7 @@ class DataBase:
 
     def df_boxes(self, parameters, time_dim=12, use_memmap=False, as_shared_array=False):
         calculation_function = lambda p: self.df_boxes_calculate(p, time_dim=time_dim)
-        return self.hdd_cache.get_value(parameters, self.df_boxes_cache_filename.format(time_dim), calculation_function, derivative_used=True, save_also_txt=False, use_memmap=use_memmap, as_shared_array=as_shared_array)
+        return self.hdd_cache.get_value(parameters, self.DF_boxes_cache_filename(time_dim), calculation_function, derivative_used=True, save_also_txt=False, use_memmap=use_memmap, as_shared_array=as_shared_array)
 
 
 
