@@ -1,3 +1,4 @@
+
 import os
 import time
 import subprocess
@@ -175,7 +176,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
             if self.output != job_output:
                 return False
             else:
-                raise JobError(self.id, self.output_dir, 'The job output file is not completely written!', job_output)
+                raise util.batch.universal.system.JobError(self.id, self.output_dir, 'The job output file is not completely written!', job_output)
     
     
 
@@ -276,9 +277,9 @@ class Metos3D_Job(util.batch.universal.system.Job):
 
         ## check/set walltime
         sec_per_year = 80 / (nodes_setup.nodes * nodes_setup.cpus) + 0.9
-        sec_per_year *= 1.1
+        sec_per_year *= 1.1 * 2
         sec_per_year /= time_step
-        estimated_walltime_hours = np.ceil(years * sec_per_year / 60**2)
+        estimated_walltime_hours = np.ceil(years * sec_per_year / 60**2) + 1
         if nodes_setup.walltime is None:
             nodes_setup.walltime = estimated_walltime_hours
         else:
