@@ -49,7 +49,7 @@ class Base():
             try:
                 job_setup['spinup']['nodes_setup']
             except KeyError:
-                job_setup['spinup']['nodes_setup'] = COST_FUNCTION_NODES_SETUP_SPINUP
+                job_setup['spinup']['nodes_setup'] = COST_FUNCTION_NODES_SETUP_SPINUP.copy()
             try:
                 job_setup['derivative']
             except KeyError:
@@ -57,7 +57,7 @@ class Base():
             try:
                 job_setup['derivative']['nodes_setup']
             except KeyError:
-                job_setup['derivative']['nodes_setup'] = COST_FUNCTION_NODES_SETUP_DERIVATIVE
+                job_setup['derivative']['nodes_setup'] = COST_FUNCTION_NODES_SETUP_DERIVATIVE.copy()
             try:
                 job_setup['trajectory']
             except KeyError:
@@ -65,7 +65,7 @@ class Base():
             try:
                 job_setup['trajectory']['nodes_setup']
             except KeyError:
-                job_setup['trajectory']['nodes_setup'] = COST_FUNCTION_NODES_SETUP_TRAJECTORY
+                job_setup['trajectory']['nodes_setup'] = COST_FUNCTION_NODES_SETUP_TRAJECTORY.copy()
 
         ## prepare cache and data base
         self.data_base = ndop.util.data_base.init_data_base(data_kind, model_options=model_options, job_setup=job_setup)
@@ -548,9 +548,21 @@ class Family(ndop.util.data_base.Family):
 
    
     # member_classes = {'WOA': [(OLS, [{}]), (WLS, [{}]), (LWLS, [{}])], 
-    #                   'WOD': [(OLS, [{}]), (WLS, [{}]), (LWLS, [{}]), (GLS, [{'correlation_min_values': correlation_min_values, 'correlation_max_year_diff': float('inf')} for correlation_min_values in (40, 35, 30)])],
+    #                   'WOD': [(GLS, [{'correlation_min_values': correlation_min_values, 'correlation_max_year_diff': float('inf')} for correlation_min_values in (30,)])],
     #                   'WOD.1': [(GLS, [{'correlation_min_values': correlation_min_values, 'correlation_max_year_diff': float('inf')} for correlation_min_values in (25,)]), ],
-    #                   'WOD.0': [(OLS, [{}]), (WLS, [{}]), (LWLS, [{}]), (GLS, [{'correlation_min_values': correlation_min_values, 'correlation_max_year_diff': float('inf')} for correlation_min_values in (40, 35, 30, 25, 20)])]
+    #                   'WOD.0': [(GLS, [{'correlation_min_values': correlation_min_values, 'correlation_max_year_diff': float('inf')} for correlation_min_values in (20,)])]
+    #                   } 
+   
+    # member_classes = {'WOA': [(OLS, [{}]), (WLS, [{}]), (LWLS, [{}])], 
+    #                   'WOD': [(GLS, [{'correlation_min_values': correlation_min_values, 'correlation_max_year_diff': float('inf')} for correlation_min_values in (40, 35, 30)])],
+    #                   'WOD.1': [(GLS, [{'correlation_min_values': correlation_min_values, 'correlation_max_year_diff': float('inf')} for correlation_min_values in (25, 30, 35, 40)]), ],
+    #                   'WOD.0': [(GLS, [{'correlation_min_values': correlation_min_values, 'correlation_max_year_diff': float('inf')} for correlation_min_values in (40, 35, 30, 25, 20)])]
+    #                   } 
+   
+    # member_classes = {'WOA': [(OLS, [{}]), (WLS, [{}]), (LWLS, [{}])], 
+    #                   'WOD': [(OLS, [{}]), (WLS, [{}]), (LWLS, [{}])],
+    #                   'WOD.1': [(OLS, [{}]), (WLS, [{}]), (LWLS, [{}])],
+    #                   'WOD.0': [(OLS, [{}]), (WLS, [{}]), (LWLS, [{}])]
     #                   } 
 
     def f(self, parameters):
