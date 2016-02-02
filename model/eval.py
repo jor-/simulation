@@ -12,6 +12,7 @@ import ndop.model.constants
 import measurements.util.interpolate
 
 import util.io.fs
+import util.index_database.array_and_fs_based
 import util.pattern
 import util.math.interpolate
 
@@ -31,7 +32,7 @@ class Model():
         ## extract options
         if model_options is None:
             model_options = {}
-        self.model_options = model_options
+        self._model_options = model_options
         
         ## set spinup and derivative values
         def set_default_options(current_options, default_options):            
@@ -52,7 +53,7 @@ class Model():
         spinup_options = set_default_options(spinup_options, ndop.model.constants.MODEL_DEFAULT_SPINUP_OPTIONS)
         if spinup_options['combination'] not in ['and', 'or']:
             raise ValueError('Combination "{}" unknown.'.format(spinup_options['combination']))
-        self.model_options['spinup_options'] = spinup_options
+        self._model_options['spinup_options'] = spinup_options
         logger.debug('Using spinup options {}.'.format(self.spinup_options))
 
         try:
@@ -60,14 +61,14 @@ class Model():
         except KeyError:
             derivative_options = None
         derivative_options = set_default_options(derivative_options, ndop.model.constants.MODEL_DEFAULT_DERIVATIVE_OPTIONS)
-        self.model_options['derivative_options'] = derivative_options
+        self._model_options['derivative_options'] = derivative_options
         logger.debug('Using derivative options {}.'.format(self.derivative_options))
         
         ## set time step
         try:
             time_step = model_options['time_step']
         except KeyError:
-            self.model_options['time_step'] = 1
+            self._model_options['time_step'] = 1
         else:
             if ndop.model.constants.METOS_T_DIM % time_step != 0:
                 raise ValueError('Wrong time_step in model options. {} has to be divisible by time_step. But time_step is {}.'.format(ndop.model.constants.METOS_T_DIM, time_step))
@@ -77,37 +78,7 @@ class Model():
             parameter_tolerance_options = model_options['parameter_tolerance_options']
         except KeyError:
             parameter_tolerance_options = {}
-        
-        try:
-            parameter_tolerance_options['relative']
-        except KeyError:
-            parameter_tolerance_options['relative'] = np.asarray([0])
-        else:
-            if parameter_tolerance_options['relative'] is None:
-                parameter_tolerance_options['relative'] = np.asarray([0])
-            else:
-                parameter_tolerance_options['relative'] = np.asarray(parameter_tolerance_options['relative']).reshape(-1)
-                if np.any(parameter_tolerance_options['relative'] < 0):
-                    raise ValueError('parameters_relative_tolerance {} have to be positive.'.format(parameter_tolerance_options['relative']))
-
-        parameters_min_absolute_tolerance = 10**(-1*ndop.model.constants.MODEL_PARAMETERS_RELIABLE_DECIMAL_PLACES) * 10**4
-        try:
-            parameter_tolerance_options['absolute']
-        except KeyError:
-            parameter_tolerance_options['absolute'] = np.asarray([parameters_min_absolute_tolerance])
-        else:
-            if parameter_tolerance_options['absolute'] is None:
-                parameter_tolerance_options['absolute'] = np.asarray([parameters_min_absolute_tolerance])
-            else:
-                parameter_tolerance_options['absolute'] = np.asarray(parameter_tolerance_options['absolute']).reshape(-1)
-                if np.any(parameter_tolerance_options['absolute'] < 0):
-                    raise ValueError('parameters_absolute_tolerance {} have to be positive.'.format(parameter_tolerance_options['absolute']))
-                elif np.any(parameter_tolerance_options['absolute'] < parameters_min_absolute_tolerance):
-                    util.logging.warn('The parameters_absolute_tolerance {} is not support. Using smallest supported parameters_absolute_tolerance {}.'.format(parameter_tolerance_options['absolute'], parameters_min_absolute_tolerance))
-                    parameter_tolerance_options['absolute'][parameter_tolerance_options['absolute'] < parameters_min_absolute_tolerance] = parameters_min_absolute_tolerance
-        
-        self.model_options['parameter_tolerance_options'] = parameter_tolerance_options
-        logger.debug('Using parameter tolerance options {}.'.format(self.parameter_tolerance_options))
+        self._model_options['parameter_tolerance_options'] = parameter_tolerance_options
 
         ## set job setup collection
         # convert job setup to job setup collection
@@ -160,6 +131,14 @@ class Model():
 
         ## empty interpolator cache
         self._interpolator_cached = None
+        
+        ## init parameter db
+        time_step_dir = self.time_step_dir()
+        os.makedirs(time_step_dir, exist_ok=True)
+        array_file = os.path.join(time_step_dir, ndop.model.constants.MODEL_PARAMETERS_DATABASE_FILENAME)
+        value_file = os.path.join(time_step_dir, ndop.model.constants.MODEL_PARAMETERS_SET_DIRNAME, ndop.model.constants.MODEL_PARAMETERS_FILENAME)
+        self._parameter_db = util.index_database.array_and_fs_based.Database(array_file, value_file, value_reliable_decimal_places=ndop.model.constants.MODEL_PARAMETERS_RELIABLE_DECIMAL_PLACES, tolerance_options=model_options['parameter_tolerance_options'])
+
 
 
 
@@ -168,34 +147,59 @@ class Model():
     @property
     def spinup_options(self):
         try:
-            return self.model_options['spinup_options']
+            return self._model_options['spinup_options']
         except KeyError:
             return None
     
     @property
     def derivative_options(self):
         try:
-            return self.model_options['derivative_options']
+            return self._model_options['derivative_options']
         except KeyError:
             return None
     
     @property
     def time_step(self):
         try:
-            return self.model_options['time_step']
+            return self._model_options['time_step']
         except KeyError:
-            return 1
+            return None
     
     @property
     def parameter_tolerance_options(self):
         try:
-            return self.model_options['parameter_tolerance_options']
+            return self._model_options['parameter_tolerance_options']
         except KeyError:
             return None
 
 
 
-    ## other
+
+    ## access to dirs
+
+    def time_step_dir(self):
+        time_step_dirname = ndop.model.constants.MODEL_TIME_STEP_DIRNAME.format(self.time_step)
+        time_step_dir = os.path.join(self.model_output_dir, time_step_dirname, '')
+        logger.debug('Returning time step directory {} for time step {}.'.format(time_step_dir, self.time_step))
+        return time_step_dir
+
+
+    def parameter_set_dir_with_index(self, index):
+        if index is not None:
+            dir = os.path.join(self.time_step_dir(), ndop.model.constants.MODEL_PARAMETERS_SET_DIRNAME.format(index))
+            logger.debug('Returning parameter set directory {} for index {}.'.format(dir, index))
+            return dir
+        else:
+            return None
+
+    def spinup_dir_with_index(self, index):
+        if index is not None:
+            dir = os.path.join(self.parameter_set_dir_with_index(index), ndop.model.constants.MODEL_SPINUP_DIRNAME)
+            logger.debug('Returning spinup directory {} for index {}.'.format(dir, index))
+            return dir
+        else:
+            return None
+    
 
     def check_if_parameters_in_bounds(self, parameters):
         if any(parameters < self.parameters_lower_bound):
@@ -205,7 +209,52 @@ class Model():
         if any(parameters > self.parameters_upper_bound):
             indices = np.where(parameters > self.parameters_upper_bound)
             raise ValueError('The parameters {} are not allowed. The parameters with the indices {} are above their upper bound {}.'.format(parameters, indices, self.parameters_upper_bound[indices]))
+    
+    
+    def closest_parameter_set_dir(self, parameters, no_spinup_okay=True):
+        logger.debug('Searching for directory for parameters as close as possible to {} with no_spinup_okay {}.'.format(parameters, no_spinup_okay))
+        self.check_if_parameters_in_bounds(parameters)
+        
+        if no_spinup_okay:            
+            ## get closest index
+            closest_index = self._parameter_db.closest_index(parameters)
+        else:
+            ## get closest indices
+            closest_indices = self._parameter_db.closest_indices(parameters)
+            
+            ## check if run dirs exist
+            i = 0
+            while i < len(closest_indices) and self.get_last_run_dir(self.spinup_dir_with_index[i]) is None:
+                i = i +1
+            if i < len(closest_indices):
+                closest_index = closest_indices[i]
+            else:
+                closest_index = None
+        
+        ## get parameter set dir and return 
+        closest_parameter_set_dir = self.parameter_set_dir_with_index(closest_index)
+        logger.debug('Closest parameter set dir is {}.'.format(closest_parameter_set_dir))
+        return closest_parameter_set_dir
 
+
+    def parameter_set_dir(self, parameters, create=True):
+        ## search for directories with matching parameters
+        logger.debug('Searching parameter directory for parameters {} with create {}.'.format(parameters, create))
+        self.check_if_parameters_in_bounds(parameters)
+        
+        index = self._parameter_db.index(parameters)
+        if index is None and create:
+            index = self._parameter_db.add_value(parameters)
+        parameter_set_dir = self.parameter_set_dir_with_index(index)
+        
+        ## return
+        logger.debug('Matching directory for parameters found at {}.'.format(parameter_set_dir))
+        assert parameter_set_dir is not None or not create
+        return parameter_set_dir
+    
+
+
+    ## access to dirs (old)
 
     def get_job_setup(self, kind):
         job_setup = self.job_setup_collection[kind]
@@ -214,175 +263,6 @@ class Model():
         return job_setup
     
     
-    
-    def get_parameters(self, parameter_set_dir):
-        from .constants import MODEL_PARAMETERS_FILENAME
-        parameters_file = os.path.join(parameter_set_dir, MODEL_PARAMETERS_FILENAME)
-        return np.loadtxt(parameters_file)
-    
-    
-    def get_parameters_diff(self, p1, p2):
-        ## calculate bound
-        assert len(p1) == len(p2)
-        p1_abs = np.abs(p1)
-        p2_abs = np.abs(p2)
-        relative_bound = np.minimum(p1_abs, p2_abs)
-        relative_bound[p1_abs == 0] = p2_abs[p1_abs == 0]
-        relative_bound[p2_abs == 0] = p1_abs[p2_abs == 0]
-
-        assert len(self.parameter_tolerance_options['relative']) in (1, len(p1))
-        assert len(self.parameter_tolerance_options['absolute']) in (1, len(p1))
-        total_bound = np.maximum(relative_bound * self.parameter_tolerance_options['relative'], self.parameter_tolerance_options['absolute'])
-        assert np.all(total_bound > 0)
-        
-        ## calculate max diff
-        parameter_diffs = np.abs(p1 - p2) / total_bound
-        parameter_diff = parameter_diffs.max()
-
-        return parameter_diff
-    
-    
-    def are_parameters_equal(self, p1, p2):
-        parameters_diff = self.get_parameters_diff(p1, p2)
-        return parameters_diff <= 1
-        
-
-
-
-    ## access to dirs
-
-    def get_time_step_dir(self, time_step, create=True):
-        from .constants import MODEL_TIME_STEP_DIRNAME
-
-        ## get directory for time step
-        model_output_dir = self.model_output_dir
-        logger.debug('Searching for directory for time step size {} in {}.'.format(time_step, model_output_dir))
-
-        time_step_dirname = MODEL_TIME_STEP_DIRNAME.format(time_step)
-        time_step_dir = os.path.join(model_output_dir, time_step_dirname)
-
-        if os.path.exists(time_step_dir):
-            logger.debug('Directory {} for time step found.'.format(time_step_dir))
-        else:
-            if create:
-                os.makedirs(time_step_dir, exist_ok=True)
-                logger.debug('Directory {} for time step created.'.format(time_step_dir))
-            else:
-                time_step_dir = None
-                logger.debug('No directory for time step found. Non created.')
-
-        return time_step_dir
-
-
-
-    def get_closest_parameter_set_dir(self, time_step, parameters, no_spinup_okay=True):
-        ## check input
-        self.check_if_parameters_in_bounds(parameters)
-
-        ## get directory for time step
-        time_step_dir = self.get_time_step_dir(time_step, create=False)
-
-        closest_parameter_set_dir = None
-        closest_parameters_diff = float('inf')
-
-        ## if time step dir exists, search for matching parameter set
-        if time_step_dir is not None:
-            from .constants import MODEL_SPINUP_DIRNAME
-
-            logger.debug('Searching for directory for parameters as close as possible to {} in {}.'.format(parameters, time_step_dir))
-
-            ## search for parameter set directories with nearby parameters
-            parameter_set_number = 0
-
-            parameter_set_dirs = util.io.fs.get_dirs(time_step_dir)
-            number_of_parameter_set_dirs = len(parameter_set_dirs)
-            while closest_parameters_diff > 0 and parameter_set_number < number_of_parameter_set_dirs:
-                current_parameter_set_dir = parameter_set_dirs[parameter_set_number]
-                try:
-                    current_parametes = self.get_parameters(current_parameter_set_dir)
-                    current_parameters_diff = self.get_parameters_diff(parameters, current_parametes)
-                except (OSError, IOError):
-                    warnings.warn('Could not read the parameters file in {}!'.format(current_parameter_set_dir))
-                    current_parameters_diff = float('inf')
-
-                if current_parameters_diff < closest_parameters_diff:
-                    better = False
-                    if not no_spinup_okay:
-                        current_spinup_dir = os.path.join(current_parameter_set_dir, MODEL_SPINUP_DIRNAME)
-                        last_run_dir = self.get_last_run_dir(current_spinup_dir)
-                        if last_run_dir is not None:
-                            better = True
-                    else:
-                        better = True
-
-                    if better:
-                        closest_parameter_set_dir = current_parameter_set_dir
-                        closest_parameters_diff = current_parameters_diff
-
-                parameter_set_number += 1
-
-        if closest_parameter_set_dir is not None:
-            logger.debug('Closest parameter set dir is {}.'.format(closest_parameter_set_dir))
-        else:
-            logger.debug('No closest parameter set dir found.')
-
-        return closest_parameter_set_dir
-
-
-
-
-    def get_parameter_set_dir(self, time_step, parameters, create=True):
-        ## search for directories with matching parameters
-        logger.debug('Searching parameter directory for time_step {} and parameters {} with create {}.'.format(time_step, parameters, create))
-
-        parameter_set_dir = self.get_closest_parameter_set_dir(time_step, parameters, no_spinup_okay=True)
-        if parameter_set_dir is not None:
-            closest_parameters = self.get_parameters(parameter_set_dir)
-            if not self.are_parameters_equal(parameters, closest_parameters):
-                parameter_set_dir = None
-
-        ## make new model_output if the parameters are not matching
-        if parameter_set_dir is None:
-            if create:
-                from .constants import MODEL_PARAMETERS_SET_DIRNAME, MODEL_PARAMETERS_FILENAME, MODEL_PARAMETERS_FORMAT_STRING_OLD_STYLE
-
-                ## create time_step_dir
-                time_step_dir = self.get_time_step_dir(time_step, create=True)
-                
-                ## create parameter_set_dir
-                free_parameter_set_dir_number = 0
-                created = False
-                found = False
-                while not created:
-                    ## search free index
-                    while not found:
-                        parameter_set_dirname = MODEL_PARAMETERS_SET_DIRNAME.format(free_parameter_set_dir_number)
-                        parameter_set_dir = os.path.join(time_step_dir, parameter_set_dirname)
-                        found = not os.path.exists(parameter_set_dir)
-                        free_parameter_set_dir_number += 1
-    
-                    ## make dir
-                    try:
-                        os.makedirs(parameter_set_dir, exist_ok=False)
-                        created = True
-                    except FileExistsError:
-                        found = False
-
-                ## create parameters_file
-                parameters_file = os.path.join(parameter_set_dir, MODEL_PARAMETERS_FILENAME)
-                np.savetxt(parameters_file, parameters, fmt=MODEL_PARAMETERS_FORMAT_STRING_OLD_STYLE)
-                util.io.fs.make_read_only(parameters_file)
-
-                logger.debug('Directory for parameters created in {}.'.format(parameter_set_dir))
-            else:
-                logger.debug('No matching directory for parameters found. Non created.')
-        else:
-            logger.debug('Matching directory for parameters found at {}.'.format(parameter_set_dir))
-
-        assert parameter_set_dir is not None or not create
-        return parameter_set_dir
-
-
     def get_spinup_run_dir(self, parameter_set_dir, spinup_options, start_from_closest_parameters=False):
         from .constants import MODEL_SPINUP_DIRNAME, MODEL_PARAMETERS_FILENAME, MODEL_SPINUP_MAX_YEARS
 
@@ -405,13 +285,9 @@ class Model():
             parameter_file = os.path.join(parameter_set_dir, MODEL_PARAMETERS_FILENAME)
             parameters = np.loadtxt(parameter_file)
 
-            ## get time_step
-            time_step_dirname = os.path.basename(os.path.dirname(parameter_set_dir))
-            time_step = util.pattern.get_int_in_string(time_step_dirname)
-
             ## no previous run exists and starting from closest parameters get last run from closest parameters
             if last_run_dir is None and start_from_closest_parameters:
-                closest_parameter_set_dir = self.get_closest_parameter_set_dir(time_step, parameters, no_spinup_okay=False)
+                closest_parameter_set_dir = self.closest_parameter_set_dir(parameters, no_spinup_okay=False)
                 closest_spinup_dir = os.path.join(closest_parameter_set_dir, MODEL_SPINUP_DIRNAME)
                 last_run_dir = self.get_last_run_dir(closest_spinup_dir)
 
@@ -425,6 +301,8 @@ class Model():
             combination = spinup_options['combination']
 
             if combination == 'or':
+                time_step_dirname = os.path.basename(os.path.dirname(parameter_set_dir))
+                time_step = util.pattern.get_int_in_string(time_step_dirname)
                 run_dir = self.make_run(spinup_dir, parameters, years, tolerance, time_step, self.get_job_setup('spinup'), tracer_input_path=last_run_dir)
             elif combination == 'and':
                 run_dir = self.get_spinup_run_dir(parameter_set_dir, {'years':years, 'tolerance':0, 'combination':'or'}, start_from_closest_parameters)
@@ -443,7 +321,7 @@ class Model():
         self.check_if_parameters_in_bounds(parameters)
 
         ## get next run index
-        util.io.fs.makedirs(output_path, exist_ok=True)
+        os.makedirs(output_path, exist_ok=True)
         run_dirs = self.get_run_dirs(output_path)
         next_run_index = len(run_dirs)
 
@@ -471,8 +349,7 @@ class Model():
         self.run_job(parameters, run_dir, years-last_years, tolerance, time_step, job_setup, tracer_input_path=tracer_input_path, wait_until_finished=wait_until_finished)
 
         return run_dir
-
-
+    
 
 
     ## run job
@@ -670,7 +547,7 @@ class Model():
             trajectory_values += (tracer_trajectory_values,)
 
         ## remove trajectory
-        util.io.fs.remove_recursively(trajectory_dir)
+        util.io.fs.remove_recursively(trajectory_dir, not_exist_okay=True, exclude_dir=False)
 
         ## return
         assert len(trajectory_values) == METOS_TRACER_DIM
@@ -756,11 +633,11 @@ class Model():
 
 
 
-    def _f(self, load_trajectory_function, parameters, spinup_options=None, time_step=1):
+    def _f(self, load_trajectory_function, parameters, spinup_options=None):
         from .constants import MODEL_START_FROM_CLOSEST_PARAMETER_SET
 
         parameters = np.asanyarray(parameters)
-        parameter_set_dir = self.get_parameter_set_dir(time_step, parameters, create=True)
+        parameter_set_dir = self.parameter_set_dir(parameters, create=True)
         spinup_run_dir = self.get_spinup_run_dir(parameter_set_dir, spinup_options, start_from_closest_parameters=MODEL_START_FROM_CLOSEST_PARAMETER_SET)
         f = self._get_trajectory(load_trajectory_function, spinup_run_dir, parameters)
 
@@ -769,7 +646,7 @@ class Model():
 
 
 
-    def _df(self, load_trajectory_function, parameters, spinup_options=None, time_step=1):
+    def _df(self, load_trajectory_function, parameters, spinup_options=None):
         from .constants import MODEL_OUTPUT_DIR, MODEL_DERIVATIVE_DIRNAME, MODEL_SPINUP_DIRNAME, MODEL_PARTIAL_DERIVATIVE_DIRNAME, METOS_TRACER_DIM, MODEL_START_FROM_CLOSEST_PARAMETER_SET, MODEL_PARAMETER_TYPICAL
 
         MODEL_DERIVATIVE_SPINUP_YEARS = self.derivative_options['years']
@@ -787,7 +664,7 @@ class Model():
             raise ValueError('Accuracy order {} not supported.'.format(MODEL_DERIVATIVE_ACCURACY_ORDER))
 
         ## search directories
-        parameter_set_dir = self.get_parameter_set_dir(time_step, parameters, create=True)
+        parameter_set_dir = self.parameter_set_dir(parameters, create=True)
         derivative_dir = os.path.join(parameter_set_dir, MODEL_DERIVATIVE_DIRNAME.format(MODEL_DERIVATIVE_STEP_SIZE))
 
         ## get spinup run
@@ -805,7 +682,7 @@ class Model():
                 spinup_run_dir = previous_spinup_run_dir
                 spinup_run_years = previous_spinup_run_years
 
-            f = self._f(load_trajectory_function, parameters, {'years':spinup_run_years + MODEL_DERIVATIVE_SPINUP_YEARS, 'tolerance':0, 'combination':'or'}, time_step=time_step)
+            f = self._f(load_trajectory_function, parameters, {'years':spinup_run_years + MODEL_DERIVATIVE_SPINUP_YEARS, 'tolerance':0, 'combination':'or'})
 
         ## init values
         parameters_len = len(parameters)
@@ -861,7 +738,7 @@ class Model():
 
                 ## make new run if run not matching
                 if not self.is_run_matching_options(partial_derivative_run_dir, {'years':MODEL_DERIVATIVE_SPINUP_YEARS, 'tolerance':0, 'combination':'or'}):
-                    util.io.fs.remove_recursively(partial_derivative_dir, force=True, exclude_dir=True)
+                    util.io.fs.remove_recursively(partial_derivative_dir, not_exist_okay=True, exclude_dir=True)
 
                     ## if no job setup available, get best job setup
                     if job_setup['nodes_setup'] is None:
@@ -872,7 +749,7 @@ class Model():
                         job_setup['nodes_setup'] = ndop.model.job.Metos3D_Job.best_nodes_setup(years, nodes_max=nodes_max)
 
                     ## start job
-                    partial_derivative_run_dir = self.make_run(partial_derivative_dir, parameters_for_derivative[parameter_index, h_factor_index], MODEL_DERIVATIVE_SPINUP_YEARS, 0, time_step, job_setup, tracer_input_path=spinup_run_dir, wait_until_finished=False)
+                    partial_derivative_run_dir = self.make_run(partial_derivative_dir, parameters_for_derivative[parameter_index, h_factor_index], MODEL_DERIVATIVE_SPINUP_YEARS, 0, self.time_step, job_setup, tracer_input_path=spinup_run_dir, wait_until_finished=False)
 
                 partial_derivative_run_dirs[parameter_index, h_factor_index] = partial_derivative_run_dir
 
@@ -909,7 +786,7 @@ class Model():
     def f_boxes(self, parameters, time_dim_desired):
         logger.debug('Calculating all f values for parameters {} with time dimension {}.'.format(parameters, time_dim_desired))
         
-        f = self._f(self._get_load_trajectory_function_for_all(time_dim_desired), parameters, self.spinup_options, time_step=self.time_step)
+        f = self._f(self._get_load_trajectory_function_for_all(time_dim_desired), parameters, self.spinup_options)
         
         assert len(f) == 2
         return f
@@ -921,7 +798,7 @@ class Model():
         if len(points) != 2:
             raise ValueError('Points have to be a sequence of 2 point arrays. But its length is {}.'.format(len(points)))
 
-        f = self._f(self._get_load_trajectory_function_for_points(points), parameters, self.spinup_options, time_step=self.time_step)
+        f = self._f(self._get_load_trajectory_function_for_points(points), parameters, self.spinup_options)
 
         assert len(f) == 2
         assert (not np.any(np.isnan(f[0]))) and (not np.any(np.isnan(f[1])))
@@ -931,7 +808,7 @@ class Model():
     def df_boxes(self, parameters, time_dim_desired):
         logger.debug('Calculating all df values for parameters {} with time dimension {}.'.format(parameters, time_dim_desired))
 
-        df = self._df(self._get_load_trajectory_function_for_all(time_dim_desired=time_dim_desired), parameters, self.spinup_options, time_step=self.time_step)
+        df = self._df(self._get_load_trajectory_function_for_all(time_dim_desired=time_dim_desired), parameters, self.spinup_options)
 
         assert len(df) == 2
         return df
@@ -940,7 +817,7 @@ class Model():
     def df_points(self, parameters, points):
         logger.debug('Calculating df values for parameters {} at {} points.'.format(parameters, tuple(map(len, points))))
 
-        df = self._df(self._get_load_trajectory_function_for_points(points), parameters, self.spinup_options, time_step=self.time_step)
+        df = self._df(self._get_load_trajectory_function_for_points(points), parameters, self.spinup_options)
 
         assert len(df) == 2
         assert (not np.any(np.isnan(df[0]))) and (not np.any(np.isnan(df[1])))

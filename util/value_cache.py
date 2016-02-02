@@ -5,7 +5,6 @@ import ndop.model.eval
 
 import util.cache
 import util.io.np
-import util.io.fs
 import util.parallel.with_multiprocessing
 
 import util.logging
@@ -65,9 +64,6 @@ class Cache:
         ## prepare model
         self.model = ndop.model.eval.Model(model_options=model_options)
 
-        ## prepare time step
-        self.time_step = self.model.time_step
-
         ## prepare spinup options
         # spinup_options = self.model.spinup_options
         # if spinup_options is not None:
@@ -100,7 +96,7 @@ class Cache:
     
     def real_spinup_options(self, parameters):
         from ndop.model.constants import MODEL_SPINUP_DIRNAME
-        parameter_set_dir = self.get_parameter_set_dir(parameters)
+        parameter_set_dir = self.parameter_set_dir(parameters)
         spinup_dir = os.path.join(parameter_set_dir, MODEL_SPINUP_DIRNAME)
         last_run_dir = self.model.get_last_run_dir(spinup_dir)
         years = self.model.get_total_years(last_run_dir)
@@ -123,12 +119,12 @@ class Cache:
 
     ## access to cache
 
-    def get_parameter_set_dir(self, parameters):
+    def parameter_set_dir(self, parameters):
         VALUE_NAME = 'parameter_set_dir'
         try:
             parameter_set_dir = self.memory_cache.load_value(parameters, VALUE_NAME)
         except util.cache.CacheMissError:
-            parameter_set_dir = self.model.get_parameter_set_dir(self.time_step, parameters, create=False)
+            parameter_set_dir = self.model.parameter_set_dir(parameters, create=False)
             if parameter_set_dir is not None:
                 self.memory_cache.save_value(parameters, VALUE_NAME, parameter_set_dir)
 
@@ -137,7 +133,7 @@ class Cache:
 
     def get_file(self, parameters, filename):
         assert filename is not None
-        parameter_set_dir = self.get_parameter_set_dir(parameters)
+        parameter_set_dir = self.parameter_set_dir(parameters)
 
         if parameter_set_dir is not None:
             cache_dir = os.path.join(parameter_set_dir, self.cache_dirname)
@@ -173,7 +169,7 @@ class Cache:
         file = self.get_file(parameters, filename)
         logger.debug('Saving value to {} file with save_also_txt {}.'.format(file, save_also_txt))
         assert file is not None
-        util.io.fs.makedirs(file, exist_ok=True)
+        os.makedirs(os.path.dirname(file), exist_ok=True)
         assert file is not None
         if save_also_txt:
             util.io.np.save_npy_and_txt(file, value, make_read_only=True, overwrite=True)

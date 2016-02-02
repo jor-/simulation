@@ -10,6 +10,7 @@ import ndop.optimization.constants
 import ndop.optimization.job
 import ndop.model.eval
 
+import util.batch.universal.system
 import util.logging
 logger = util.logging.logger
 
@@ -19,23 +20,27 @@ from ndop.constants import BASE_DIR
 
 def save(parameter_sets=range(9999), data_kind='WOA', eval_f=True, eval_df=True, as_jobs=False):
     from ndop.model.constants import MODEL_OUTPUT_DIR, MODEL_TIME_STEP_DIRNAME, MODEL_PARAMETERS_SET_DIRNAME, MODEL_PARAMETERS_FILENAME, MODEL_SPINUP_DIRNAME, MODEL_DERIVATIVE_DIRNAME
+    
+    ## get time step dir
+    time_step = 1
+    time_step_dirname = MODEL_TIME_STEP_DIRNAME.format(time_step)
+    time_step_dir = os.path.join(MODEL_OUTPUT_DIR, time_step_dirname)
+    
+    ## create model
+    model = ndop.model.eval.Model()
 
+    ## save for all parameter sets
     for parameter_set_number in parameter_sets:
 
-        ## get cf family
+        ## get parameter
         cost_function_family = None
-
-        time_step = 1
-        time_step_dirname = MODEL_TIME_STEP_DIRNAME.format(time_step)
-        time_step_dir = os.path.join(MODEL_OUTPUT_DIR, time_step_dirname)
 
         parameter_set_dirname = MODEL_PARAMETERS_SET_DIRNAME.format(parameter_set_number)
         parameter_set_dir = os.path.join(time_step_dir, parameter_set_dirname)
         parameters_file = os.path.join(parameter_set_dir, MODEL_PARAMETERS_FILENAME)
 
+        ## create cost functions
         if os.path.exists(parameters_file):
-            model = ndop.model.eval.Model()
-
             spinup_dir = os.path.join(parameter_set_dir, MODEL_SPINUP_DIRNAME)
             last_run_dir = model.get_last_run_dir(spinup_dir)
 
@@ -44,10 +49,9 @@ def save(parameter_sets=range(9999), data_kind='WOA', eval_f=True, eval_df=True,
                 tolerance = model.get_real_tolerance(last_run_dir)
                 time_step = model.get_time_step(last_run_dir)
 
-                ## create cost functions
                 cf_kargs = {'data_kind': data_kind, 'model_options': {'spinup_options': {'years':years, 'tolerance':tolerance, 'combination':'and'}}, 'job_setup':{'name': 'SCF_' + data_kind}}
                 cost_function_family = ndop.optimization.cost_function.Family(**cf_kargs)
-
+                
         ## eval cf family
         if cost_function_family is not None:
             p = np.loadtxt(parameters_file)
@@ -64,7 +68,7 @@ def save(parameter_sets=range(9999), data_kind='WOA', eval_f=True, eval_df=True,
                         derivative_dir = os.path.join(parameter_set_dir, MODEL_DERIVATIVE_DIRNAME)
                         if os.path.exists(derivative_dir):
                             cost_function_family.df(p)
-
+                    
                 ## eval cf as job
                 else:
                     for cf in cost_function_family.family:
@@ -73,7 +77,8 @@ def save(parameter_sets=range(9999), data_kind='WOA', eval_f=True, eval_df=True,
                             output_dir = tempfile.TemporaryDirectory(dir=TMP_DIR, prefix='save_value_cost_function_tmp_').name
                             cf_kargs = cf.kargs
                             cf_kargs['job_setup'] = {'name': '{}:{}'.format(cf, parameter_set_number)}
-                            with ndop.optimization.job.CostFunctionJob(output_dir, p, cf.kind, eval_f=eval_f, eval_df=eval_df, **cf_kargs) as cf_job:
+                            nodes_setup = util.batch.universal.system.NodeSetup(memory=50, node_kind='clfocean', nodes=1, cpus=1, total_cpus_max=1, walltime=36)
+                            with ndop.optimization.job.CostFunctionJob(output_dir, p, cf.kind, eval_f=eval_f, eval_df=eval_df, nodes_setup=nodes_setup, **cf_kargs) as cf_job:
                                 cf_job.start()
                             time.sleep(10)
 

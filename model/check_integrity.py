@@ -3,11 +3,13 @@ import os
 import stat
 import numpy as np
 
-from ndop.model.job import Metos3D_Job
+import ndop.model.eval
+import ndop.model.job
 import ndop.util.data_base
 
 import util.io.fs
 import util.batch.universal.system
+import util.index_database.general
 
 #TODO check read only for finished jobs
 #TODO check cache option files available
@@ -15,6 +17,8 @@ import util.batch.universal.system
 ERROR_IGNORE_LIST = ("librdmacm: Fatal: unable to get RDMA device list"+os.linesep, "librdmacm: Warning: couldn't read ABI version."+os.linesep, "librdmacm: Warning: assuming: 4"+os.linesep, 'cpuinfo: error while loading shared libraries: libgcc_s.so.1: cannot open shared object file: No such file or directory'+os.linesep)
 
 def check_job_file_integrity_spinup(spinup_dir, is_spinup_dir):
+    
+    
     run_dirs = util.io.fs.get_dirs(spinup_dir)
     n = len(run_dirs)
 
@@ -34,11 +38,15 @@ def check_job_file_integrity_spinup(spinup_dir, is_spinup_dir):
 
             ## check job file
             try:
-                with Metos3D_Job(run_dir, force_load=True) as job:
+                with ndop.model.job.Metos3D_Job(run_dir, force_load=True) as job:
                     ## check if started
                     if not job.is_started():
                         print('Job in {} is not started!'.format(run_dir))
-                    is_running = job.is_running()
+                    try:
+                        is_running = job.is_running()
+                    except util.batch.universal.system.JobError as e:
+                        print(e)
+                        break
                     job_output_file = job.output_file
                     try:
                         job_id = job.id
@@ -110,7 +118,7 @@ def check_job_file_integrity_spinup(spinup_dir, is_spinup_dir):
                     break
             else:
                 ## check exit code
-                with Metos3D_Job(run_dir, force_load=True) as job:
+                with ndop.model.job.Metos3D_Job(run_dir, force_load=True) as job:
                     exit_code = job.exit_code
 
                 if exit_code != 0:
@@ -132,7 +140,7 @@ def check_job_file_integrity_spinup(spinup_dir, is_spinup_dir):
                 else:
                     print('Job output file {} does not exist!'.format(job_output_file))
 
-                with Metos3D_Job(run_dir, force_load=True) as job:
+                with ndop.model.job.Metos3D_Job(run_dir, force_load=True) as job:
                     try:
                         job.last_year
                     except:
@@ -145,31 +153,39 @@ def check_job_file_integrity_spinup(spinup_dir, is_spinup_dir):
 
 
 
-def check_job_file_integrity(time_step_size=1, parameter_set_dirs_to_check=None, check_for_same_parameters=True):
+def check_job_file_integrity(time_step=1, parameter_set_dirs_to_check=None, check_for_same_parameters=True):
     from ndop.model.constants import MODEL_OUTPUT_DIR, MODEL_TIME_STEP_DIRNAME, MODEL_SPINUP_DIRNAME, MODEL_DERIVATIVE_DIRNAME, JOB_OPTIONS_FILENAME, MODEL_PARAMETERS_FILENAME
     from ndop.util.constants import CACHE_DIRNAME, WOD_F_FILENAME, WOD_DF_FILENAME
 
     wod_m = ndop.util.data_base.WOD().m
 
-    time_step_dirname = MODEL_TIME_STEP_DIRNAME.format(time_step_size)
+    time_step_dirname = MODEL_TIME_STEP_DIRNAME.format(time_step)
     time_step_dir = os.path.join(MODEL_OUTPUT_DIR, time_step_dirname)
-    df_step_size = 10**(-7)
+    df_step_sizes = [10**(-6), 10**(-7)]
 
-    parameter_set_dirs_all = util.io.fs.get_dirs(time_step_dir)
-    if parameter_set_dirs_to_check is None or (len(parameter_set_dirs_to_check) == 1 and parameter_set_dirs_to_check[0] is None):
+    check_all_parameter_sets = parameter_set_dirs_to_check is None or (len(parameter_set_dirs_to_check) == 1 and parameter_set_dirs_to_check[0] is None)
+    check_for_same_parameters = check_for_same_parameters and (check_all_parameter_sets or len(parameter_set_dirs_to_check) > 1)
+    if check_all_parameter_sets or check_for_same_parameters:
+        parameter_set_dirs_all = util.io.fs.get_dirs(time_step_dir)
+    if check_all_parameter_sets:
         parameter_set_dirs_to_check = parameter_set_dirs_all
+    # if parameter_set_dirs_to_check is None or (len(parameter_set_dirs_to_check) == 1 and parameter_set_dirs_to_check[0] is None):
+    #     parameter_set_dirs_to_check = parameter_set_dirs_all
 
     for parameter_set_dir in parameter_set_dirs_to_check:
+    
+        print('Checking integrity of parameter set {}.'.format(parameter_set_dir))
         
         ## check spinup dir
         spinup_dir = os.path.join(parameter_set_dir, MODEL_SPINUP_DIRNAME)
         check_job_file_integrity_spinup(spinup_dir, True)
         
         ## check derivative dir
-        derivative_dir = os.path.join(parameter_set_dir, MODEL_DERIVATIVE_DIRNAME.format(df_step_size))
-        partial_derivative_dirs = util.io.fs.get_dirs(derivative_dir)
-        for partial_derivative_dir in partial_derivative_dirs:
-            check_job_file_integrity_spinup(partial_derivative_dir, False)
+        for df_step_size in df_step_sizes:
+            derivative_dir = os.path.join(parameter_set_dir, MODEL_DERIVATIVE_DIRNAME.format(df_step_size))
+            partial_derivative_dirs = util.io.fs.get_dirs(derivative_dir)
+            for partial_derivative_dir in partial_derivative_dirs:
+                check_job_file_integrity_spinup(partial_derivative_dir, False)
 
         ## check for parameters
         p = np.loadtxt(os.path.join(parameter_set_dir, MODEL_PARAMETERS_FILENAME))
@@ -223,8 +239,27 @@ def check_job_file_integrity(time_step_size=1, parameter_set_dirs_to_check=None,
             if not (permissions & stat.S_IRUSR and permissions & stat.S_IXUSR and permissions & stat.S_IRGRP and permissions & stat.S_IXGRP):
                 print('Dir {} is not readable!'.format(file))
         
-        util.io.fs.walk_path(parameter_set_dir, check_file, check_dir, exclude_dir=False, topdown=True)
+        util.io.fs.walk_all_in_dir(parameter_set_dir, check_file, check_dir, exclude_dir=False, topdown=True)
 
+
+
+def check_db_integrity(time_step=1):
+    print('Checking parameter database integrity.')
+    
+    model_options = {'time_step': time_step}
+    m = ndop.model.eval.Model(model_options=model_options)
+    array_db = m._parameter_db.array_db
+    file_db = m._parameter_db.file_db
+    
+    for index in array_db.used_indices():
+        v_a = array_db.get_value(index)
+        try:
+            v_f = file_db.get_value(index)
+        except util.index_database.general.DatabaseIndexError:
+            print('Array db hast value at index {} and file db has not value their!'.format(index))
+        else:
+            if not array_db.are_values_equal(v_a, v_f):
+                print('Array db and file db value at index {} are not equal: {} != {}!'.format(index, v_a, v_f))
 
 
 
@@ -235,5 +270,8 @@ if __name__ == "__main__":
     parser.add_argument('parameter_set_dir', nargs='?', default=None)
     args = parser.parse_args()
     ## run check
-    check_job_file_integrity(parameter_set_dirs_to_check=(args.parameter_set_dir,), check_for_same_parameters=not args.skip_same_parameter_check)
+    time_step = 1
+    if args.parameter_set_dir is None:
+        check_db_integrity(time_step=time_step)
+    check_job_file_integrity(time_step=time_step, parameter_set_dirs_to_check=(args.parameter_set_dir,), check_for_same_parameters=not args.skip_same_parameter_check)
     print('Check completed.')

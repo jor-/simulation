@@ -1,7 +1,8 @@
 if __name__ == "__main__":
+    
     import argparse
     import sys
-    import os.path
+    import os
     import tempfile
 
     import numpy as np
@@ -44,7 +45,6 @@ if __name__ == "__main__":
     parser.add_argument('--derivative_accuracy_order', type=int, default=None, help='The accuracy order used for the finite difference approximation. 1 = forward differences. 2 = central differences.')
 
     parser.add_argument('--version', action='version', version='%(prog)s 0.1')
-
 
     args = parser.parse_args()
 
@@ -143,17 +143,17 @@ if __name__ == "__main__":
                 from util.constants import TMP_DIR
 
                 ## start spinup job
-                parameter_set_dir = cf.data_base.model.get_parameter_set_dir(cf.data_base.model.time_step, parameters, create=True)
+                parameter_set_dir = cf.data_base.model.parameter_set_dir(parameters, create=True)
                 spinup_run_dir = cf.data_base.model.get_spinup_run_dir(parameter_set_dir, cf.data_base.model.spinup_options, start_from_closest_parameters=MODEL_START_FROM_CLOSEST_PARAMETER_SET)
 
                 ## start cf calculation job
-                util.io.fs.makedirs(TMP_DIR, exist_ok=True)
+                os.makedirs(TMP_DIR, exist_ok=True)
                 output_dir = tempfile.mkdtemp(dir=TMP_DIR, prefix='cost_function_tmp_')
                 with ndop.optimization.job.CostFunctionJob(output_dir, parameters, cf_kind, eval_f=eval_function_value, eval_df=eval_grad_value, **cf_kargs) as cf_job:
                     cf_job.start()
                     cf_job.wait_until_finished()
                 try:
-                    util.io.fs.remove_recursively(output_dir)
+                    util.io.fs.remove_recursively(output_dir, not_exist_okay=True)
                 except OSError as e:
                     logger.warning('Dir {} could not be removed: {}'.format(output_dir, e))
 

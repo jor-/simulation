@@ -16,7 +16,7 @@ logger = util.logging.logger
 
 class CostFunctionJob(util.batch.universal.system.Job):
 
-    def __init__(self, output_dir, parameters, cf_kind, eval_f=True, eval_df=True, **cf_kargs):
+    def __init__(self, output_dir, parameters, cf_kind, eval_f=True, eval_df=True, nodes_setup=None, **cf_kargs):
         from ndop.optimization.constants import COST_FUNCTION_NODES_SETUP_JOB
         
         logger.debug('Initiating cost function job with cf_kind {}, eval_f {} and eval_df {}.'.format(cf_kind, eval_f, eval_df))
@@ -55,18 +55,19 @@ class CostFunctionJob(util.batch.universal.system.Job):
 
         if data_kind == 'WOA':
             memory_gb = 2
-            walltime_hours = 1
         if data_kind.startswith('WOD'):
             if cf_kind == 'GLS':
                 if cf_kargs['correlation_min_values'] >= 35:
-                    memory_gb = 26
+                    memory_gb = 30
                 elif cf_kargs['correlation_min_values'] >= 30:
-                    memory_gb = 31
+                    memory_gb = 35
                 else:
-                    memory_gb = 40
+                    memory_gb = 45
             else:
                 memory_gb = 24
-        nodes_setup = COST_FUNCTION_NODES_SETUP_JOB.copy()
+        # memory_gb = 50
+        if nodes_setup is None:
+            nodes_setup = COST_FUNCTION_NODES_SETUP_JOB.copy()
         nodes_setup['memory'] = memory_gb
         queue = None
         super().init_job_file(job_name, nodes_setup, queue=queue)
