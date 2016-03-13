@@ -160,6 +160,9 @@ class BaseGeneralized(BaseWeighted):
         from measurements.constants import CORRELATION_MIN_DIAG_VALUE_POSITIVE_DEFINITE_APPROXIMATION
         self.min_diag_value = CORRELATION_MIN_DIAG_VALUE_POSITIVE_DEFINITE_APPROXIMATION
         
+        if 'OLD' in kargs['data_kind']:
+            self.min_diag_value = 10**-2
+        
         ## save additional kargs
         self.correlation_min_values = correlation_min_values
         if correlation_max_year_diff is None or correlation_max_year_diff < 0:
@@ -185,19 +188,11 @@ class BaseGeneralized(BaseWeighted):
 
     @property
     def correlation_matrix(self):
-        return self.data_base.correlation_matrix(self.correlation_min_values, self.correlation_max_year_diff)
+        return self.data_base.correlation_matrix(self.correlation_min_values, self.correlation_max_year_diff, positive_definite_approximation_min_diag_value=self.min_diag_value)
 
     @property
     def correlation_matrix_cholesky_decomposition(self):
-        return self.data_base.correlation_matrix_cholesky_decomposition(self.correlation_min_values, self.correlation_max_year_diff)
-
-    # @property
-    # def correlation_matrix_L(self):
-    #     return self.data_base.correlation_matrix_L(self.correlation_min_values, self.correlation_max_year_diff)
-    #
-    # @property
-    # def correlation_matrix_P(self):
-    #     return self.data_base.correlation_matrix_P(self.correlation_min_values, self.correlation_max_year_diff)
+        return self.data_base.correlation_matrix_cholesky_decomposition(self.correlation_min_values, self.correlation_max_year_diff, positive_definite_approximation_min_diag_value=self.min_diag_value)
 
 
     @property
@@ -292,46 +287,42 @@ class WLS(BaseWeighted):
 
 class GLS(BaseGeneralized):
 
-    def inv_cov_matrix_mult_residuum_calculate(self, parameters):
+    def inv_col_factor_mult_residuum_calculate(self, parameters):
         F = self.model_f(parameters)
         results = self.results
         inverse_deviations = self.inverse_standard_deviations
-
         weighted_residual =  (F - results) * inverse_deviations
+        
         P, L = self.correlation_matrix_cholesky_decomposition
 
-        y = weighted_residual
-        x = util.math.sparse.solve.cholesky(L, y, P=P)
-
+        x = util.math.sparse.solve.forward_substitution(L, P * weighted_residual)
         return x
 
 
-    def inv_cov_matrix_mult_residuum(self, parameters):
+    def inv_col_factor_mult_residuum(self, parameters):
         from ndop.optimization.constants import COST_FUNCTION_GLS_PROD_FILENAME
-        return self.cache.get_value(parameters, COST_FUNCTION_GLS_PROD_FILENAME, self.inv_cov_matrix_mult_residuum_calculate, derivative_used=False, save_also_txt=False)
+        return self.cache.get_value(parameters, COST_FUNCTION_GLS_PROD_FILENAME, self.inv_col_factor_mult_residuum_calculate, derivative_used=False, save_also_txt=False)
 
 
     def f_calculate(self, parameters):
-        F = self.model_f(parameters)
-        results = self.results
-        inverse_deviations = self.inverse_standard_deviations
-
-        weighted_residual =  (F - results) * inverse_deviations
-        inv_cov_matrix_mult_residuum = self.inv_cov_matrix_mult_residuum(parameters)
-
-        f = np.sum(weighted_residual * inv_cov_matrix_mult_residuum)
+        inv_col_factor_mult_residuum = self.inv_col_factor_mult_residuum(parameters)
+        f = np.sum(inv_col_factor_mult_residuum**2)
         return f
 
 
     def df_calculate(self, parameters):
         DF = self.model_df(parameters)
-        inverse_deviations = self.inverse_standard_deviations
+        inverse_deviations = self.inverse_standard_deviations        
+        P, L = self.correlation_matrix_cholesky_decomposition
+        
+        inv_col_factor_mult_residuum = self.inv_col_factor_mult_residuum(parameters)
+        inv_cov_matrix_mult_residuum = util.math.sparse.solve.backward_substitution(L.T, inv_col_factor_mult_residuum)
+        inv_cov_matrix_mult_residuum = P.T * inv_cov_matrix_mult_residuum
 
-        df_factors = self.inv_cov_matrix_mult_residuum(parameters) * inverse_deviations
+        df_factors = inv_cov_matrix_mult_residuum * inverse_deviations
 
         df = 2 * np.sum(df_factors[:,np.newaxis] * DF, axis=0)
         return df
-
 
 
 
@@ -411,8 +402,6 @@ class GLS_P3(Base):
         inverse_deviations = self.inverse_standard_deviations
         n = self.data_base.m_dop
         diff = (results - F) * inverse_deviations
-#         diff_projected = [np.sum(diff[:n]), np.sum(diff[n:])]
-#         diff_squared = [np.sum(diff[:n]**2), np.sum(diff[n:]**2)]
         diff_projected = self.data_base.project(diff, n)
 
         ## calculate f
@@ -478,8 +467,6 @@ class LWLS(BaseWeighted, BaseLog):
         y = self.results
         v = self.variances
 
-        # a = 2 * np.log(m) - 1/2 * np.log(m**2 + s**2)
-        # b = np.log(m**2 + s**2) - 2 * np.log(m)
         c = v / m**2 + 1
         a = np.log(m / np.sqrt(c))
         b = np.log(c)
@@ -505,7 +492,6 @@ class LWLS(BaseWeighted, BaseLog):
 
         r = a - np.log(y)
 
-        # df_factor = (1 + 2*r - r**2/b) / b
         df_factor = (2*r*da + (1 - r**2/b)*db) / b
         df = np.sum(df_factor[:, np.newaxis] * dm, axis=0)
 
@@ -540,30 +526,13 @@ class LGLS(BaseGeneralized, BaseLog):
 
 class Family(ndop.util.data_base.Family): 
    
-    member_classes = {'WOA': [(OLS, [{}]), (WLS, [{}]), (LWLS, [{}])], 
-                      'WOD': [(OLS, [{}]), (WLS, [{}]), (LWLS, [{}]), (GLS, [{'correlation_min_values': correlation_min_values, 'correlation_max_year_diff': float('inf')} for correlation_min_values in (40, 35, 30)])],
-                      'WOD.1': [(OLS, [{}]), (WLS, [{}]), (LWLS, [{}]), (GLS, [{'correlation_min_values': correlation_min_values, 'correlation_max_year_diff': float('inf')} for correlation_min_values in (40, 35, 30, 25)])],
-                      'WOD.0': [(OLS, [{}]), (WLS, [{}]), (LWLS, [{}]), (GLS, [{'correlation_min_values': correlation_min_values, 'correlation_max_year_diff': float('inf')} for correlation_min_values in (40, 35, 30, 25, 20)])]
-                      } 
-
-   
     # member_classes = {'WOA': [(OLS, [{}]), (WLS, [{}]), (LWLS, [{}])], 
-    #                   'WOD': [(GLS, [{'correlation_min_values': correlation_min_values, 'correlation_max_year_diff': float('inf')} for correlation_min_values in (30,)])],
-    #                   'WOD.1': [(GLS, [{'correlation_min_values': correlation_min_values, 'correlation_max_year_diff': float('inf')} for correlation_min_values in (25,)]), ],
-    #                   'WOD.0': [(GLS, [{'correlation_min_values': correlation_min_values, 'correlation_max_year_diff': float('inf')} for correlation_min_values in (20,)])]
+    #                   'WOD': [(OLS, [{}]), (WLS, [{}]), (LWLS, [{}]), (GLS, [{'correlation_min_values': correlation_min_values, 'correlation_max_year_diff': float('inf')} for correlation_min_values in (40, 35, 30)])],
+    #                   'WOD.1': [(OLS, [{}]), (WLS, [{}]), (LWLS, [{}]), (GLS, [{'correlation_min_values': correlation_min_values, 'correlation_max_year_diff': float('inf')} for correlation_min_values in (40, 35, 30, 25)])],
+    #                   'WOD.0': [(OLS, [{}]), (WLS, [{}]), (LWLS, [{}]), (GLS, [{'correlation_min_values': correlation_min_values, 'correlation_max_year_diff': float('inf')} for correlation_min_values in (40, 35, 30, 25, 20)])]
     #                   } 
    
-    # member_classes = {'WOA': [(OLS, [{}]), (WLS, [{}]), (LWLS, [{}])], 
-    #                   'WOD': [(GLS, [{'correlation_min_values': correlation_min_values, 'correlation_max_year_diff': float('inf')} for correlation_min_values in (40, 35, 30)])],
-    #                   'WOD.1': [(GLS, [{'correlation_min_values': correlation_min_values, 'correlation_max_year_diff': float('inf')} for correlation_min_values in (25, 30, 35, 40)]), ],
-    #                   'WOD.0': [(GLS, [{'correlation_min_values': correlation_min_values, 'correlation_max_year_diff': float('inf')} for correlation_min_values in (40, 35, 30, 25, 20)])]
-    #                   } 
-   
-    # member_classes = {'WOA': [(OLS, [{}]), (WLS, [{}]), (LWLS, [{}])], 
-    #                   'WOD': [(OLS, [{}]), (WLS, [{}]), (LWLS, [{}])],
-    #                   'WOD.1': [(OLS, [{}]), (WLS, [{}]), (LWLS, [{}])],
-    #                   'WOD.0': [(OLS, [{}]), (WLS, [{}]), (LWLS, [{}])]
-    #                   } 
+    member_classes = {'WOD.1': [(GLS, [{'correlation_min_values': correlation_min_values, 'correlation_max_year_diff': float('inf')} for correlation_min_values in (40, 45, 50)]), ],}
 
     def f(self, parameters):
         fun = lambda o: o.f(parameters)

@@ -55,17 +55,42 @@ class CostFunctionJob(util.batch.universal.system.Job):
 
         if data_kind == 'WOA':
             memory_gb = 2
-        if data_kind.startswith('WOD'):
-            if cf_kind == 'GLS':
+        if 'WOD' in data_kind:
+            memory_gb = 24
+            if data_kind  == 'OLDWOD' and cf_kind == 'GLS':
                 if cf_kargs['correlation_min_values'] >= 35:
                     memory_gb = 30
                 elif cf_kargs['correlation_min_values'] >= 30:
                     memory_gb = 35
                 else:
                     memory_gb = 45
-            else:
-                memory_gb = 24
-        # memory_gb = 50
+            if data_kind  == 'WOD' and cf_kind == 'GLS':
+                if cf_kargs['correlation_min_values'] >= 45:
+                    memory_gb = 30
+                elif cf_kargs['correlation_min_values'] >= 40:
+                    memory_gb = 35
+                elif cf_kargs['correlation_min_values'] >= 35:
+                    memory_gb = 40
+                else:
+                    memory_gb = 45
+            if data_kind  == 'WOD.1' and cf_kind == 'GLS':
+                if cf_kargs['correlation_min_values'] >= 45:
+                    memory_gb = 25
+                elif cf_kargs['correlation_min_values'] >= 40:
+                    memory_gb = 30
+                elif cf_kargs['correlation_min_values'] >= 35:
+                    memory_gb = 35
+                else:
+                    memory_gb = 40
+            if data_kind  == 'WOD.0' and cf_kind == 'GLS':
+                if cf_kargs['correlation_min_values'] >= 45:
+                    memory_gb = 25
+                elif cf_kargs['correlation_min_values'] >= 40:
+                    memory_gb = 30
+                elif cf_kargs['correlation_min_values'] >= 35:
+                    memory_gb = 35
+                else:
+                    memory_gb = 40
         if nodes_setup is None:
             nodes_setup = COST_FUNCTION_NODES_SETUP_JOB.copy()
         nodes_setup['memory'] = memory_gb
@@ -81,14 +106,14 @@ class CostFunctionJob(util.batch.universal.system.Job):
         commands += ['import numpy as np']
         commands += ['with util.logging.Logger():']
         commands += ['    import ndop.optimization.cost_function']
-        commands += ["    cf_kargs = {}".format(cf_kargs)]
+        commands += ['    cf_kargs = {}'.format(cf_kargs)]
         if job_setup is not None:
             commands += ['    import util.batch.universal.system']
-            commands += ["    job_setup = {}"]
+            commands += ['    job_setup = {}']
             for setup_name in ('spinup', 'derivative', 'trajectory'):
                 if setup_name in job_setup:
                     nodes_setup = job_setup[setup_name]['nodes_setup']
-                    nodes_setup_str = "util.batch.universal.system.NodeSetup(memory={}, node_kind='{}', nodes={}, cpus={}, walltime={})".format(nodes_setup.memory, nodes_setup.node_kind, nodes_setup.nodes, nodes_setup.cpus, nodes_setup.walltime)
+                    nodes_setup_str = 'util.batch.universal.system.{}'.format(nodes_setup)
                     job_setup_str = "{'" + setup_name + "':{'nodes_setup':" + nodes_setup_str + "}}"
                     commands += ["    job_setup.update({})".format(job_setup_str)]
             commands += ["    cf_kargs.update({'job_setup':job_setup})"]

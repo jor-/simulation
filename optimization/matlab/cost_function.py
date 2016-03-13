@@ -84,13 +84,17 @@ if __name__ == "__main__":
     model_options = {'spinup_options': spinup_options, 'derivative_options': derivative_options, 'time_step': time_step, 'parameter_tolerance_options': parameter_tolerance_options}
 
     ## prepare job setup
-    if args.nodes_setup_node_kind is not None:
-        from ndop.model.constants import JOB_MEMORY_GB
-        nodes_setup_dict = {'memory': JOB_MEMORY_GB, 'node_kind':args.nodes_setup_node_kind, 'nodes':args.nodes_setup_number_of_nodes, 'cpus':args.nodes_setup_number_of_cpus}
-        nodes_setup = util.batch.universal.system.NodeSetup(check_for_better=True, **nodes_setup_dict)
-        job_setup = {'spinup':{'nodes_setup':nodes_setup}}
-    else:
-        job_setup = None
+    def prepare_job_setup():
+        if args.nodes_setup_node_kind is not None:
+            from ndop.optimization.constants import COST_FUNCTION_NODES_SETUP_SPINUP
+            nodes_setup = COST_FUNCTION_NODES_SETUP_SPINUP.copy()
+            nodes_setup['node_kind'] = args.nodes_setup_node_kind
+            nodes_setup['nodes'] = args.nodes_setup_number_of_nodes
+            nodes_setup['cpus'] = args.nodes_setup_number_of_cpus
+            job_setup = {'spinup':{'nodes_setup':nodes_setup}}
+        else:
+            job_setup = None
+        return job_setup
 
 
     ## run cost function evaluation
@@ -127,7 +131,7 @@ if __name__ == "__main__":
                 raise ValueError('Unknown cf kind {}.'.format(cf_kind))
 
             ## init cost function
-            cf_kargs = {'data_kind': data_kind, 'model_options': model_options, 'job_setup': job_setup}
+            cf_kargs = {'data_kind': data_kind, 'model_options': model_options, 'job_setup': prepare_job_setup()}
             if cf_kind == 'GLS':
                 cf_kargs['correlation_min_values'] = correlation_min_values
                 cf_kargs['correlation_max_year_diff'] = correlation_max_year_diff
@@ -149,6 +153,8 @@ if __name__ == "__main__":
                 ## start cf calculation job
                 os.makedirs(TMP_DIR, exist_ok=True)
                 output_dir = tempfile.mkdtemp(dir=TMP_DIR, prefix='cost_function_tmp_')
+                util.io.fs.add_group_permissions(output_dir)
+                cf_kargs['job_setup'] = prepare_job_setup()
                 with ndop.optimization.job.CostFunctionJob(output_dir, parameters, cf_kind, eval_f=eval_function_value, eval_df=eval_grad_value, **cf_kargs) as cf_job:
                     cf_job.start()
                     cf_job.wait_until_finished()

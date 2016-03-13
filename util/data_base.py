@@ -19,7 +19,7 @@ import util.logging
 logger = util.logging.logger
 
 
-
+DEFAULT_BOXES_T_DIM = 12
 
 class DataBase:
 
@@ -32,6 +32,8 @@ class DataBase:
 
         self._F_boxes_cache_filename = BOXES_F_FILENAME
         self._DF_boxes_cache_filename = BOXES_DF_FILENAME
+        
+        self.default_boxes_t_dim = DEFAULT_BOXES_T_DIM
         
         self.hdd_cache = ndop.util.value_cache.Cache(model_options=model_options, cache_dirname=CACHE_DIRNAME, use_memory_cache=True)
         self.memory_cache = util.cache.MemoryCache()
@@ -57,6 +59,7 @@ class DataBase:
     def DF_boxes_cache_filename(self, time_dim):
         return self._DF_boxes_cache_filename.format(time_dim=time_dim, step_size=self.model.derivative_options['step_size'])
 
+    
 
     ## model output
     
@@ -67,8 +70,18 @@ class DataBase:
         return f_boxes
 
     def f_boxes(self, parameters, time_dim=12, use_memmap=False):
-        calculation_function = lambda p: self.f_boxes_calculate(p, time_dim=time_dim)
-        return self.hdd_cache.get_value(parameters, self.F_boxes_cache_filename(time_dim), calculation_function, derivative_used=False, save_also_txt=False, use_memmap=use_memmap)
+        ## calculate
+        calculation_time_dim = max([time_dim, self.default_boxes_t_dim])
+        calculation_function = lambda p: self.f_boxes_calculate(p, time_dim=calculation_time_dim)
+        data = self.hdd_cache.get_value(parameters, self.F_boxes_cache_filename(calculation_time_dim), calculation_function, derivative_used=False, save_also_txt=False, use_memmap=use_memmap)
+        
+        ## average if needed
+        if time_dim < self.default_boxes_t_dim:
+            data = util.math.interpolate.change_dim(data, 1, time_dim)
+        
+        ## return
+        assert data.shape[1] == time_dim
+        return data
 
 
 
@@ -80,10 +93,20 @@ class DataBase:
             df_boxes = np.swapaxes(df_boxes, i, i+1)
         return df_boxes
 
-    def df_boxes(self, parameters, time_dim=12, use_memmap=False, as_shared_array=False):
-        calculation_function = lambda p: self.df_boxes_calculate(p, time_dim=time_dim)
-        return self.hdd_cache.get_value(parameters, self.DF_boxes_cache_filename(time_dim), calculation_function, derivative_used=True, save_also_txt=False, use_memmap=use_memmap, as_shared_array=as_shared_array)
 
+    def df_boxes(self, parameters, time_dim=12, use_memmap=False, as_shared_array=False):
+        ## calculate
+        calculation_time_dim = max([time_dim, self.default_boxes_t_dim])
+        calculation_function = lambda p: self.df_boxes_calculate(p, time_dim=calculation_time_dim)
+        data = self.hdd_cache.get_value(parameters, self.DF_boxes_cache_filename(calculation_time_dim), calculation_function, derivative_used=True, save_also_txt=False, use_memmap=use_memmap, as_shared_array=as_shared_array)
+        
+        ## average if needed
+        if time_dim < self.default_boxes_t_dim:
+            data = util.math.interpolate.change_dim(data, 1, time_dim)
+        
+        ## return
+        assert data.shape[1] == time_dim
+        return data
 
 
     def F_calculate(self, parameters):
@@ -167,7 +190,20 @@ class DataBase:
     ## deviation boxes
 
     def deviations_boxes(self, time_dim=12, as_shared_array=False):
-        return self.memory_cache.get_value('deviations_boxes_{}'.format(time_dim), lambda: measurements.all.pw.values.deviation_TMM(t_dim=time_dim), as_shared_array=as_shared_array)
+        def calculate():
+            ## calculate
+            calculation_time_dim = max([time_dim, self.default_boxes_t_dim])
+            data = measurements.all.pw.values.deviation_TMM(t_dim=calculation_time_dim)
+            
+            ## average if needed
+            if time_dim < self.default_boxes_t_dim:
+                data = util.math.interpolate.change_dim(data, 1, time_dim)
+        
+            ## return
+            assert data.shape[1] == time_dim
+            return data
+        
+        return self.memory_cache.get_value('deviations_boxes_{}'.format(time_dim), calculate, as_shared_array=as_shared_array)
 
     def inverse_deviations_boxes(self, time_dim=12, as_shared_array=False):
         return self.memory_cache.get_value('inverse_deviations_boxes_{}'.format(time_dim), lambda: 1 / self.deviations_boxes(time_dim=time_dim), as_shared_array=as_shared_array)
@@ -275,7 +311,6 @@ class WOA(DataBaseHDD):
 
 
 
-
 class WOD_Base(DataBase):
 
     def __init__(self, *args, **kargs):
@@ -321,18 +356,18 @@ class WOD_Base(DataBase):
 
     ## correlation matrix
 
-    def correlation_matrix_calculate(self, min_values, max_year_diff=float('inf')):
+    def correlation_matrix_calculate(self, min_measurements, max_year_diff=float('inf'), positive_definite_approximation_min_diag_value=0.1):
         raise NotImplementedError("Please implement this method.")
 
-    def correlation_matrix(self, min_values, max_year_diff=float('inf')):
-        return self.memory_cache.get_value('correlation_matrix_{:0>2}_{:0>2}'.format(min_values, max_year_diff), lambda: self.correlation_matrix_calculate(min_values, max_year_diff=max_year_diff))
+    def correlation_matrix(self, min_measurements, max_year_diff=float('inf'), positive_definite_approximation_min_diag_value=0.1):
+        return self.memory_cache.get_value('correlation_matrix_{:0>2}_{:0>2}_{}'.format(min_measurements, max_year_diff, positive_definite_approximation_min_diag_value), lambda: self.correlation_matrix_calculate(min_measurements, max_year_diff=max_year_diff, positive_definite_approximation_min_diag_value=positive_definite_approximation_min_diag_value))
 
 
-    def correlation_matrix_cholesky_decomposition_calculate(self, min_values, max_year_diff=float('inf')):
+    def correlation_matrix_cholesky_decomposition_calculate(self, min_measurements, max_year_diff=float('inf'), positive_definite_approximation_min_diag_value=0.1):
         raise NotImplementedError("Please implement this method.")
 
-    def correlation_matrix_cholesky_decomposition(self, min_values, max_year_diff=float('inf')):
-        return self.memory_cache.get_value('correlation_matrix_cholesky_decomposition_{:0>2}_{:0>2}'.format(min_values, max_year_diff), lambda: self.correlation_matrix_cholesky_decomposition_calculate(min_values, max_year_diff=max_year_diff))
+    def correlation_matrix_cholesky_decomposition(self, min_measurements, max_year_diff=float('inf'), positive_definite_approximation_min_diag_value=0.1):
+        return self.memory_cache.get_value('correlation_matrix_cholesky_decomposition_{:0>2}_{:0>2}_{}'.format(min_measurements, max_year_diff, positive_definite_approximation_min_diag_value), lambda: self.correlation_matrix_cholesky_decomposition_calculate(min_measurements, max_year_diff=max_year_diff, positive_definite_approximation_min_diag_value=positive_definite_approximation_min_diag_value))
 
 
 
@@ -381,12 +416,12 @@ class WOD(DataBaseHDD, WOD_Base):
 
     ## correlation matrix
 
-    def correlation_matrix_calculate(self, min_values, max_year_diff=float('inf')):
-        return measurements.all.pw.correlation.CorrelationMatrix(min_values=min_values, max_year_diff=max_year_diff).correlation_matrix_positive_definite
+    def correlation_matrix_calculate(self, min_measurements, max_year_diff=float('inf'), positive_definite_approximation_min_diag_value=0.1):
+        return measurements.all.pw.correlation.CorrelationMatrix(min_measurements=min_measurements, max_year_diff=max_year_diff, positive_definite_approximation_min_diag_value=positive_definite_approximation_min_diag_value).correlation_matrix_positive_definite
 
 
-    def correlation_matrix_cholesky_decomposition_calculate(self, min_values, max_year_diff=float('inf')):
-        return measurements.all.pw.correlation.CorrelationMatrix(min_values=min_values, max_year_diff=max_year_diff).correlation_matrix_cholesky_decomposition
+    def correlation_matrix_cholesky_decomposition_calculate(self, min_measurements, max_year_diff=float('inf'), positive_definite_approximation_min_diag_value=0.1):
+        return measurements.all.pw.correlation.CorrelationMatrix(min_measurements=min_measurements, max_year_diff=max_year_diff, positive_definite_approximation_min_diag_value=positive_definite_approximation_min_diag_value).correlation_matrix_cholesky_decomposition
 
 
 
@@ -421,9 +456,6 @@ class WOD(DataBaseHDD, WOD_Base):
 
 
     def project(self, values, split_index, projected_value_index=None):
-#         if len(values) != 2:
-#             raise ValueError('Values must be a list with length 2, but its length is {}.'.format(len(values)))
-
         if projected_value_index in (0, 1):
             values = (values[:split_index], values[split_index:])
 
@@ -581,12 +613,50 @@ class WOD_TMM(WOD_Base):
 
     ## correlation matrix
 
-    def correlation_matrix_calculate(self, min_values, max_year_diff=float('inf')):
-        return measurements.all.pw_nearest.correlation.CorrelationMatrix(min_values=min_values, max_year_diff=max_year_diff, lsm=self.lsm, max_land_boxes=self.max_land_boxes).correlation_matrix_positive_definite
+    def correlation_matrix_calculate(self, min_measurements, max_year_diff=float('inf'), positive_definite_approximation_min_diag_value=0.1):
+        return measurements.all.pw_nearest.correlation.CorrelationMatrix(min_measurements=min_measurements, max_year_diff=max_year_diff, positive_definite_approximation_min_diag_value=positive_definite_approximation_min_diag_value, lsm=self.lsm, max_land_boxes=self.max_land_boxes).correlation_matrix_positive_definite
 
-    def correlation_matrix_cholesky_decomposition_calculate(self, min_values, max_year_diff=float('inf')):
-        return measurements.all.pw_nearest.correlation.CorrelationMatrix(min_values=min_values, max_year_diff=max_year_diff, lsm=self.lsm, max_land_boxes=self.max_land_boxes).correlation_matrix_cholesky_decomposition
+    def correlation_matrix_cholesky_decomposition_calculate(self, min_measurements, max_year_diff=float('inf'), positive_definite_approximation_min_diag_value=0.1):
+        return measurements.all.pw_nearest.correlation.CorrelationMatrix(min_measurements=min_measurements, max_year_diff=max_year_diff, positive_definite_approximation_min_diag_value=positive_definite_approximation_min_diag_value, lsm=self.lsm, max_land_boxes=self.max_land_boxes).correlation_matrix_cholesky_decomposition
 
+
+
+class OLDWOD(WOD):
+
+    def deviations_calculate(self):
+        import measurements.dop.pw.deviation
+        import measurements.land_sea_mask.data
+        sample_lsm = measurements.land_sea_mask.data.LandSeaMaskWOA13R(t_dim=52) 
+        deviation_dop = measurements.dop.pw.deviation.total_deviation_for_points(sample_lsm=sample_lsm)
+        file = '/sfs/fs3/work-sh1/sunip229/NDOP/measurements/po4/wod13/analysis/deviation/old/interpolated_deviation_lexsorted_points_0.1,2,0.2,1.npy'
+        logger.debug('Loading OLD deviations: {}.'.format(file))
+        deviation_po4 = np.load(file)
+        deviations = np.concatenate([deviation_dop, deviation_po4])
+        return deviations
+
+
+    def correlation_matrix_cholesky_decomposition_calculate(self, min_measurements, max_year_diff=float('inf'), positive_definite_approximation_min_diag_value=0.01):
+        if positive_definite_approximation_min_diag_value != 0.01:
+            raise NotImplementedError("Not implement!")
+        import util.io.object
+        file = '/sfs/fs3/work-sh1/sunip229/NDOP/measurements/all/pw/correlation/old/lsm_48_woa13r/correlation_matrix.min_{}_measurements.max_inf_year_diff.positive_definite.default_ordering.reordering_True.min_diag_1e-02.cholesky_factors.csc.ppy'.format(min_measurements)
+        logger.debug('Loading OLD correlation: {}.'.format(min_measurements))
+        return util.io.object.load(file)
+        
+class OLDWOD_TMM(WOD_TMM):
+    
+    def __init__(self, *args, max_land_boxes=0, **kargs):
+        logger.debug('Initiating OLD_WOD_TMM.'.format(self, max_land_boxes))
+        super().__init__(*args, max_land_boxes=max_land_boxes, **kargs)
+        self.wod = OLDWOD(*args, **kargs)
+
+    def correlation_matrix_cholesky_decomposition_calculate(self, min_measurements, max_year_diff=float('inf'), positive_definite_approximation_min_diag_value=0.01):
+        if positive_definite_approximation_min_diag_value != 0.01:
+            raise NotImplementedError("Not implement!")
+        import util.io.object
+        file = '/sfs/fs3/work-sh1/sunip229/NDOP/measurements/all/pw_nearest_lsm_tmm_{}/correlation/old/lsm_48_woa13r/correlation_matrix.min_{}_measurements.max_inf_year_diff.positive_definite.default_ordering.reordering_True.min_diag_1e-02.cholesky_factors.csc.ppy'.format(self.max_land_boxes, min_measurements)
+        logger.debug('Loading OLD correlation: {}.'.format(self.max_land_boxes, min_measurements))
+        return util.io.object.load(file)
     
 
 
@@ -604,6 +674,11 @@ def init_data_base(data_kind, model_options=None, job_setup=None):
         assert len(data_kind_splitted) == 2 and data_kind_splitted[0] == 'WOD'
         max_land_boxes = int(data_kind_splitted[1])
         return WOD_TMM(*db_args, max_land_boxes=max_land_boxes, **db_kargs)
+    elif data_kind.upper().startswith('OLDWOD'):
+        data_kind_splitted = data_kind.split('.')
+        assert len(data_kind_splitted) == 2 and data_kind_splitted[0] == 'OLDWOD'
+        max_land_boxes = int(data_kind_splitted[1])
+        return OLDWOD_TMM(*db_args, max_land_boxes=max_land_boxes, **db_kargs)
     else:
         raise ValueError('Data_kind {} unknown. Must be "WOA", "WOD" or "WOD.".'.format(data_kind))
 

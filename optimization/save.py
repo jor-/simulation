@@ -77,7 +77,7 @@ def save(parameter_sets=range(9999), data_kind='WOA', eval_f=True, eval_df=True,
                             output_dir = tempfile.TemporaryDirectory(dir=TMP_DIR, prefix='save_value_cost_function_tmp_').name
                             cf_kargs = cf.kargs
                             cf_kargs['job_setup'] = {'name': '{}:{}'.format(cf, parameter_set_number)}
-                            nodes_setup = util.batch.universal.system.NodeSetup(memory=50, node_kind='clfocean', nodes=1, cpus=1, total_cpus_max=1, walltime=36)
+                            nodes_setup = util.batch.universal.system.NodeSetup(memory=50, node_kind='clexpress', nodes=1, cpus=1, total_cpus_max=1, walltime=1)
                             with ndop.optimization.job.CostFunctionJob(output_dir, p, cf.kind, eval_f=eval_f, eval_df=eval_df, nodes_setup=nodes_setup, **cf_kargs) as cf_job:
                                 cf_job.start()
                             time.sleep(10)
