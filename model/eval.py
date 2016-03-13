@@ -34,7 +34,7 @@ class Model():
             model_options = {}
         self._model_options = model_options
         
-        ## set spinup and derivative values
+        ## set spinup options
         def set_default_options(current_options, default_options):            
             if current_options is not None:
                 for key, value in default_options.items():
@@ -55,7 +55,8 @@ class Model():
             raise ValueError('Combination "{}" unknown.'.format(spinup_options['combination']))
         self._model_options['spinup_options'] = spinup_options
         logger.debug('Using spinup options {}.'.format(self.spinup_options))
-
+        
+        ## set derivative options
         try:
             derivative_options = model_options['derivative_options']
         except KeyError:
