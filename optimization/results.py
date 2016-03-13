@@ -18,7 +18,6 @@ def p_bounds(cf_kind):
 def get_values(cf_kind, value_kind, dtype=np.float64):
     ## get files
     dir = os.path.join(PARAMETER_OPTIMIZATION_DIR, cf_kind, ITERATIONS_DIRNAME)
-#     pattern = 'iteration_' + value_kind + '_[0-9]{3}.txt'
     pattern = value_kind + '_[0-9]{3}.txt'
     files = util.io.fs.get_files(dir, pattern)
 
@@ -38,12 +37,10 @@ def get_values(cf_kind, value_kind, dtype=np.float64):
     if len(indices) > 0:
         n = max(indices) + 1
         shape = (n,) + values[0].shape
-#         value_array = np.empty(shape, dtype) * np.nan
         value_array = np.ma.masked_all(shape, dtype)
         value_array[indices] = values
     else:
         value_array = np.ma.masked_all((0,0), dtype)
-#         value_array = np.empty(0, dtype)
 
     value_array = np.ma.masked_invalid(value_array)
     ## return
@@ -72,29 +69,29 @@ def solver_df(cf_kind):
 def solver_f_indices(cf_kind):
     return get_values(cf_kind, 'solver_eval_f_index', dtype=np.int32)
 
-# def local_solver_stop_mask(cf_kind):
-#     i = solver_f_indices(cf_kind)
-#     df = all_df(cf_kind)
-# #     return np.any(np.isnan(df[i]), axis=1)
-#     return np.any(df.mask[i], axis=1)
-#
-# def local_solver_stop_solver_incides(cf_kind):
-#     return np.where(local_solver_stop_mask(cf_kind))[0]
 
-def local_solver_stop_slices(cf_kind):
-    df = all_df(cf_kind)
-    i = solver_f_indices(cf_kind)
-    i = i[i < len(df)]
-    stop_indices = np.where(np.any(df.mask[i], axis=1))[0]
 
-    start_indices = [0,] + (stop_indices + 1).tolist()
-    stop_indices = (stop_indices + 1).tolist() + [None,]
 
-    slices = []
-    for i in range(len(stop_indices)):
-        slices.append(slice(start_indices[i], stop_indices[i]))
-    return slices
+def local_solver_runs_list(cf_kind):
+    ## get solver stop mask
+    all_df_array = all_df(cf_kind)
+    solver_f_indices_array = solver_f_indices(cf_kind)
+    solver_f_indices_array = solver_f_indices_array[solver_f_indices_array < len(all_df_array)]
+    stop_mask = np.any(all_df_array.mask[solver_f_indices_array], axis=1)
+    
+    ## prepare run list
+    all_runs = []
+    current_run = []
+    for i in range(len(stop_mask)):
+        current_run.append(solver_f_indices_array[i])
+        if stop_mask[i]:
+            all_runs.append(np.asarray(current_run))
+            current_run = []
+    if len(current_run) > 0:
+        all_runs.append(np.asarray(current_run))
 
+    ## return
+    return all_runs
 
 
 
