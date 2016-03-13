@@ -17,6 +17,7 @@ if __name__ == "__main__":
     parser.add_argument('-k', '--kind', choices=KIND_OF_COST_FUNCTIONS, help='The kind of the cost function to chose.')
     parser.add_argument('-p', '--parameter_set_nr', type=int, default=184, help='Parameter set nr.')
     parser.add_argument('-t', '--time_dim_df', type=int, default=2880, help='Time dim of df.')
+    parser.add_argument('-c', '--time_dim_confidence_increase', type=int, default=12, help='Time dim of confidence increase.')
 
     parser.add_argument('-i', '--number_of_measurements', type=int, default=1, help='Number of measurements for increase calulation.')
 
@@ -33,9 +34,11 @@ if __name__ == "__main__":
 
     with Logger():
         ## extract infos from kind
-        kind_splitted = args.kind.split('.')
+        kind_splitted = args.kind.split('_')
+        assert len(kind_splitted) == 2
         data_kind = kind_splitted[0]
         cf_kind = kind_splitted[1]
+        cf_kargs = {'data_kind': data_kind}
 
         if cf_kind == 'OLS':
             cf_class = ndop.accuracy.asymptotic.OLS
@@ -43,24 +46,19 @@ if __name__ == "__main__":
             cf_class = ndop.accuracy.asymptotic.WLS
         elif cf_kind == 'LWLS':
             cf_class = ndop.accuracy.asymptotic.LWLS
-        elif cf_kind == 'GLS':
+        elif cf_kind.startswith('GLS'):
             cf_class = ndop.accuracy.asymptotic.GLS
-            correlation_min_values = int(kind_splitted[2])
-            correlation_max_year_diff = int(kind_splitted[3])
+            cf_kind_splitted = cf_kind.split('.')
+            correlation_min_values = int(cf_kind_splitted[1])
+            correlation_max_year_diff = int(cf_kind_splitted[2])
             if correlation_max_year_diff < 0:
                 correlation_max_year_diff = float('inf')
+            cf_kargs['correlation_min_values'] = correlation_min_values
+            cf_kargs['correlation_max_year_diff'] = correlation_max_year_diff
         else:
             raise ValueError('Unknown cf kind {}.'.format(cf_kind))
         
         ## init asymptotic
-        spinup_options = {'years':10000, 'tolerance':0.0, 'combination':'or'}
-        job_options = {'spinup': {'nodes_setup': ndop.optimization.constants.COST_FUNCTION_NODES_SETUP_SPINUP}, 'derivative': {'nodes_setup': ndop.optimization.constants.COST_FUNCTION_NODES_SETUP_DERIVATIVE}, 'trajectory': {'nodes_setup': ndop.optimization.constants.COST_FUNCTION_NODES_SETUP_TRAJECTORY}}
-        
-        cf_kargs = {'data_kind': data_kind, 'spinup_options': spinup_options, 'job_setup': job_options}
-        if cf_kind == 'GLS':
-            cf_kargs['correlation_min_values'] = correlation_min_values
-            cf_kargs['correlation_max_year_diff'] = correlation_max_year_diff
-        
         asymptotic = cf_class(**cf_kargs)
         
         ## calculate
@@ -69,7 +67,8 @@ if __name__ == "__main__":
         asymptotic.model_confidence(p, time_dim_df=args.time_dim_df, use_mem_map=args.use_mem_map, parallel_mode=not args.not_parallel)
         asymptotic.average_model_confidence(p, time_dim_df=args.time_dim_df, use_mem_map=args.use_mem_map, parallel_mode=not args.not_parallel)
         if args.number_of_measurements > 0:
-            average_model_confidence_increase = asymptotic.average_model_confidence_increase(p, number_of_measurements=args.number_of_measurements, time_dim_df=args.time_dim_df, value_mask=args.value_mask_file, use_mem_map=args.use_mem_map, parallel_mode=not args.not_parallel)
+            value_mask = np.load(args.value_mask_file)
+            average_model_confidence_increase = asymptotic.average_model_confidence_increase(p, number_of_measurements=args.number_of_measurements, time_dim_confidence_increase=args.time_dim_confidence_increase, time_dim_df=args.time_dim_df, value_mask=value_mask, use_mem_map=args.use_mem_map, parallel_mode=not args.not_parallel)
             if args.output_file is not None:
                 np.save(output_file, average_model_confidence_increase)
 
