@@ -68,7 +68,8 @@ MODEL_TMP_DIR = os.path.join(MODEL_OUTPUT_DIR, 'tmp')
 MODEL_SPINUP_MAX_YEARS = 50000
 MODEL_START_FROM_CLOSEST_PARAMETER_SET = False
 MODEL_DEFAULT_SPINUP_OPTIONS = {'years':10000, 'tolerance':0.0, 'combination':'or'}
-MODEL_DEFAULT_DERIVATIVE_OPTIONS = {'years': 100, 'step_size': 10**(-7), 'accuracy_order': 2}
+# MODEL_DEFAULT_DERIVATIVE_OPTIONS = {'years': 100, 'step_size': 10**(-7), 'accuracy_order': 2}
+MODEL_DEFAULT_DERIVATIVE_OPTIONS = {'years': 500, 'step_size': 10**(-6), 'accuracy_order': 2}
 
 ## Model interpolator
 MODEL_INTERPOLATOR_FILE = os.path.join(MODEL_OUTPUT_DIR, 'interpolator.ppy')
