@@ -15,10 +15,10 @@ import util.io.fs
 import util.index_database.array_and_fs_based
 import util.pattern
 import util.math.interpolate
+import util.batch.universal.system
 
 import util.logging
 logger = util.logging.logger
-
 
 
 
@@ -71,8 +71,9 @@ class Model():
         except KeyError:
             self._model_options['time_step'] = 1
         else:
-            if ndop.model.constants.METOS_T_DIM % time_step != 0:
-                raise ValueError('Wrong time_step in model options. {} has to be divisible by time_step. But time_step is {}.'.format(ndop.model.constants.METOS_T_DIM, time_step))
+            if not time_step in ndop.model.constants.METOS_TIME_STEPS:
+                raise ValueError('Wrong time_step in model options. Time step has to be in {} .'.format(time_step, ndop.model.constants.METOS_TIME_STEPS))
+            assert ndop.model.constants.METOS_T_DIM % time_step == 0
         
         ## set tolerance options
         try:
@@ -253,24 +254,22 @@ class Model():
         assert parameter_set_dir is not None or not create
         return parameter_set_dir
     
-
-
-    ## access to dirs (old)
-
-    def get_job_setup(self, kind):
-        job_setup = self.job_setup_collection[kind]
-        job_setup = job_setup.copy()
-        job_setup['nodes_setup'] = job_setup['nodes_setup'].copy()
-        return job_setup
     
-    
-    def get_spinup_run_dir(self, parameter_set_dir, spinup_options, start_from_closest_parameters=False):
+    def spinup_run_dir(self, parameters_or_parameter_set_dir, spinup_options, start_from_closest_parameters=False):
         from .constants import MODEL_SPINUP_DIRNAME, MODEL_PARAMETERS_FILENAME, MODEL_SPINUP_MAX_YEARS
-
+        
+        ## get parameter set dir
+        if isinstance(parameters_or_parameter_set_dir, str):
+            parameter_set_dir = parameters_or_parameter_set_dir
+        else:
+            parameters = np.asanyarray(parameters)
+            parameter_set_dir = self.parameter_set_dir(parameters)
+        
+        ## get spinup dir
         spinup_dir = os.path.join(parameter_set_dir, MODEL_SPINUP_DIRNAME)
 
+        ## get last run dir
         logger.debug('Searching for spinup with options {} in {}.'.format(spinup_options, spinup_dir))
-
         last_run_dir = self.get_last_run_dir(spinup_dir)
 
         ## matching spinup found
@@ -306,15 +305,24 @@ class Model():
                 time_step = util.pattern.get_int_in_string(time_step_dirname)
                 run_dir = self.make_run(spinup_dir, parameters, years, tolerance, time_step, self.get_job_setup('spinup'), tracer_input_path=last_run_dir)
             elif combination == 'and':
-                run_dir = self.get_spinup_run_dir(parameter_set_dir, {'years':years, 'tolerance':0, 'combination':'or'}, start_from_closest_parameters)
-                run_dir = self.get_spinup_run_dir(parameter_set_dir, {'years':MODEL_SPINUP_MAX_YEARS, 'tolerance':tolerance, 'combination':'or'}, start_from_closest_parameters)
+                run_dir = self.spinup_run_dir(parameter_set_dir, {'years':years, 'tolerance':0, 'combination':'or'}, start_from_closest_parameters)
+                run_dir = self.spinup_run_dir(parameter_set_dir, {'years':MODEL_SPINUP_MAX_YEARS, 'tolerance':tolerance, 'combination':'or'}, start_from_closest_parameters)
 
             logger.debug('Spinup directory created at {}.'.format(run_dir))
 
         return run_dir
+    
 
 
+    ## access to dirs (old)
 
+    def get_job_setup(self, kind):
+        job_setup = self.job_setup_collection[kind]
+        job_setup = job_setup.copy()
+        job_setup['nodes_setup'] = job_setup['nodes_setup'].copy()
+        return job_setup
+    
+    
     def make_run(self, output_path, parameters, years, tolerance, time_step, job_setup, tracer_input_path=None, wait_until_finished=True):
         from .constants import MODEL_RUN_DIRNAME, MODEL_RUN_OPTIONS_FILENAME
 
@@ -636,10 +644,8 @@ class Model():
 
     def _f(self, load_trajectory_function, parameters, spinup_options=None):
         from .constants import MODEL_START_FROM_CLOSEST_PARAMETER_SET
-
-        parameters = np.asanyarray(parameters)
-        parameter_set_dir = self.parameter_set_dir(parameters, create=True)
-        spinup_run_dir = self.get_spinup_run_dir(parameter_set_dir, spinup_options, start_from_closest_parameters=MODEL_START_FROM_CLOSEST_PARAMETER_SET)
+        
+        spinup_run_dir = self.spinup_run_dir(parameters, spinup_options, start_from_closest_parameters=MODEL_START_FROM_CLOSEST_PARAMETER_SET)
         f = self._get_trajectory(load_trajectory_function, spinup_run_dir, parameters)
 
         assert f is not None
@@ -672,7 +678,7 @@ class Model():
         years = spinup_options['years']
         tolerance = spinup_options['tolerance']
         combination = spinup_options['combination']
-        spinup_run_dir = self.get_spinup_run_dir(parameter_set_dir, {'years':years - MODEL_DERIVATIVE_SPINUP_YEARS, 'tolerance':tolerance, 'combination':combination}, start_from_closest_parameters=MODEL_START_FROM_CLOSEST_PARAMETER_SET)
+        spinup_run_dir = self.spinup_run_dir(parameter_set_dir, {'years':years - MODEL_DERIVATIVE_SPINUP_YEARS, 'tolerance':tolerance, 'combination':combination}, start_from_closest_parameters=MODEL_START_FROM_CLOSEST_PARAMETER_SET)
         spinup_run_years = self.get_total_years(spinup_run_dir)
 
         ## get f if accuracy_order is 1
@@ -743,11 +749,7 @@ class Model():
 
                     ## if no job setup available, get best job setup
                     if job_setup['nodes_setup'] is None:
-                        try:
-                            nodes_max = job_setup['nodes_max']
-                        except KeyError:
-                            nodes_max = None
-                        job_setup['nodes_setup'] = ndop.model.job.Metos3D_Job.best_nodes_setup(years, nodes_max=nodes_max)
+                        job_setup['nodes_setup'] = util.batch.universal.system.NodeSetup()
 
                     ## start job
                     partial_derivative_run_dir = self.make_run(partial_derivative_dir, parameters_for_derivative[parameter_index, h_factor_index], MODEL_DERIVATIVE_SPINUP_YEARS, 0, self.time_step, job_setup, tracer_input_path=spinup_run_dir, wait_until_finished=False)

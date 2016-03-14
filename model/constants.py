@@ -1,7 +1,6 @@
 import numpy as np
 import os.path
 
-# from ndop.constants import BASE_DIR, MODEL_OUTPUT_DIR
 from ndop.constants import MODEL_OUTPUT_DIR, METOS_DIR
 import measurements.land_sea_mask.data
 
@@ -19,6 +18,7 @@ METOS_T_RANGE = (0, 1)
 METOS_X_RANGE = (0, 360)
 METOS_Y_RANGE = (-90, +90)
 METOS_T_DIM = 2880
+METOS_TIME_STEPS = [2**i for i in range(7)]
 LSM = measurements.land_sea_mask.data.LandSeaMaskTMM(t_dim=METOS_T_DIM, t_centered=False)
 METOS_SPACE_DIM = LSM.space_dim
 METOS_DIM = (METOS_T_DIM,) + METOS_SPACE_DIM
@@ -32,16 +32,12 @@ METOS_Z_CENTER = LSM.z_center
 ## Job
 JOB_OPTIONS_FILENAME = 'job_options.hdf5'
 JOB_MEMORY_GB = 4
-JOB_MIN_CPUS = 32
 
 
 ## Model parameter
-MODEL_PARAMETER_DIM = 7
 MODEL_PARAMETER_LOWER_BOUND = np.array([0, 0, 0, 10**(-8), 10**(-8), 0, 0])
 MODEL_PARAMETER_UPPER_BOUND = np.array([METOS_T_DIM, np.inf, 1, np.inf, np.inf, np.inf, np.inf])
 MODEL_PARAMETER_TYPICAL = np.array([1, 1, 1, 1, 10, 0.01, 1])
-MODEL_PARAMETERS_MAX_REL_DIFF = 10**(-5)
-MODEL_PARAMETERS_MAX_ABS_DIFF = 10**(-8)
 
 
 ## Model directories and files

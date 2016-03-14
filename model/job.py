@@ -1,16 +1,16 @@
-
 import os
 import time
 import subprocess
 import re
 import numpy as np
 
+import ndop.model.constants
+
 import util.batch.universal.system
 import util.io.fs
 
 import util.logging
 logger = util.logging.logger
-
 
 
 class Metos3D_Job(util.batch.universal.system.Job):
@@ -209,42 +209,16 @@ class Metos3D_Job(util.batch.universal.system.Job):
         opt.replace_all_str_options(old_output_path, new_output_path)
 
 
-    @staticmethod
-    def best_nodes_setup(years, node_kind=None, nodes_max=None):
-        from ndop.model.constants import JOB_MEMORY_GB, JOB_MIN_CPUS
-
-        logger.debug('Getting best nodes_setup for {} years with node_kind {} and nodes_max {}.'.format(years, node_kind, nodes_max))
-
-        ## min cpus
-        cpus_min = min(int(np.ceil(years/10)), JOB_MIN_CPUS)
-
-        ## max nodes
-        if years <= 1:
-            if nodes_max is not None:
-                # nodes_max = util.io.io.get_sequence_from_values_or_file(nodes_max)
-                nodes_max = list(nodes_max)
-                for i in range(len(nodes_max)):
-                    nodes_max[i] = min(nodes_max[i], 1)
-            else:
-                nodes_max = 1
-
-        ## best node setup
-        nodes_setup = util.batch.universal.system.NodeSetup(memory=JOB_MEMORY_GB, node_kind=node_kind, total_cpus_min=cpus_min, nodes_max=nodes_max)
-        logger.debug('Best nodes_setup is {}.'.format(nodes_setup))
-
-        return nodes_setup
-
-
-
-    def write_job_file(self, model_parameters, years, tolerance, time_step=1, write_trajectory=False, tracer_input_path=None, job_setup=None):
+    def write_job_file(self, model_parameters, years, tolerance=None, time_step=1, write_trajectory=False, tracer_input_path=None, job_setup=None):
         from ndop.model.constants import JOB_OPTIONS_FILENAME, JOB_MEMORY_GB, MODEL_PARAMETERS_FORMAT_STRING, MODEL_PARAMETERS_FORMAT_STRING_OLD_STYLE, METOS_T_DIM, METOS_DATA_DIR, METOS_SIM_FILE
 
         logger.debug('Initialising job with job_setup {}.'.format(job_setup))
 
 
         ## check input
-        if METOS_T_DIM % time_step != 0:
-            raise ValueError('Wrong time_step in model options. {} has to be divisible by time_step. But time_step is {}.'.format(METOS_T_DIM, time_step))
+        if not time_step in ndop.model.constants.METOS_TIME_STEPS:
+            raise ValueError('Wrong time_step in model options. Time step has to be in {} .'.format(time_step, ndop.model.constants.METOS_TIME_STEPS))
+        assert ndop.model.constants.METOS_T_DIM % time_step == 0
 
         ## unpack job setup
         if job_setup is not None:
@@ -256,14 +230,9 @@ class Metos3D_Job(util.batch.universal.system.Job):
                 nodes_setup = job_setup['nodes_setup']
             except KeyError:
                 nodes_setup = None
-            try:
-                nodes_max = job_setup['nodes_max']
-            except KeyError:
-                nodes_max = None
         else:
             job_name = ''
             nodes_setup = None
-            nodes_max = None
 
         ## prepare job name
         if len(job_name) > 0:
@@ -273,7 +242,13 @@ class Metos3D_Job(util.batch.universal.system.Job):
 
         ## use best node setup if no node setup passed
         if nodes_setup is None:
-            nodes_setup = self.best_nodes_setup(years, node_kind=node_kind, nodes_max=nodes_max)
+            nodes_setup = util.batch.universal.system.NodeSetup()
+
+        ## check/set memory
+        if nodes_setup.memory is None or nodes_setup.memory < ndop.model.constants.JOB_MEMORY_GB:
+            if nodes_setup.memory < ndop.model.constants.JOB_MEMORY_GB:
+                logger.warn('The chosen memory {} is below the needed memory {}. Changing to needed memory.'.format(nodes_setup.memory, ndop.model.constants.JOB_MEMORY_GB))
+            nodes_setup.memory = ndop.model.constants.JOB_MEMORY_GB
 
         ## check/set walltime
         sec_per_year = np.exp(- (nodes_setup.nodes * nodes_setup.cpus) / 40) * 30 + 1.5
@@ -284,6 +259,15 @@ class Metos3D_Job(util.batch.universal.system.Job):
         else:
             if nodes_setup.walltime < estimated_walltime_hours:
                 logger.debug('The chosen walltime {} for the job with {} years, {} nodes and {} cpus is below the estimated walltime {}.'.format(nodes_setup.walltime, years, nodes_setup.nodes, nodes_setup.cpus, estimated_walltime_hours))
+
+        ## check/set min cpus
+        if nodes_setup.total_cpus_min is None:
+            nodes_setup.total_cpus_min = min(int(np.ceil(years/20)), 32)
+
+        ## check/set max nodes
+        if nodes_setup.nodes_max is None and years <= 1:
+            nodes_setup.nodes_max = 1
+
 
         ## init job
         super().init_job_file(job_name, nodes_setup)
@@ -297,7 +281,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
         ## set model options
         opt = self.options
 
-        model_parameters = np.array(model_parameters, dtype=np.float64)
+        model_parameters = np.asarray(model_parameters, dtype=np.float64)
         opt['/model/parameters'] = model_parameters
         opt['/model/parameters_file'] = os.path.join(output_dir_not_expanded, 'model_parameter.txt')
         np.savetxt(opt['/model/parameters_file'], opt['/model/parameters'], fmt=MODEL_PARAMETERS_FORMAT_STRING_OLD_STYLE)

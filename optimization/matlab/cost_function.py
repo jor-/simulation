@@ -147,8 +147,7 @@ if __name__ == "__main__":
                 from util.constants import TMP_DIR
 
                 ## start spinup job
-                parameter_set_dir = cf.data_base.model.parameter_set_dir(parameters, create=True)
-                spinup_run_dir = cf.data_base.model.get_spinup_run_dir(parameter_set_dir, cf.data_base.model.spinup_options, start_from_closest_parameters=MODEL_START_FROM_CLOSEST_PARAMETER_SET)
+                cf.data_base.model.spinup_run_dir(parameters, cf.data_base.model.spinup_options, start_from_closest_parameters=MODEL_START_FROM_CLOSEST_PARAMETER_SET)
 
                 ## start cf calculation job
                 os.makedirs(TMP_DIR, exist_ok=True)
