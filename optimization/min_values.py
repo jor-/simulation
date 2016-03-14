@@ -122,7 +122,7 @@ def print_all_values_for_min_values(cost_function_names):
     cost_function_names, all_normalized_values, best_indices, best_values = all_normalized_values_for_min_values(cost_function_names)
     m = ndop.model.eval.Model()
     
-    array_formatter = lambda value: '{:.%}'.format(value)
+    array_formatter = lambda value: '{:.0%}'.format(value)
     
     def print_for_parameter_set(cost_function_name, index, values):
         def array_to_str(array):
