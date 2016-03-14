@@ -14,9 +14,6 @@ import util.batch.universal.system
 import util.logging
 logger = util.logging.logger
 
-from ndop.constants import BASE_DIR
-
-
 
 def save(parameter_sets=range(9999), data_kind='WOA', eval_f=True, eval_df=True, as_jobs=False):
     from ndop.model.constants import MODEL_OUTPUT_DIR, MODEL_TIME_STEP_DIRNAME, MODEL_PARAMETERS_SET_DIRNAME, MODEL_PARAMETERS_FILENAME, MODEL_SPINUP_DIRNAME, MODEL_DERIVATIVE_DIRNAME
