@@ -276,7 +276,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
             nodes_setup = self.best_nodes_setup(years, node_kind=node_kind, nodes_max=nodes_max)
 
         ## check/set walltime
-        sec_per_year = np.exp(- (nodes_setup.nodes * nodes_setup.cpus) / 40) * 30 + 1.25
+        sec_per_year = np.exp(- (nodes_setup.nodes * nodes_setup.cpus) / 40) * 30 + 1.5
         sec_per_year /= time_step
         estimated_walltime_hours = np.ceil(years * sec_per_year / 60**2) + 1
         if nodes_setup.walltime is None:
