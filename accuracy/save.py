@@ -70,7 +70,7 @@ if __name__ == "__main__":
             value_mask = np.load(args.value_mask_file)
             average_model_confidence_increase = asymptotic.average_model_confidence_increase(p, number_of_measurements=args.number_of_measurements, time_dim_confidence_increase=args.time_dim_confidence_increase, time_dim_df=args.time_dim_df, value_mask=value_mask, use_mem_map=args.use_mem_map, parallel_mode=not args.not_parallel)
             if args.output_file is not None:
-                np.save(output_file, average_model_confidence_increase)
+                np.save(args.output_file, average_model_confidence_increase)
 
         print('finished')
 
