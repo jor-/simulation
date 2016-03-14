@@ -2,6 +2,7 @@ import os
 
 import numpy as np
 
+import measurements.constants
 import ndop.constants
 import ndop.optimization.constants
 
@@ -136,12 +137,15 @@ class CostFunctionJob(util.batch.universal.system.Job):
 
         ## prepare run command and write job file
         def export_env_command(env_name):
-            env_value = util.io.env.load(env_name)
-            return 'export {env_name}={env_value}'.format(env_name=env_name, env_value=env_value)
-        env_names = [ndop.constants.BASE_DIR_ENV_NAME, util.batch.universal.system.BATCH_SYSTEM_ENV_NAME, util.io.env.PYTHONPATH_ENV_NAME]
-        env_commands = []
-        for env_name in env_names:
-            env_commands.append(export_env_command(env_name))
+            try:
+                env_value = util.io.env.load(env_name)
+            except util.io.env.EnvironmentLookupError:
+                return ''
+            else:
+                return 'export {env_name}={env_value}'.format(env_name=env_name, env_value=env_value)
+        env_names = [ndop.constants.BASE_DIR_ENV_NAME, ndop.constants.MODEL_OUTPUT_ENV_NAME, measurements.constants.BASE_DIR_ENV_NAME, util.batch.universal.system.BATCH_SYSTEM_ENV_NAME, util.io.env.PYTHONPATH_ENV_NAME]
+        env_commands = [export_env_command(env_name) for env_name in env_names]
+        env_commands = [env_command for env_command in env_commands if len(env_command) > 0]
         export_env_command = os.linesep.join(env_commands)
             
         python_command = util.batch.universal.system.BATCH_SYSTEM.commands['python']
