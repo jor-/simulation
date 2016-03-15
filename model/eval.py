@@ -371,8 +371,6 @@ class Model():
     ## run job
 
     def run_job(self, model_parameters, output_path, years, tolerance, time_step, job_setup, write_trajectory=False, tracer_input_path=None, make_read_only=True, wait_until_finished=True):
-        # from ndop.constants import BASE_DIR, BASE_DIR_ENV_NAME
-        
         logger.debug('Running job with years {} tolerance {} time_step {} tracer_input_path {}.'.format(years, tolerance, time_step, tracer_input_path))
         assert years >= 0
         assert tolerance >= 0
@@ -382,7 +380,6 @@ class Model():
         self.check_if_parameters_in_bounds(model_parameters)
 
         ## execute job
-        # output_path_with_env = output_path.replace(BASE_DIR, '${{{}}}'.format(BASE_DIR_ENV_NAME))
         output_path_with_env = output_path.replace(ndop.constants.MODEL_OUTPUT_DIR, '${{{}}}'.format(ndop.constants.MODEL_OUTPUT_DIR_ENV_NAME))
         with ndop.model.job.Metos3D_Job(output_path_with_env) as job:
             job.write_job_file(model_parameters, years=years, tolerance=tolerance, time_step=time_step, write_trajectory=write_trajectory, tracer_input_path=tracer_input_path, job_setup=job_setup)
@@ -544,18 +541,19 @@ class Model():
 
         assert callable(load_trajectory_function)
 
-        run_time_step = self.get_time_step(run_dir)
+        time_step = self.get_time_step(run_dir)
         trajectory_values = ()
 
         ## create trajectory
         if TMP_DIR is not None:
             tmp_dir = TMP_DIR
+            os.makedirs(tmp_dir, exist_ok=True)
         else:
             tmp_dir = run_dir
 
         ## write trajectory
         trajectory_dir = tempfile.mkdtemp(dir=tmp_dir, prefix='trajectory_tmp_')
-        self.run_job(parameters, trajectory_dir, years=1, tolerance=0, time_step=run_time_step, job_setup=self.get_job_setup('trajectory'), tracer_input_path=run_dir, write_trajectory=True, make_read_only=False)
+        self.run_job(parameters, trajectory_dir, years=1, tolerance=0, time_step=time_step, job_setup=self.get_job_setup('trajectory'), tracer_input_path=run_dir, write_trajectory=True, make_read_only=False)
 
         ## read trajectory
         trajectory_output_dir = os.path.join(trajectory_dir, 'trajectory')
