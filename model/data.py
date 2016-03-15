@@ -6,28 +6,6 @@ import logging
 import util.petsc.universal
 
 
-# ## get land sea mask
-#
-# def _check_land_sea_mask(land_sea_mask):
-#     from ndop.model.constants import METOS_SPACE_DIM
-#
-#     ## check input
-#     if land_sea_mask.ndim != 2:
-#         raise ValueError('The land sea mask must have 2 dimensions, but its shape is {}.'.format(land_sea_mask.shape))
-#     metos_shape = METOS_SPACE_DIM[0:2]
-#     if land_sea_mask.shape != metos_shape:
-#         raise ValueError('The land sea mask must have the shape {}, but its shape is {}.'.format(metos_shape, land_sea_mask.shape))
-#     assert land_sea_mask.ndim == 2
-#     assert land_sea_mask.shape == METOS_DIM[0:2]
-
-
-# def load_land_sea_mask():
-#     from ndop.model.constants import LSM
-#     return LSM.lsm
-#     return measurements.land_sea_mask.load.resolution_128x64x15()
-
-
-
 ## convert Metos vector to 3D vector
 
 def convert_metos_1D_to_3D(metos_vec):
@@ -74,8 +52,6 @@ def convert_3D_to_metos_1D(data):
 
 
 
-
-
 ## load trajectory
 
 def load_trajectories_to_universal(path, convert_function=None, converted_result_shape=None, tracer_indices=None, time_dim_desired=None, set_negative_values_to_zero=False):
@@ -85,17 +61,6 @@ def load_trajectories_to_universal(path, convert_function=None, converted_result
 
 
     ## check input
-
-#     # check time_step_size
-#     if METOS_T_DIM % time_step_size != 0:
-#         raise ValueError('The time step size {} must be wrong. It has to be a divider of {}.'.format(time_step_size, METOS_T_DIM))
-#
-#     assert METOS_T_DIM % time_step_size == 0
-#
-#
-#     # check t_dim
-#     number_of_petsc_vecs = METOS_T_DIM / time_step_size
-
 
     # check tracer_indices
     tracer_all_len = len(METOS_TRAJECTORY_FILENAMES)
@@ -129,35 +94,33 @@ def load_trajectories_to_universal(path, convert_function=None, converted_result
     assert callable(convert_function)
 
 
-    ## calculate number_of_petsc_vecs
-    number_of_petsc_vecs = METOS_T_DIM
-    number_of_petsc_vecs_found = False
-    while not number_of_petsc_vecs_found:
-        filename = METOS_TRAJECTORY_FILENAMES[0].format(number_of_petsc_vecs - 1)
+    ## calculate tracer_time_dim
+    tracer_time_dim = METOS_T_DIM
+    tracer_time_dim_found = False
+    while not tracer_time_dim_found:
+        filename = METOS_TRAJECTORY_FILENAMES[0].format(tracer_time_dim - 1)
         file = os.path.join(path, filename)
         if not os.path.exists(file):
-            if number_of_petsc_vecs > 1:
-                number_of_petsc_vecs -= 1
+            if tracer_time_dim > 1:
+                tracer_time_dim -= 1
             else:
                 raise FileNotFoundError('No PETSc vectors found in {}.'.format(path))
         else:
-            number_of_petsc_vecs_found = True
+            tracer_time_dim_found = True
 
-    logging.debug('{} petsc vectors were found for each tracer.'.format(number_of_petsc_vecs_found))
+    logging.debug('{} petsc vectors were found for each tracer.'.format(tracer_time_dim_found))
 
-    ## calculate t_step, check time_dim_desired
+    ## calculate time_step, check time_dim_desired
     if time_dim_desired is not None:
-        if number_of_petsc_vecs % time_dim_desired == 0:
-            t_step = int(number_of_petsc_vecs / time_dim_desired)
+        if tracer_time_dim % time_dim_desired == 0:
+            time_step = int(tracer_time_dim / time_dim_desired)
         else:
-            raise ValueError('The desired time dimension {0} can not be satisfied because {1} is not divisible by {0}.'.format(time_dim_desired, number_of_petsc_vecs))
+            raise ValueError('The desired time dimension {0} can not be satisfied because the tracer time dimension {1} is not divisible by {0}.'.format(time_dim_desired, tracer_time_dim))
     else:
-        time_dim_desired = number_of_petsc_vecs
-        t_step = 1
+        time_dim_desired = tracer_time_dim
+        time_step = 1
 
-    assert number_of_petsc_vecs % time_dim_desired == 0
-
-
+    assert tracer_time_dim % time_dim_desired == 0
 
 
 
@@ -185,9 +148,9 @@ def load_trajectories_to_universal(path, convert_function=None, converted_result
 #             logging.debug('Loading trajectory for time {}.'.format(time_index))
 
             ## average trajectory
-            for k in range(t_step):
+            for k in range(time_step):
                 ## prepare filename
-                file_nr = time_index * t_step + k
+                file_nr = time_index * time_step + k
                 filename = file_pattern.format(file_nr)
                 file = os.path.join(path, filename)
 
@@ -200,7 +163,7 @@ def load_trajectories_to_universal(path, convert_function=None, converted_result
                 else:
                     trajectory_averaged += vec
 
-            trajectory_averaged /= t_step
+            trajectory_averaged /= time_step
 
             ## convert trajectory
             trajectory_averaged = convert_function(trajectory_averaged)
