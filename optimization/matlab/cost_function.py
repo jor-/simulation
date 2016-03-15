@@ -7,8 +7,10 @@ if __name__ == "__main__":
 
     import numpy as np
     
+    import ndop.model.constants
     import ndop.optimization.cost_function
     import ndop.optimization.job
+    
     import util.batch.universal.system
     import util.io.matlab
     import util.io.fs
@@ -28,6 +30,8 @@ if __name__ == "__main__":
 
     parser.add_argument('--eval_function_value', '-f', action='store_true', help='Save the value of the cost function.')
     parser.add_argument('--eval_grad_value', '-g', action='store_true', help='Save the values of the derivative of the cost function.')
+
+    parser.add_argument('--time_step', type=int, default=1, choices=ndop.model.constants.METOS_TIME_STEPS, help='The time step multiplier to use for the simulations.')
 
     parser.add_argument('--spinup_years', '-y', '--years', type=int, default=10000, help='The number of years for the spinup.')
     parser.add_argument('--spinup_tolerance', '-t', '--tolerance', type=float, default=0, help='The tolerance for the spinup.')
@@ -57,7 +61,7 @@ if __name__ == "__main__":
         combination='and'
     else:
         combination='or'
-    spinup_options = {'years': args.spinup_years, 'tolerance': args.spinup_tolerance, 'combination':combination}
+    spinup_options = {'years': args.spinup_years, 'tolerance': args.spinup_tolerance, 'combination': combination}
 
     ## prepare derivative options
     derivative_options = {}
@@ -69,7 +73,7 @@ if __name__ == "__main__":
         derivative_options['accuracy_order'] = args.derivative_accuracy_order
     
     ## prepare time step
-    time_step = 1
+    time_step = args.time_step
     
     ## prepare parameter tolerance options
     parameter_tolerance_options = {}
