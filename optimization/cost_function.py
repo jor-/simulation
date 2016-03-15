@@ -20,6 +20,21 @@ logger = util.logging.logger
 from ndop.optimization.constants import COST_FUNCTION_DIRNAME, COST_FUNCTION_F_FILENAME, COST_FUNCTION_DF_FILENAME, COST_FUNCTION_F_NORMALIZED_FILENAME, COST_FUNCTION_CORRELATION_PARAMETER_FILENAME, COST_FUNCTION_NODES_SETUP_SPINUP, COST_FUNCTION_NODES_SETUP_DERIVATIVE, COST_FUNCTION_NODES_SETUP_TRAJECTORY
 
 
+# option syntax:
+# model_options = {'spinup_options': spinup_options, 'derivative_options': derivative_options, 'time_step': time_step, 'parameter_tolerance_options': parameter_tolerance_options}
+# 
+# spinup_options = {'years': spinup_years, 'tolerance': spinup_tolerance, 'combination': spinup_combination}
+# spinup_years = int (>= 0)
+# spinup_tolerance = float (>= 0)
+# spinup_combination = 'and' or 'or'
+# 
+# time_step in (1, 2, 4, 8, 16, 32, 64)
+# 
+# job_setup = {'name': job_name, 'spinup': job_setup_spinup, 'derivative': job_setup_derivative, 'trajectory': job_setup_trajectory}
+# job_name = str
+# job_setup_spinup, job_setup_derivative, job_setup_trajectory = {'nodes_setup': util.batch.universal.system.NodeSetup}
+
+
 ## Base
 
 class Base():
