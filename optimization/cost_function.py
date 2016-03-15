@@ -11,7 +11,6 @@ import util.math.optimize.with_scipy
 import util.math.finite_differences
 import util.math.sparse.create
 import util.math.sparse.solve
-import util.math.sparse.decompose.with_cholmod
 from util.math.matrix import SingularMatrixError
 
 import util.logging
