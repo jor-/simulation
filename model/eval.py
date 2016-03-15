@@ -5,6 +5,7 @@ import warnings
 
 import numpy as np
 
+import ndop.constants
 import ndop.model.data
 import ndop.model.job
 import ndop.model.constants
@@ -370,7 +371,7 @@ class Model():
     ## run job
 
     def run_job(self, model_parameters, output_path, years, tolerance, time_step, job_setup, write_trajectory=False, tracer_input_path=None, make_read_only=True, wait_until_finished=True):
-        from ndop.constants import BASE_DIR, BASE_DIR_ENV_NAME
+        # from ndop.constants import BASE_DIR, BASE_DIR_ENV_NAME
         
         logger.debug('Running job with years {} tolerance {} time_step {} tracer_input_path {}.'.format(years, tolerance, time_step, tracer_input_path))
         assert years >= 0
@@ -381,7 +382,8 @@ class Model():
         self.check_if_parameters_in_bounds(model_parameters)
 
         ## execute job
-        output_path_with_env = output_path.replace(BASE_DIR, '${{{}}}'.format(BASE_DIR_ENV_NAME))
+        # output_path_with_env = output_path.replace(BASE_DIR, '${{{}}}'.format(BASE_DIR_ENV_NAME))
+        output_path_with_env = output_path.replace(ndop.constants.MODEL_OUTPUT_DIR, '${{{}}}'.format(ndop.constants.MODEL_OUTPUT_DIR_ENV_NAME))
         with ndop.model.job.Metos3D_Job(output_path_with_env) as job:
             job.write_job_file(model_parameters, years=years, tolerance=tolerance, time_step=time_step, write_trajectory=write_trajectory, tracer_input_path=tracer_input_path, job_setup=job_setup)
             job.start()

@@ -12,15 +12,15 @@ except util.io.env.EnvironmentLookupError:
     pass
 
 
-MODEL_OUTPUT_ENV_NAME = 'MODEL_OUTPUT_DIR'
+MODEL_OUTPUT_DIR_ENV_NAME = 'MODEL_OUTPUT_DIR'
 try:
-    MODEL_OUTPUT_DIR = util.io.env.load(MODEL_OUTPUT_ENV_NAME)
+    MODEL_OUTPUT_DIR = util.io.env.load(MODEL_OUTPUT_DIR_ENV_NAME)
 except util.io.env.EnvironmentLookupError:
     MODEL_OUTPUT_DIR = os.path.join(BASE_DIR, 'model_output')
 
-METOS3D_ENV_NAME = 'METOS3D_DIR'
+METOS3D_DIR_ENV_NAME = 'METOS3D_DIR'
 try:
-    METOS3D_DIR = util.io.env.load(METOS3D_ENV_NAME)
+    METOS3D_DIR = util.io.env.load(METOS3D_DIR_ENV_NAME)
 except util.io.env.EnvironmentLookupError:
     METOS3D_DIR = os.path.join(BASE_DIR, 'metos3d', 'fixed_version')
 
