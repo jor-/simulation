@@ -209,7 +209,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
         opt.replace_all_str_options(old_output_path, new_output_path)
 
 
-    def write_job_file(self, model_parameters, years, tolerance=None, time_step=1, write_trajectory=False, tracer_input_path=None, job_setup=None):
+    def write_job_file(self, model_parameters, years, tolerance=None, time_step=1, total_concentration_factor=1, write_trajectory=False, tracer_input_path=None, job_setup=None):
         from ndop.model.constants import JOB_OPTIONS_FILENAME, JOB_MEMORY_GB, MODEL_PARAMETERS_FORMAT_STRING, MODEL_PARAMETERS_FORMAT_STRING_OLD_STYLE, METOS_T_DIM, METOS_DATA_DIR, METOS_SIM_FILE
 
         logger.debug('Initialising job with job_setup {}.'.format(job_setup))
@@ -245,9 +245,10 @@ class Metos3D_Job(util.batch.universal.system.Job):
             nodes_setup = util.batch.universal.system.NodeSetup()
 
         ## check/set memory
-        if nodes_setup.memory is None or nodes_setup.memory < ndop.model.constants.JOB_MEMORY_GB:
-            if nodes_setup.memory < ndop.model.constants.JOB_MEMORY_GB:
-                logger.warn('The chosen memory {} is below the needed memory {}. Changing to needed memory.'.format(nodes_setup.memory, ndop.model.constants.JOB_MEMORY_GB))
+        if nodes_setup.memory is None:
+            nodes_setup.memory = ndop.model.constants.JOB_MEMORY_GB
+        elif nodes_setup.memory < ndop.model.constants.JOB_MEMORY_GB:
+            logger.warn('The chosen memory {} is below the needed memory {}. Changing to needed memory.'.format(nodes_setup.memory, ndop.model.constants.JOB_MEMORY_GB))
             nodes_setup.memory = ndop.model.constants.JOB_MEMORY_GB
 
         ## check/set walltime
@@ -275,7 +276,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
 
         ## get output dir
         output_dir = self.output_dir
-        output_dir_not_expanded = os.path.join(self.output_dir_not_expanded, "") # ending with separator
+        output_dir_not_expanded = os.path.join(self.output_dir_not_expanded, '') # ending with separator
 
 
         ## set model options
@@ -294,7 +295,10 @@ class Metos3D_Job(util.batch.universal.system.Job):
         opt['/model/time_step_multiplier'] = time_step
         opt['/model/time_steps_per_year'] = time_steps_per_year
         opt['/model/time_step'] = 1 / time_steps_per_year
-
+        
+        concentrations = np.array([2.17, 10**-4]) * total_concentration_factor
+        opt['/model/concentrations'] = concentrations
+        
 
         ## set metos3d options
         opt['/metos3d/data_path'] = METOS_DATA_DIR
@@ -352,7 +356,8 @@ class Metos3D_Job(util.batch.universal.system.Job):
             f.write('-Metos3DTracerInputDirectory            {} \n'.format(opt['/metos3d/tracer_input_path']))
             f.write('-Metos3DTracerInitFile                  {},{} \n'.format(opt['/metos3d/po4_input_filename'], opt['/metos3d/dop_input_filename']))
         except KeyError:
-            f.write('-Metos3DTracerInitValue                 2.17e+0,1.e-4 \n')
+            # f.write('-Metos3DTracerInitValue                 2.17e+0,1.e-4 \n')
+            f.write('-Metos3DTracerInitValue                 {},{} \n').format(*opt['/model/concentrations']))
 
         try:
             f.write('-Metos3DTracerOutputDirectory           {} \n'.format(opt['/metos3d/tracer_output_path']))
