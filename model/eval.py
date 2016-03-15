@@ -81,7 +81,6 @@ class Model():
         time_dim = int(ndop.model.constants.METOS_T_DIM / time_step)
         self.lsm = measurements.land_sea_mask.data.LandSeaMaskTMM(t_dim=time_dim, t_centered=False)
         
-        
         ## set tolerance options
         try:
             parameter_tolerance_options = model_options['parameter_tolerance_options']
@@ -168,19 +167,18 @@ class Model():
             return None
     
     @property
-    def time_step(self):
-        try:
-            return self._model_options['time_step']
-        except KeyError:
-            return None
-    
-    @property
     def parameter_tolerance_options(self):
         try:
             return self._model_options['parameter_tolerance_options']
         except KeyError:
             return None
-
+    
+    @property
+    def time_step(self):
+        try:
+            return self._model_options['time_step']
+        except KeyError:
+            return None
 
 
 
@@ -260,20 +258,30 @@ class Model():
         logger.debug('Matching directory for parameters found at {}.'.format(parameter_set_dir))
         assert parameter_set_dir is not None or not create
         return parameter_set_dir
-    
-    
-    def spinup_run_dir(self, parameters_or_parameter_set_dir, spinup_options, start_from_closest_parameters=False):
-        from .constants import MODEL_SPINUP_DIRNAME, MODEL_PARAMETERS_FILENAME, MODEL_SPINUP_MAX_YEARS
-        
+
+
+    def spinup_dir(self, parameters_or_parameter_set_dir, create=True):
         ## get parameter set dir
         if isinstance(parameters_or_parameter_set_dir, str):
             parameter_set_dir = parameters_or_parameter_set_dir
         else:
             parameters = np.asanyarray(parameters_or_parameter_set_dir)
-            parameter_set_dir = self.parameter_set_dir(parameters)
+            parameter_set_dir = self.parameter_set_dir(parameters, create=create)
+        
+        ## return
+        spinup_dir = os.path.join(parameter_set_dir, ndop.model.constants.MODEL_SPINUP_DIRNAME)
+        logger.debug('Got spinup directory {} for parameters {}.'.format(spinup_dir, parameter_set_dir))
+        return spinup_dir
+    
+    
+    def spinup_run_dir(self, parameters_or_parameter_set_dir, spinup_options, start_from_closest_parameters=False):
+        from .constants import MODEL_SPINUP_DIRNAME, MODEL_PARAMETERS_FILENAME, MODEL_SPINUP_MAX_YEARS
         
         ## get spinup dir
-        spinup_dir = os.path.join(parameter_set_dir, MODEL_SPINUP_DIRNAME)
+        spinup_dir = self.spinup_dir(parameters_or_parameter_set_dir)
+        
+        ## get parameter set dir
+        parameter_set_dir = os.path.dirname(spinup_dir)
 
         ## get last run dir
         logger.debug('Searching for spinup with options {} in {}.'.format(spinup_options, spinup_dir))
@@ -660,7 +668,7 @@ class Model():
 
 
     def _df(self, load_trajectory_function, parameters, spinup_options=None):
-        from .constants import MODEL_OUTPUT_DIR, MODEL_DERIVATIVE_DIRNAME, MODEL_SPINUP_DIRNAME, MODEL_PARTIAL_DERIVATIVE_DIRNAME, METOS_TRACER_DIM, MODEL_START_FROM_CLOSEST_PARAMETER_SET, MODEL_PARAMETER_TYPICAL
+        from .constants import MODEL_OUTPUT_DIR, MODEL_DERIVATIVE_DIRNAME, MODEL_PARTIAL_DERIVATIVE_DIRNAME, METOS_TRACER_DIM, MODEL_START_FROM_CLOSEST_PARAMETER_SET, MODEL_PARAMETER_TYPICAL
 
         MODEL_DERIVATIVE_SPINUP_YEARS = self.derivative_options['years']
         MODEL_DERIVATIVE_STEP_SIZE = self.derivative_options['step_size']
