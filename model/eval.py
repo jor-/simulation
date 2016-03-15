@@ -9,6 +9,7 @@ import ndop.model.data
 import ndop.model.job
 import ndop.model.constants
 
+import measurements.land_sea_mask.data
 import measurements.util.interpolate
 
 import util.io.fs
@@ -74,6 +75,11 @@ class Model():
             if not time_step in ndop.model.constants.METOS_TIME_STEPS:
                 raise ValueError('Wrong time_step in model options. Time step has to be in {} .'.format(time_step, ndop.model.constants.METOS_TIME_STEPS))
             assert ndop.model.constants.METOS_T_DIM % time_step == 0
+        
+        ## set lsm
+        time_dim = int(ndop.model.constants.METOS_T_DIM / time_step)
+        self.lsm = measurements.land_sea_mask.data.LandSeaMaskTMM(t_dim=time_dim, t_centered=False)
+        
         
         ## set tolerance options
         try:
@@ -262,7 +268,7 @@ class Model():
         if isinstance(parameters_or_parameter_set_dir, str):
             parameter_set_dir = parameters_or_parameter_set_dir
         else:
-            parameters = np.asanyarray(parameters)
+            parameters = np.asanyarray(parameters_or_parameter_set_dir)
             parameter_set_dir = self.parameter_set_dir(parameters)
         
         ## get spinup dir
@@ -569,21 +575,21 @@ class Model():
 
 
     def _get_load_trajectory_function_for_points(self, points):
-        from .constants import LSM, MODEL_INTERPOLATOR_NUMBER_OF_LINEAR_INTERPOLATOR
+        from .constants import MODEL_INTERPOLATOR_NUMBER_OF_LINEAR_INTERPOLATOR
 
         ## convert to map indices
         interpolation_points = []
         for tracer_points in points:
             tracer_interpolation_points = np.array(tracer_points, copy=True)
-            tracer_interpolation_points = LSM.coordinates_to_map_indices(tracer_interpolation_points)
+            tracer_interpolation_points = self.lsm.coordinates_to_map_indices(tracer_interpolation_points)
             assert tracer_interpolation_points.ndim == 2 and tracer_interpolation_points.shape[1] == 4
             
             if MODEL_INTERPOLATOR_NUMBER_OF_LINEAR_INTERPOLATOR > 0:
-                for value_min, index in ([np.where(LSM.lsm > 0)[1].min(), 2], [0, 3]):
+                for value_min, index in ([np.where(self.lsm.lsm > 0)[1].min(), 2], [0, 3]):
                     for k in range(len(tracer_interpolation_points)):
                         if tracer_interpolation_points[k, index] < value_min:
                             tracer_interpolation_points[k, index] = value_min
-                for value_max, index in ([np.where(LSM.lsm > 0)[1].max(), 2], [LSM.z_dim - 1, 3]):
+                for value_max, index in ([np.where(self.lsm.lsm > 0)[1].max(), 2], [self.lsm.z_dim - 1, 3]):
                     for k in range(len(tracer_interpolation_points)):
                         if tracer_interpolation_points[k, index] > value_max:
                             tracer_interpolation_points[k, index] = value_max

@@ -252,7 +252,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
 
         ## check/set walltime
         sec_per_year = np.exp(- (nodes_setup.nodes * nodes_setup.cpus) / 40) * 30 + 1.5
-        sec_per_year /= time_step
+        sec_per_year /= time_step**(1/2)
         estimated_walltime_hours = np.ceil(years * sec_per_year / 60**2) + 1
         if nodes_setup.walltime is None:
             nodes_setup.walltime = estimated_walltime_hours
@@ -286,9 +286,14 @@ class Metos3D_Job(util.batch.universal.system.Job):
         opt['/model/parameters_file'] = os.path.join(output_dir_not_expanded, 'model_parameter.txt')
         np.savetxt(opt['/model/parameters_file'], opt['/model/parameters'], fmt=MODEL_PARAMETERS_FORMAT_STRING_OLD_STYLE)
 
-        time_step_count = int(METOS_T_DIM / time_step)
-        opt['/model/time_step_count'] = time_step_count
-        opt['/model/time_step'] = 1 / time_step_count
+        # time_step_count = int(METOS_T_DIM / time_step)
+        # opt['/model/time_step_count'] = time_step_count
+        # opt['/model/time_step'] = 1 / time_step_count
+        
+        time_steps_per_year = int(METOS_T_DIM / time_step)
+        opt['/model/time_step_multiplier'] = time_step
+        opt['/model/time_steps_per_year'] = time_steps_per_year
+        opt['/model/time_step'] = 1 / time_steps_per_year
 
 
         ## set metos3d options
@@ -345,7 +350,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
 
         try:
             f.write('-Metos3DTracerInputDirectory            {} \n'.format(opt['/metos3d/tracer_input_path']))
-            f.write('-Metos3DTracerInitFile                  {},{}s \n'.format(opt['/metos3d/po4_input_filename'], opt['/metos3d/dop_input_filename']))
+            f.write('-Metos3DTracerInitFile                  {},{} \n'.format(opt['/metos3d/po4_input_filename'], opt['/metos3d/dop_input_filename']))
         except KeyError:
             f.write('-Metos3DTracerInitValue                 2.17e+0,1.e-4 \n')
 
@@ -380,14 +385,14 @@ class Metos3D_Job(util.batch.universal.system.Job):
 
         f.write('# transport \n')
         f.write('-Metos3DTransportType                   Matrix \n')
-        f.write('-Metos3DMatrixInputDirectory            {}/Transport/Matrix5_4/{:d}dt/ \n'.format(opt['/metos3d/data_path'], opt['/model/time_step_count']))
+        f.write('-Metos3DMatrixInputDirectory            {}/Transport/Matrix5_4/{:d}dt/ \n'.format(opt['/metos3d/data_path'], opt['/model/time_step_multiplier']))
         f.write('-Metos3DMatrixCount                     12 \n')
         f.write('-Metos3DMatrixExplicitFileFormat        Ae_$02d.petsc \n')
         f.write('-Metos3DMatrixImplicitFileFormat        Ai_$02d.petsc \n\n')
 
         f.write('# time stepping \n')
         f.write('-Metos3DTimeStepStart                   0.0 \n')
-        f.write('-Metos3DTimeStepCount                   {:d} \n'.format(opt['/model/time_step_count']))
+        f.write('-Metos3DTimeStepCount                   {:d} \n'.format(opt['/model/time_steps_per_year']))
         f.write('-Metos3DTimeStep                        {:.18f} \n\n'.format(opt['/model/time_step']))
 
         f.write('# solver \n')
