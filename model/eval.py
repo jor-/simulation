@@ -208,7 +208,10 @@ class Model():
             return None
     
 
-    def check_if_parameters_in_bounds(self, parameters):
+    def check_parameters(self, parameters):
+        if len(parameters) != len(self.parameters_lower_bound):
+            raise ValueError('The parameters {} are not allowed. The length of the parameters have to be {} but it is {}.'.format(parameters, len(self.parameters_lower_bound), len(parameters)))
+        
         if any(parameters < self.parameters_lower_bound):
             indices = np.where(parameters < self.parameters_lower_bound)
             raise ValueError('The parameters {} are not allowed. The parameters with the indices {} are below their lower bound {}.'.format(parameters, indices, self.parameters_lower_bound[indices]))
@@ -220,7 +223,7 @@ class Model():
     
     def closest_parameter_set_dir(self, parameters, no_spinup_okay=True):
         logger.debug('Searching for directory for parameters as close as possible to {} with no_spinup_okay {}.'.format(parameters, no_spinup_okay))
-        self.check_if_parameters_in_bounds(parameters)
+        self.check_parameters(parameters)
         
         if no_spinup_okay:            
             ## get closest index
@@ -247,7 +250,7 @@ class Model():
     def parameter_set_dir(self, parameters, create=True):
         ## search for directories with matching parameters
         logger.debug('Searching parameter directory for parameters {} with create {}.'.format(parameters, create))
-        self.check_if_parameters_in_bounds(parameters)
+        self.check_parameters(parameters)
         
         index = self._parameter_db.index(parameters)
         if index is None and create:
@@ -342,7 +345,7 @@ class Model():
         from .constants import MODEL_RUN_DIRNAME, MODEL_RUN_OPTIONS_FILENAME
 
         ## check parameters
-        self.check_if_parameters_in_bounds(parameters)
+        self.check_parameters(parameters)
 
         ## get next run index
         os.makedirs(output_path, exist_ok=True)
@@ -378,7 +381,7 @@ class Model():
         assert time_step >= 1
 
         ## check parameters
-        self.check_if_parameters_in_bounds(model_parameters)
+        self.check_parameters(model_parameters)
 
         ## execute job
         output_path_with_env = output_path.replace(ndop.constants.MODEL_OUTPUT_DIR, '${{{}}}'.format(ndop.constants.MODEL_OUTPUT_DIR_ENV_NAME))
@@ -796,7 +799,7 @@ class Model():
     def f_boxes(self, parameters, time_dim_desired):
         logger.debug('Calculating all f values for parameters {} with time dimension {}.'.format(parameters, time_dim_desired))
 
-        self.check_if_parameters_in_bounds(parameters)
+        self.check_parameters(parameters)
         
         f = self._f(self._get_load_trajectory_function_for_all(time_dim_desired), parameters, self.spinup_options)
         
@@ -809,7 +812,7 @@ class Model():
 
         if len(points) != 2:
             raise ValueError('Points have to be a sequence of 2 point arrays. But its length is {}.'.format(len(points)))
-        self.check_if_parameters_in_bounds(parameters)
+        self.check_parameters(parameters)
         
         f = self._f(self._get_load_trajectory_function_for_points(points), parameters, self.spinup_options)
 
@@ -821,7 +824,7 @@ class Model():
     def df_boxes(self, parameters, time_dim_desired):
         logger.debug('Calculating all df values for parameters {} with time dimension {}.'.format(parameters, time_dim_desired))
         
-        self.check_if_parameters_in_bounds(parameters)
+        self.check_parameters(parameters)
 
         df = self._df(self._get_load_trajectory_function_for_all(time_dim_desired=time_dim_desired), parameters, self.spinup_options)
 
@@ -834,7 +837,7 @@ class Model():
 
         if len(points) != 2:
             raise ValueError('Points have to be a sequence of 2 point arrays. But its length is {}.'.format(len(points)))
-        self.check_if_parameters_in_bounds(parameters)
+        self.check_parameters(parameters)
 
         df = self._df(self._get_load_trajectory_function_for_points(points), parameters, self.spinup_options)
 
