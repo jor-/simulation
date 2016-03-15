@@ -122,17 +122,18 @@ def print_all_values_for_min_values(cost_function_names):
     cost_function_names, all_normalized_values, best_indices, best_values = all_normalized_values_for_min_values(cost_function_names)
     m = ndop.model.eval.Model()
     
-    array_formatter = lambda value: '{:.0%}'.format(value)
+    parameter_formatter = lambda value: '{:.3}'.format(value)    
+    cf_values_formatter = lambda value: '{:.0%}'.format(value)
     
     def print_for_parameter_set(cost_function_name, index, values):
-        def array_to_str(array):
-            array_str = np.array2string(array, formatter={'all': array_formatter})
+        def array_to_str(array, formatter):
+            array_str = np.array2string(array, formatter={'all': formatter})
             array_str = array_str.replace('\n', '').replace('\r', '')
             return array_str
         p = m._parameter_db.get_value(index)
-        p_str = array_to_str(p)
+        p_str = array_to_str(p, parameter_formatter)
         print(': Parameter set {:d}: {} (Best for cost function {})'.format(index, p_str, cost_function_name))
-        print(array_to_str(values))
+        print(array_to_str(values, cf_values_formatter))
         print('')
 
     cost_function_names = [cf.replace('/max_year_diff_inf/min_diag_1e-02', '').replace('min_values_','') for cf in cost_function_names]
