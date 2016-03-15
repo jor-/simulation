@@ -795,6 +795,8 @@ class Model():
 
     def f_boxes(self, parameters, time_dim_desired):
         logger.debug('Calculating all f values for parameters {} with time dimension {}.'.format(parameters, time_dim_desired))
+
+        self.check_if_parameters_in_bounds(parameters)
         
         f = self._f(self._get_load_trajectory_function_for_all(time_dim_desired), parameters, self.spinup_options)
         
@@ -807,7 +809,8 @@ class Model():
 
         if len(points) != 2:
             raise ValueError('Points have to be a sequence of 2 point arrays. But its length is {}.'.format(len(points)))
-
+        self.check_if_parameters_in_bounds(parameters)
+        
         f = self._f(self._get_load_trajectory_function_for_points(points), parameters, self.spinup_options)
 
         assert len(f) == 2
@@ -817,6 +820,8 @@ class Model():
 
     def df_boxes(self, parameters, time_dim_desired):
         logger.debug('Calculating all df values for parameters {} with time dimension {}.'.format(parameters, time_dim_desired))
+        
+        self.check_if_parameters_in_bounds(parameters)
 
         df = self._df(self._get_load_trajectory_function_for_all(time_dim_desired=time_dim_desired), parameters, self.spinup_options)
 
@@ -826,6 +831,10 @@ class Model():
 
     def df_points(self, parameters, points):
         logger.debug('Calculating df values for parameters {} at {} points.'.format(parameters, tuple(map(len, points))))
+
+        if len(points) != 2:
+            raise ValueError('Points have to be a sequence of 2 point arrays. But its length is {}.'.format(len(points)))
+        self.check_if_parameters_in_bounds(parameters)
 
         df = self._df(self._get_load_trajectory_function_for_points(points), parameters, self.spinup_options)
 
