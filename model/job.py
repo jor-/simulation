@@ -357,7 +357,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
             f.write('-Metos3DTracerInitFile                  {},{} \n'.format(opt['/metos3d/po4_input_filename'], opt['/metos3d/dop_input_filename']))
         except KeyError:
             # f.write('-Metos3DTracerInitValue                 2.17e+0,1.e-4 \n')
-            f.write('-Metos3DTracerInitValue                 {},{} \n').format(*opt['/model/concentrations']))
+            f.write('-Metos3DTracerInitValue                 {},{} \n'.format(*opt['/model/concentrations']))
 
         try:
             f.write('-Metos3DTracerOutputDirectory           {} \n'.format(opt['/metos3d/tracer_output_path']))
