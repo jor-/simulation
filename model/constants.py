@@ -1,13 +1,13 @@
 import numpy as np
 import os.path
 
-from ndop.constants import MODEL_OUTPUT_DIR, METOS_DIR
+from ndop.constants import MODEL_OUTPUT_DIR, METOS3D_DIR
 import measurements.land_sea_mask.data
 
 
 ## METOS 3D
-METOS_DATA_DIR = os.path.join(METOS_DIR, 'data', 'data', 'TMM', '2.8')
-METOS_SIM_FILE = os.path.join(METOS_DIR, 'simpack', 'metos3d-simpack-MITgcm-PO4-DOP.exe')
+METOS_DATA_DIR = os.path.join(METOS3D_DIR, 'data', 'data', 'TMM', '2.8')
+METOS_SIM_FILE = os.path.join(METOS3D_DIR, 'simpack', 'metos3d-simpack-MITgcm-PO4-DOP.exe')
 
 
 ## METOS 3D N-DOP
