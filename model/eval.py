@@ -354,14 +354,7 @@ class Model():
         run_dir = os.path.join(output_path, run_dirname)
 
         logger.debug('Creating new run directory at {}.'.format(run_dir))
-
         os.makedirs(run_dir, exist_ok=False)
-
-        ## create run options file
-        run_options = np.array((years, tolerance, time_step))
-        run_options_file = os.path.join(run_dir, MODEL_RUN_OPTIONS_FILENAME)
-        np.savetxt(run_options_file, run_options)
-        util.io.fs.make_read_only(run_options_file)
 
         ## create run
         if tracer_input_path is not None and output_path == os.path.dirname(tracer_input_path):
@@ -839,3 +832,5 @@ class Model():
         assert len(df) == 2
         assert (not np.any(np.isnan(df[0]))) and (not np.any(np.isnan(df[1])))
         return df
+
+

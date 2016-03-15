@@ -48,8 +48,6 @@ MODEL_DERIVATIVE_DIRNAME = os.path.join('derivative', 'step_size_{}')     # fini
 MODEL_PARTIAL_DERIVATIVE_DIRNAME = 'partial_derivative_{}_{:+}' # partial_derivative, h_factor
 MODEL_RUN_DIRNAME = 'run_{:0>2}'              # substituted by the number of the run to 2 digits
 
-MODEL_RUN_OPTIONS_FILENAME = 'run_options.txt'
-
 MODEL_PARAMETERS_FILENAME = 'parameters.txt'
 MODEL_PARAMETERS_RELIABLE_DECIMAL_PLACES = np.finfo(np.float64).precision
 assert MODEL_PARAMETERS_RELIABLE_DECIMAL_PLACES == 15
