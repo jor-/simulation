@@ -2,7 +2,7 @@ import argparse
 import os.path
 import numpy as np
 
-import ndop.util.data_base
+import simulation.util.data_base
 
 import util.batch.universal.system
 import util.logging
@@ -57,7 +57,7 @@ if __name__ == "__main__":
     model_options['derivative_options'] = derivative_options
     
     ## prepare job option
-    from ndop.optimization.constants import COST_FUNCTION_NODES_SETUP_SPINUP, COST_FUNCTION_NODES_SETUP_DERIVATIVE, COST_FUNCTION_NODES_SETUP_TRAJECTORY
+    from simulation.optimization.constants import COST_FUNCTION_NODES_SETUP_SPINUP, COST_FUNCTION_NODES_SETUP_DERIVATIVE, COST_FUNCTION_NODES_SETUP_TRAJECTORY
     job_setup = {'name':'NDOP'}
     job_setup['spinup'] = {'nodes_setup' : COST_FUNCTION_NODES_SETUP_SPINUP}
     job_setup['derivative'] = {'nodes_setup' : COST_FUNCTION_NODES_SETUP_DERIVATIVE}
@@ -65,7 +65,7 @@ if __name__ == "__main__":
 
     ## create model
     with util.logging.Logger(disp_stdout=args.debug):
-        db = ndop.util.data_base.DataBase(model_options=model_options, job_setup=job_setup)
+        db = simulation.util.data_base.DataBase(model_options=model_options, job_setup=job_setup)
         
         ## get p
         if args.p is not None:
@@ -78,7 +78,7 @@ if __name__ == "__main__":
             db.f_boxes(p, args.time_dim)
         if args.eval_grad_value:
             db.df_boxes(p, args.time_dim)
-        # db = ndop.util.data_base.DataBase(spinup_options=spinup_options, derivative_options=derivative_options, job_setup=job_setup)
+        # db = simulation.util.data_base.DataBase(spinup_options=spinup_options, derivative_options=derivative_options, job_setup=job_setup)
         # if args.eval_function_value:
         #     db.f_boxes(p, args.time_dim)
         # if args.eval_grad_value:

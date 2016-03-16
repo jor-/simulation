@@ -1,8 +1,8 @@
 import bisect
 import numpy as np
 
-import ndop.util.value_cache
-import ndop.model.eval
+import simulation.util.value_cache
+import simulation.model.eval
 
 import measurements.all.box.data
 import measurements.all.pw.values
@@ -28,16 +28,16 @@ class DataBase:
 
         logger.debug('Initiating {} with model_options {} and job_setup {}.'.format(self, model_options, job_setup))
         
-        self.model = ndop.model.eval.Model(model_options=model_options, job_setup=job_setup)
+        self.model = simulation.model.eval.Model(model_options=model_options, job_setup=job_setup)
 
         self._F_boxes_cache_filename = BOXES_F_FILENAME
         self._DF_boxes_cache_filename = BOXES_DF_FILENAME
         
         self.default_boxes_t_dim = DEFAULT_BOXES_T_DIM
         
-        self.hdd_cache = ndop.util.value_cache.Cache(model_options=model_options, cache_dirname=CACHE_DIRNAME, use_memory_cache=True)
+        self.hdd_cache = simulation.util.value_cache.Cache(model_options=model_options, cache_dirname=CACHE_DIRNAME, use_memory_cache=True)
         self.memory_cache = util.cache.MemoryCache()
-        self.memory_cache_with_parameters = ndop.util.value_cache.MemoryCache()
+        self.memory_cache_with_parameters = simulation.util.value_cache.MemoryCache()
 
         if job_setup is None:
             job_setup = {}
@@ -249,7 +249,7 @@ class WOA(DataBaseHDD):
 
         ## compute annual box index
         from measurements.po4.woa.data13.constants import ANNUAL_THRESHOLD
-        from ndop.model.constants import METOS_Z_LEFT
+        from simulation.model.constants import METOS_Z_LEFT
         self.ANNUAL_THRESHOLD_INDEX = bisect.bisect_right(METOS_Z_LEFT, ANNUAL_THRESHOLD)
 
 
@@ -428,7 +428,7 @@ class WOD(DataBaseHDD, WOD_Base):
     ## correlation methods for P3 correlation
 
     def correlation_parameters(self, parameters):
-        from ndop.optimization.constants import COST_FUNCTION_CORRELATION_PARAMETER_FILENAME
+        from simulation.optimization.constants import COST_FUNCTION_CORRELATION_PARAMETER_FILENAME
         correlation_parameters = self.get_file(parameters, COST_FUNCTION_CORRELATION_PARAMETER_FILENAME)
         return correlation_parameters
 

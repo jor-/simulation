@@ -4,7 +4,7 @@ import numpy as np
 import util.io.fs
 import util.pattern
 
-from ndop.constants import PARAMETER_OPTIMIZATION_DIR
+from simulation.constants import PARAMETER_OPTIMIZATION_DIR
 ITERATIONS_DIRNAME = 'iterations'
 SETUP_DIRNAME = 'setup'
 

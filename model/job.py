@@ -4,7 +4,7 @@ import subprocess
 import re
 import numpy as np
 
-import ndop.model.constants
+import simulation.model.constants
 
 import util.batch.universal.system
 import util.io.fs
@@ -62,7 +62,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
 
     @property
     def time_step(self):
-        from ndop.model.constants import METOS_T_DIM
+        from simulation.model.constants import METOS_T_DIM
 
         opt = self.options
         metos3d_opt_file = opt['/metos3d/option_file']
@@ -210,15 +210,15 @@ class Metos3D_Job(util.batch.universal.system.Job):
 
 
     def write_job_file(self, model_name, model_parameters, years, tolerance=None, time_step=1, write_trajectory=False, tracer_input_path=None, job_setup=None):
-        from ndop.model.constants import JOB_OPTIONS_FILENAME, JOB_MEMORY_GB, DATABASE_PARAMETERS_FORMAT_STRING, DATABASE_PARAMETERS_FORMAT_STRING_OLD_STYLE, METOS_T_DIM, METOS_DATA_DIR, METOS_SIM_FILE
+        from simulation.model.constants import JOB_OPTIONS_FILENAME, JOB_MEMORY_GB, DATABASE_PARAMETERS_FORMAT_STRING, DATABASE_PARAMETERS_FORMAT_STRING_OLD_STYLE, METOS_T_DIM, METOS_DATA_DIR, METOS_SIM_FILE
 
         logger.debug('Initialising job with job_setup {}.'.format(job_setup))
 
 
         ## check input
-        if not time_step in ndop.model.constants.METOS_TIME_STEPS:
-            raise ValueError('Wrong time_step in model options. Time step has to be in {} .'.format(time_step, ndop.model.constants.METOS_TIME_STEPS))
-        assert ndop.model.constants.METOS_T_DIM % time_step == 0
+        if not time_step in simulation.model.constants.METOS_TIME_STEPS:
+            raise ValueError('Wrong time_step in model options. Time step has to be in {} .'.format(time_step, simulation.model.constants.METOS_TIME_STEPS))
+        assert simulation.model.constants.METOS_T_DIM % time_step == 0
 
         ## unpack job setup
         if job_setup is not None:
@@ -246,10 +246,10 @@ class Metos3D_Job(util.batch.universal.system.Job):
 
         ## check/set memory
         if nodes_setup.memory is None:
-            nodes_setup.memory = ndop.model.constants.JOB_MEMORY_GB
-        elif nodes_setup.memory < ndop.model.constants.JOB_MEMORY_GB:
-            logger.warn('The chosen memory {} is below the needed memory {}. Changing to needed memory.'.format(nodes_setup.memory, ndop.model.constants.JOB_MEMORY_GB))
-            nodes_setup.memory = ndop.model.constants.JOB_MEMORY_GB
+            nodes_setup.memory = simulation.model.constants.JOB_MEMORY_GB
+        elif nodes_setup.memory < simulation.model.constants.JOB_MEMORY_GB:
+            logger.warn('The chosen memory {} is below the needed memory {}. Changing to needed memory.'.format(nodes_setup.memory, simulation.model.constants.JOB_MEMORY_GB))
+            nodes_setup.memory = simulation.model.constants.JOB_MEMORY_GB
 
         ## check/set walltime
         sec_per_year = np.exp(- (nodes_setup.nodes * nodes_setup.cpus) / 40) * 30 + 1.5
@@ -284,7 +284,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
 
         model_parameters = np.asarray(model_parameters, dtype=np.float64) 
                
-        if model_name.endwith(ndop.model.constants.MODEL_NAME_TOTAL_CONCENTRATION_SUFFIX):
+        if model_name.endwith(simulation.model.constants.MODEL_NAME_TOTAL_CONCENTRATION_SUFFIX):
             total_concentration_factor = model_parameters[-1]
             model_parameters = model_parameters[:-1]
         else:

@@ -3,9 +3,9 @@ import os
 import stat
 import numpy as np
 
-import ndop.model.eval
-import ndop.model.job
-import ndop.util.data_base
+import simulation.model.eval
+import simulation.model.job
+import simulation.util.data_base
 
 import util.io.fs
 import util.batch.universal.system
@@ -38,7 +38,7 @@ def check_job_file_integrity_spinup(spinup_dir, is_spinup):
 
             ## check job file
             try:
-                with ndop.model.job.Metos3D_Job(run_dir, force_load=True) as job:
+                with simulation.model.job.Metos3D_Job(run_dir, force_load=True) as job:
                     ## check if started
                     if not job.is_started():
                         print('Job in {} is not started!'.format(run_dir))
@@ -118,7 +118,7 @@ def check_job_file_integrity_spinup(spinup_dir, is_spinup):
                     break
             else:
                 ## check exit code
-                with ndop.model.job.Metos3D_Job(run_dir, force_load=True) as job:
+                with simulation.model.job.Metos3D_Job(run_dir, force_load=True) as job:
                     exit_code = job.exit_code
 
                 if exit_code != 0:
@@ -140,7 +140,7 @@ def check_job_file_integrity_spinup(spinup_dir, is_spinup):
                 else:
                     print('Job output file {} does not exist!'.format(job_output_file))
 
-                with ndop.model.job.Metos3D_Job(run_dir, force_load=True) as job:
+                with simulation.model.job.Metos3D_Job(run_dir, force_load=True) as job:
                     try:
                         job.last_year
                     except:
@@ -154,10 +154,10 @@ def check_job_file_integrity_spinup(spinup_dir, is_spinup):
 
 
 def check_job_file_integrity(model_name='dop_po4', time_step=1, parameter_set_dirs_to_check=None, check_for_same_parameters=True):
-    from ndop.model.constants import DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME, DATABASE_TIME_STEP_DIRNAME, DATABASE_SPINUP_DIRNAME, DATABASE_DERIVATIVE_DIRNAME, JOB_OPTIONS_FILENAME, DATABASE_PARAMETERS_FILENAME
-    from ndop.util.constants import CACHE_DIRNAME, WOD_F_FILENAME, WOD_DF_FILENAME
+    from simulation.model.constants import DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME, DATABASE_TIME_STEP_DIRNAME, DATABASE_SPINUP_DIRNAME, DATABASE_DERIVATIVE_DIRNAME, JOB_OPTIONS_FILENAME, DATABASE_PARAMETERS_FILENAME
+    from simulation.util.constants import CACHE_DIRNAME, WOD_F_FILENAME, WOD_DF_FILENAME
 
-    wod_m = ndop.util.data_base.WOD().m
+    wod_m = simulation.util.data_base.WOD().m
 
     model_dirname = DATABASE_MODEL_DIRNAME.format(model_name)
     model_dir = os.path.join(DATABASE_OUTPUT_DIR, model_dirname)
@@ -249,7 +249,7 @@ def check_db_integrity(model_name='dop_po4', time_step=1):
     print('Checking parameter database integrity.')
     
     model_options = {'time_step': time_step}
-    m = ndop.model.eval.Model(model_options=model_options)
+    m = simulation.model.eval.Model(model_options=model_options)
     array_db = m._parameter_db.array_db
     file_db = m._parameter_db.file_db
     

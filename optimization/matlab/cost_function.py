@@ -7,9 +7,9 @@ if __name__ == "__main__":
 
     import numpy as np
     
-    import ndop.model.constants
-    import ndop.optimization.cost_function
-    import ndop.optimization.job
+    import simulation.model.constants
+    import simulation.optimization.cost_function
+    import simulation.optimization.job
     
     import util.batch.universal.system
     import util.io.matlab
@@ -18,7 +18,7 @@ if __name__ == "__main__":
     import util.logging
     logger = util.logging.logger
     
-    from ndop.optimization.matlab.constants import MATLAB_PARAMETER_FILENAME, MATLAB_F_FILENAME, MATLAB_DF_FILENAME, NODES_MAX_FILENAME, KIND_OF_COST_FUNCTIONS
+    from simulation.optimization.matlab.constants import MATLAB_PARAMETER_FILENAME, MATLAB_F_FILENAME, MATLAB_DF_FILENAME, NODES_MAX_FILENAME, KIND_OF_COST_FUNCTIONS
     
     
     ## parse arguments
@@ -31,8 +31,8 @@ if __name__ == "__main__":
     parser.add_argument('--eval_function_value', '-f', action='store_true', help='Save the value of the cost function.')
     parser.add_argument('--eval_grad_value', '-g', action='store_true', help='Save the values of the derivative of the cost function.')
 
-    parser.add_argument('--model_name', default=None, choices=ndop.model.constants.MODEL_NAMES, help='The name of the model to use for the simulations.')
-    parser.add_argument('--time_step', type=int, default=1, choices=ndop.model.constants.METOS_TIME_STEPS, help='The time step multiplier to use for the simulations.')
+    parser.add_argument('--model_name', default=None, choices=simulation.model.constants.MODEL_NAMES, help='The name of the model to use for the simulations.')
+    parser.add_argument('--time_step', type=int, default=1, choices=simulation.model.constants.METOS_TIME_STEPS, help='The time step multiplier to use for the simulations.')
 
     parser.add_argument('--spinup_years', '-y', '--years', type=int, default=10000, help='The number of years for the spinup.')
     parser.add_argument('--spinup_tolerance', '-t', '--tolerance', type=float, default=0, help='The tolerance for the spinup.')
@@ -102,7 +102,7 @@ if __name__ == "__main__":
     ## prepare job setup
     def prepare_job_setup():
         if args.nodes_setup_node_kind is not None:
-            from ndop.optimization.constants import COST_FUNCTION_NODES_SETUP_SPINUP
+            from simulation.optimization.constants import COST_FUNCTION_NODES_SETUP_SPINUP
             nodes_setup = COST_FUNCTION_NODES_SETUP_SPINUP.copy()
             nodes_setup['node_kind'] = args.nodes_setup_node_kind
             nodes_setup['nodes'] = args.nodes_setup_number_of_nodes
@@ -132,13 +132,13 @@ if __name__ == "__main__":
             cf_kind = cf_kind_splitted[0]
 
             if cf_kind == 'OLS':
-                cf_class = ndop.optimization.cost_function.OLS
+                cf_class = simulation.optimization.cost_function.OLS
             elif cf_kind == 'WLS':
-                cf_class = ndop.optimization.cost_function.WLS
+                cf_class = simulation.optimization.cost_function.WLS
             elif cf_kind == 'LWLS':
-                cf_class = ndop.optimization.cost_function.LWLS
+                cf_class = simulation.optimization.cost_function.LWLS
             elif cf_kind == 'GLS':
-                cf_class = ndop.optimization.cost_function.GLS
+                cf_class = simulation.optimization.cost_function.GLS
                 correlation_min_values = int(cf_kind_splitted[1])
                 correlation_max_year_diff = int(cf_kind_splitted[2])
                 if correlation_max_year_diff < 0:
@@ -159,7 +159,7 @@ if __name__ == "__main__":
 
             ## if necessary start calculation job
             if (eval_function_value and not cf.f_available(parameters)) or (eval_grad_value and not cf.df_available(parameters)):
-                from ndop.model.constants import MODEL_START_FROM_CLOSEST_PARAMETER_SET
+                from simulation.model.constants import MODEL_START_FROM_CLOSEST_PARAMETER_SET
                 from util.constants import TMP_DIR
 
                 ## start spinup job
@@ -170,7 +170,7 @@ if __name__ == "__main__":
                 output_dir = tempfile.mkdtemp(dir=TMP_DIR, prefix='cost_function_tmp_')
                 util.io.fs.add_group_permissions(output_dir)
                 cf_kargs['job_setup'] = prepare_job_setup()
-                with ndop.optimization.job.CostFunctionJob(output_dir, parameters, cf_kind, eval_f=eval_function_value, eval_df=eval_grad_value, **cf_kargs) as cf_job:
+                with simulation.optimization.job.CostFunctionJob(output_dir, parameters, cf_kind, eval_f=eval_function_value, eval_df=eval_grad_value, **cf_kargs) as cf_job:
                     cf_job.start()
                     cf_job.wait_until_finished()
                 try:

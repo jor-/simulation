@@ -3,8 +3,8 @@ import numpy as np
 import scipy.stats
 import scipy.sparse
 
-import ndop.util.value_cache
-import ndop.util.data_base
+import simulation.util.value_cache
+import simulation.util.data_base
 
 import util.math.matrix
 import util.math.sparse.solve
@@ -30,8 +30,8 @@ class Base():
         except KeyError:
             job_setup['name'] = 'A_' + kind
 
-        self.data_base = ndop.util.data_base.init_data_base(data_kind, model_options=model_options, job_setup=job_setup)
-        self.cache = ndop.util.value_cache.Cache(model_options=model_options, cache_dirname=self.cache_dirname, use_memory_cache=True)
+        self.data_base = simulation.util.data_base.init_data_base(data_kind, model_options=model_options, job_setup=job_setup)
+        self.cache = simulation.util.value_cache.Cache(model_options=model_options, cache_dirname=self.cache_dirname, use_memory_cache=True)
         self.dtype = np.float128
     
 
@@ -470,7 +470,7 @@ class GLS_P3(Base):
 
 
 
-class Family(ndop.util.data_base.Family):
+class Family(simulation.util.data_base.Family):
     
     member_classes = {'WOA': [(OLS, [{}]), (WLS, [{}])], 'WOD': [(OLS, [{}]), (WLS, [{}]), (GLS, [{'correlation_min_measurements': correlation_min_measurements, 'correlation_max_year_diff': float('inf')} for correlation_min_measurements in (30, 35, 40)])]}
 

@@ -9,8 +9,8 @@ import util.petsc.universal
 ## convert Metos vector to 3D vector
 
 def convert_metos_1D_to_3D(metos_vec):
-#     from ndop.model.constants import METOS_X_DIM, METOS_Y_DIM, METOS_Z_DIM
-    from ndop.model.constants import LSM
+#     from simulation.model.constants import METOS_X_DIM, METOS_Y_DIM, METOS_Z_DIM
+    from simulation.model.constants import LSM
 
     ## init array
     array = np.empty([LSM.x_dim, LSM.y_dim, LSM.z_dim], dtype=np.float64)
@@ -55,7 +55,7 @@ def convert_3D_to_metos_1D(data):
 ## load trajectory
 
 def load_trajectories_to_universal(path, convert_function=None, converted_result_shape=None, tracer_indices=None, time_dim_desired=None, set_negative_values_to_zero=False):
-    from ndop.model.constants import METOS_T_DIM, METOS_TRAJECTORY_FILENAMES
+    from simulation.model.constants import METOS_T_DIM, METOS_TRAJECTORY_FILENAMES
 
     logging.debug('Loading trajectories with tracer indices {}, desired time dim {}, set_negative_values_to_zero {} and convert function {} with result shape {} from {}.'.format(tracer_indices, time_dim_desired, set_negative_values_to_zero, convert_function, converted_result_shape, path))
 
@@ -177,7 +177,7 @@ def load_trajectories_to_universal(path, convert_function=None, converted_result
 
 
 def _check_tracer_index(tracer_index):
-    from ndop.model.constants import METOS_TRACER_DIM
+    from simulation.model.constants import METOS_TRACER_DIM
 
     tracer_index_array = np.asanyarray(tracer_index, dtype=np.int)
     if tracer_index_array.ndim != 0:
@@ -189,7 +189,7 @@ def _check_tracer_index(tracer_index):
 
 
 def load_trajectories_to_map(path, tracer_index, time_dim_desired=None):
-    from ndop.model.constants import METOS_SPACE_DIM
+    from simulation.model.constants import METOS_SPACE_DIM
 
     ## check input
     _check_tracer_index(tracer_index)

@@ -5,10 +5,10 @@ import time
 
 import numpy as np
 
-import ndop.optimization.cost_function
-import ndop.optimization.constants
-import ndop.optimization.job
-import ndop.model.eval
+import simulation.optimization.cost_function
+import simulation.optimization.constants
+import simulation.optimization.job
+import simulation.model.eval
 
 import util.batch.universal.system
 import util.logging
@@ -16,7 +16,7 @@ logger = util.logging.logger
 
 
 def save(model_name='dop_po4', time_step=1, parameter_sets=range(9999), data_kind='WOA', eval_f=True, eval_df=True, as_jobs=False):
-    from ndop.model.constants import DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME, DATABASE_TIME_STEP_DIRNAME, DATABASE_PARAMETERS_SET_DIRNAME, DATABASE_PARAMETERS_FILENAME, DATABASE_SPINUP_DIRNAME, DATABASE_DERIVATIVE_DIRNAME
+    from simulation.model.constants import DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME, DATABASE_TIME_STEP_DIRNAME, DATABASE_PARAMETERS_SET_DIRNAME, DATABASE_PARAMETERS_FILENAME, DATABASE_SPINUP_DIRNAME, DATABASE_DERIVATIVE_DIRNAME
     
     ## get time step dir
     model_dirname = DATABASE_MODEL_DIRNAME.format(model_name)
@@ -25,7 +25,7 @@ def save(model_name='dop_po4', time_step=1, parameter_sets=range(9999), data_kin
     time_step_dir = os.path.join(model_dir, time_step_dirname)
     
     ## create model
-    model = ndop.model.eval.Model()
+    model = simulation.model.eval.Model()
 
     ## save for all parameter sets
     for parameter_set_number in parameter_sets:
@@ -48,7 +48,7 @@ def save(model_name='dop_po4', time_step=1, parameter_sets=range(9999), data_kin
                 time_step = model.get_time_step(last_run_dir)
 
                 cf_kargs = {'data_kind': data_kind, 'model_options': {'spinup_options': {'years':years, 'tolerance':tolerance, 'combination':'and'}}, 'job_setup':{'name': 'SCF_' + data_kind}}
-                cost_function_family = ndop.optimization.cost_function.Family(**cf_kargs)
+                cost_function_family = simulation.optimization.cost_function.Family(**cf_kargs)
                 
         ## eval cf family
         if cost_function_family is not None:
@@ -76,7 +76,7 @@ def save(model_name='dop_po4', time_step=1, parameter_sets=range(9999), data_kin
                             cf_kargs = cf.kargs
                             cf_kargs['job_setup'] = {'name': '{}:{}'.format(cf, parameter_set_number)}
                             nodes_setup = util.batch.universal.system.NodeSetup(memory=50, node_kind='clexpress', nodes=1, cpus=1, total_cpus_max=1, walltime=1)
-                            with ndop.optimization.job.CostFunctionJob(output_dir, p, cf.kind, eval_f=eval_f, eval_df=eval_df, nodes_setup=nodes_setup, **cf_kargs) as cf_job:
+                            with simulation.optimization.job.CostFunctionJob(output_dir, p, cf.kind, eval_f=eval_f, eval_df=eval_df, nodes_setup=nodes_setup, **cf_kargs) as cf_job:
                                 cf_job.start()
                             time.sleep(10)
 
@@ -89,7 +89,7 @@ def save(model_name='dop_po4', time_step=1, parameter_sets=range(9999), data_kin
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Calculating cost function values.')
 
-    parser.add_argument('-k', '--kind_of_cost_function', choices=tuple(ndop.optimization.cost_function.Family.member_classes.keys()), help='The kind of the cost function to chose.')
+    parser.add_argument('-k', '--kind_of_cost_function', choices=tuple(simulation.optimization.cost_function.Family.member_classes.keys()), help='The kind of the cost function to chose.')
     parser.add_argument('-f', '--first', type=int, default=0, help='First parameter set number for which to calculate the values.')
     parser.add_argument('-l', '--last', type=int, default=9999, help='Last parameter set number for which to calculate the values.')
     parser.add_argument('-d', '--debug', action='store_true', help='Print debug infos.')

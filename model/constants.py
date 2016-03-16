@@ -1,7 +1,7 @@
 import numpy as np
 import os.path
 
-from ndop.constants import METOS3D_DIR
+from simulation.constants import METOS3D_DIR
 import measurements.land_sea_mask.data
 
 
@@ -61,7 +61,7 @@ for model in MODEL_PARAMETER_LOWER_BOUND.keys():
 
 
 ## database directories and files
-from ndop.constants import SIMULATION_OUTPUT_DIR as DATABASE_OUTPUT_DIR
+from simulation.constants import SIMULATION_OUTPUT_DIR as DATABASE_OUTPUT_DIR
 DATABASE_MODEL_DIRNAME = 'model_{}'
 DATABASE_TIME_STEP_DIRNAME = 'time_step_{:0>4}'
 DATABASE_PARAMETERS_SET_DIRNAME = 'parameter_set_{:0>5}'   # substituted by the number of the run to 5 digits

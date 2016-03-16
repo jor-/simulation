@@ -3,10 +3,10 @@ import os
 import os.path
 
 import measurements.util.data
-import ndop.optimization.results
-import ndop.optimization.min_values
-import ndop.util.data_base
-import ndop.constants
+import simulation.optimization.results
+import simulation.optimization.min_values
+import simulation.util.data_base
+import simulation.constants
 
 import util.plot
 import util.logging
@@ -14,7 +14,7 @@ logger = util.logging.logger
 
 
 def get_kind(data_kind, setup_index=3):
-    data_kinds = [cost_function_name for cost_function_name in ndop.optimization.min_values.COST_FUNCTION_NAMES if cost_function_name.startswith(data_kind) and not 'LWLS' in cost_function_name]
+    data_kinds = [cost_function_name for cost_function_name in simulation.optimization.min_values.COST_FUNCTION_NAMES if cost_function_name.startswith(data_kind) and not 'LWLS' in cost_function_name]
     data_kinds_with_setup = ['setup_{}/'.format(setup_index) + data_kind for data_kind in data_kinds]
     if 'OLD' in data_kind:
         data_kinds_with_setup = [dk for dk in data_kinds_with_setup if not '30' in dk]
@@ -59,7 +59,7 @@ def optimization_cost_function_for_data_kind(data_kind='WOD', path='/tmp', y_max
     
     ## get data
     def get_data(kind_of_cost_functions):
-        f_all = ndop.optimization.results.all_f(kind_of_cost_functions)
+        f_all = simulation.optimization.results.all_f(kind_of_cost_functions)
         
         if number_of_function_evals_max > 0 and len(f_all) > number_of_function_evals_max:
             f_all = f_all[:number_of_function_evals_max]
@@ -87,7 +87,7 @@ def optimization_cost_function_for_data_kind(data_kind='WOD', path='/tmp', y_max
     for i in range(n):
         x_all, f_all = get_data(kind_of_cost_functions[i])
         if len(f_all) > 0:
-            local_solver_runs_list = ndop.optimization.results.local_solver_runs_list(kind_of_cost_functions[i])
+            local_solver_runs_list = simulation.optimization.results.local_solver_runs_list(kind_of_cost_functions[i])
             for j in range(len(local_solver_runs_list)):
                 local_solver_run = local_solver_runs_list[j]
                 if number_of_function_evals_max > 0:
@@ -116,7 +116,7 @@ def optimization_parameters_for_kind(kind, path='/tmp', all_parameters_in_one_pl
     kind_label = get_label(kind)
 
     ## get values
-    all_p = ndop.optimization.results.all_p(kind)
+    all_p = simulation.optimization.results.all_p(kind)
     if number_of_function_evals_max > 0 and len(all_p) > number_of_function_evals_max:
         all_p = all_p[:number_of_function_evals_max]
     all_p = all_p.swapaxes(0,1)
@@ -160,7 +160,7 @@ def optimization_parameters_for_kind(kind, path='/tmp', all_parameters_in_one_pl
                 line_widths = []
 
             ## prepare plot local solver line
-            local_solver_runs_list = ndop.optimization.results.local_solver_runs_list(kind)
+            local_solver_runs_list = simulation.optimization.results.local_solver_runs_list(kind)
             for j in range(len(local_solver_runs_list)):
                 local_solver_run = local_solver_runs_list[j]
                 if number_of_function_evals_max > 0:
@@ -185,8 +185,8 @@ def optimization_parameters_for_kind(kind, path='/tmp', all_parameters_in_one_pl
 
         ## plot each parameter
         else:
-            solver_x = ndop.optimization.results.solver_f_indices(kind)
-            solver_p = ndop.optimization.results.solver_p(kind).swapaxes(0,1)
+            solver_x = simulation.optimization.results.solver_f_indices(kind)
+            solver_p = simulation.optimization.results.solver_p(kind).swapaxes(0,1)
             xs = [all_x, solver_x]
             line_styles = ['-', 'o']
             for i in range(n):
@@ -204,7 +204,7 @@ def optimization_parameters_for_data_kind(data_kind, path='/tmp', all_parameters
     
 
 def optimization_parameters(path='/tmp', with_line_search_steps=True):
-    for kind in ndop.optimization.min_values.COST_FUNCTION_NAMES:
+    for kind in simulation.optimization.min_values.COST_FUNCTION_NAMES:
         optimization_parameters_for_kind(path=path, kind=kind, with_line_search_steps=with_line_search_steps)
 
 
@@ -218,8 +218,8 @@ def optimization(path='/tmp', with_line_search_steps=True):
 
 
 def model_output(parameter_set_nr, kind='BOXES', path='/tmp', y_max=(None, None), average_in_time=False):
-    from ndop.model.constants import DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME, DATABASE_TIME_STEP_DIRNAME, DATABASE_PARAMETERS_SET_DIRNAME, DATABASE_PARAMETERS_FILENAME
-    from ndop.util.constants import CACHE_DIRNAME, BOXES_F_FILENAME, WOD_F_FILENAME
+    from simulation.model.constants import DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME, DATABASE_TIME_STEP_DIRNAME, DATABASE_PARAMETERS_SET_DIRNAME, DATABASE_PARAMETERS_FILENAME
+    from simulation.util.constants import CACHE_DIRNAME, BOXES_F_FILENAME, WOD_F_FILENAME
 
     logger.debug('Plotting model output for parameter set {}'.format(parameter_set_nr))
 
@@ -230,13 +230,13 @@ def model_output(parameter_set_nr, kind='BOXES', path='/tmp', y_max=(None, None)
 
     ## init data base
     if kind.upper() == 'BOXES':
-        data_base = ndop.util.data_base.init_data_base('WOA')
+        data_base = simulation.util.data_base.init_data_base('WOA')
         f = data_base.f_boxes(p)
         f[f < 0] = 0
         if average_in_time:
             f = f.mean(axis=1)
     else:
-        data_base = ndop.util.data_base.init_data_base('WOD')
+        data_base = simulation.util.data_base.init_data_base('WOD')
         f = data_base.F(p)
         f = data_base.convert_to_boxes(f, no_data_value=np.inf)
 
@@ -248,8 +248,8 @@ def model_output(parameter_set_nr, kind='BOXES', path='/tmp', y_max=(None, None)
 
 
 def relative_parameter_confidence(parameter_set_nr, kind='WOA_WLS', path='/tmp'):
-    from ndop.model.constants import DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME, DATABASE_TIME_STEP_DIRNAME, DATABASE_PARAMETERS_SET_DIRNAME, DATABASE_PARAMETERS_FILENAME
-    from ndop.accuracy.constants import CACHE_DIRNAME, PARAMETER_CONFIDENCE_FILENAME
+    from simulation.model.constants import DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME, DATABASE_TIME_STEP_DIRNAME, DATABASE_PARAMETERS_SET_DIRNAME, DATABASE_PARAMETERS_FILENAME
+    from simulation.accuracy.constants import CACHE_DIRNAME, PARAMETER_CONFIDENCE_FILENAME
 
     logger.debug('Plotting parameter confidence for parameter set {}'.format(parameter_set_nr))
 
@@ -271,8 +271,8 @@ def relative_parameter_confidence(parameter_set_nr, kind='WOA_WLS', path='/tmp')
 
 
 def model_confidence(parameter_set_nr, kind='WOA_WLS', path='/tmp', v_max=[None, None], time_dim_confidence=12, time_dim_df=12, average_in_time=False):
-    from ndop.model.constants import DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME, DATABASE_TIME_STEP_DIRNAME, DATABASE_PARAMETERS_SET_DIRNAME
-    from ndop.accuracy.constants import CACHE_DIRNAME, MODEL_CONFIDENCE_FILENAME
+    from simulation.model.constants import DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME, DATABASE_TIME_STEP_DIRNAME, DATABASE_PARAMETERS_SET_DIRNAME
+    from simulation.accuracy.constants import CACHE_DIRNAME, MODEL_CONFIDENCE_FILENAME
 
     logger.debug('Plotting model confidence for parameter set {}'.format(parameter_set_nr))
 
@@ -299,8 +299,8 @@ def model_confidence(parameter_set_nr, kind='WOA_WLS', path='/tmp', v_max=[None,
 
 
 def average_model_confidence_increase(parameter_set_nr, kind='WOA_WLS', path='/tmp', time_dim_df=12):
-    from ndop.model.constants import DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME, DATABASE_TIME_STEP_DIRNAME, DATABASE_PARAMETERS_SET_DIRNAME
-    from ndop.accuracy.constants import CACHE_DIRNAME, AVERAGE_MODEL_CONFIDENCE_INCREASE_FILENAME
+    from simulation.model.constants import DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME, DATABASE_TIME_STEP_DIRNAME, DATABASE_PARAMETERS_SET_DIRNAME
+    from simulation.accuracy.constants import CACHE_DIRNAME, AVERAGE_MODEL_CONFIDENCE_INCREASE_FILENAME
 
     logger.debug('Plotting average model confidence increase for parameter set {}'.format(parameter_set_nr))
 
@@ -325,8 +325,8 @@ def average_model_confidence_increase(parameter_set_nr, kind='WOA_WLS', path='/t
 
 
 def model_diff(parameter_set_nr, data_kind='WOA', path='/tmp', normalize_with_deviation=False, y_max=(None, None)):
-    from ndop.model.constants import DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME, DATABASE_TIME_STEP_DIRNAME, DATABASE_PARAMETERS_SET_DIRNAME, DATABASE_PARAMETERS_FILENAME
-    from ndop.model.constants import (METOS_X_DIM as X_DIM, METOS_Y_DIM as Y_DIM, METOS_Z_LEFT as Z_VALUES_LEFT)
+    from simulation.model.constants import DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME, DATABASE_TIME_STEP_DIRNAME, DATABASE_PARAMETERS_SET_DIRNAME, DATABASE_PARAMETERS_FILENAME
+    from simulation.model.constants import (METOS_X_DIM as X_DIM, METOS_Y_DIM as Y_DIM, METOS_Z_LEFT as Z_VALUES_LEFT)
 
     logger.debug('Plotting model output for parameter set {}'.format(parameter_set_nr))
 
@@ -336,7 +336,7 @@ def model_diff(parameter_set_nr, data_kind='WOA', path='/tmp', normalize_with_de
     p = np.loadtxt(p_file)
 
     ## init data base
-    data_base = ndop.util.data_base.init_data_base(data_kind)
+    data_base = simulation.util.data_base.init_data_base(data_kind)
     if not normalize_with_deviation:
         file = os.path.join(path, 'model_diff_-_{}_-_' + parameter_set_dirname + '_-_{}.png')
     else:

@@ -1,7 +1,7 @@
 import numpy as np
 
-import ndop.accuracy.asymptotic
-import ndop.util.data_base
+import simulation.accuracy.asymptotic
+import simulation.util.data_base
 
 import util.parallel.universal
 import util.math.interpolate
@@ -22,7 +22,7 @@ class CostFunction():
         self.parallel_mode = parallel_mode
         self.as_shared_array = parallel_mode == util.parallel.universal.MODES['multiprocessing']
 
-        accuracy = ndop.accuracy.asymptotic.WLS('WOD')
+        accuracy = simulation.accuracy.asymptotic.WLS('WOD')
         self.accuracy= accuracy
 
         db = accuracy.data_base

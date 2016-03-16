@@ -4,12 +4,12 @@ if __name__ == "__main__":
     import sys
     import numpy as np
     
-    import ndop.optimization.constants
-    import ndop.accuracy.asymptotic
+    import simulation.optimization.constants
+    import simulation.accuracy.asymptotic
     from util.logging import Logger
     
-    from ndop.constants import SIMULATION_OUTPUT_DIR
-    from ndop.optimization.matlab.constants import KIND_OF_COST_FUNCTIONS
+    from simulation.constants import SIMULATION_OUTPUT_DIR
+    from simulation.optimization.matlab.constants import KIND_OF_COST_FUNCTIONS
 
 
     parser = argparse.ArgumentParser(description='Calculating accuracy.')
@@ -41,13 +41,13 @@ if __name__ == "__main__":
         cf_kargs = {'data_kind': data_kind}
 
         if cf_kind == 'OLS':
-            cf_class = ndop.accuracy.asymptotic.OLS
+            cf_class = simulation.accuracy.asymptotic.OLS
         elif cf_kind == 'WLS':
-            cf_class = ndop.accuracy.asymptotic.WLS
+            cf_class = simulation.accuracy.asymptotic.WLS
         elif cf_kind == 'LWLS':
-            cf_class = ndop.accuracy.asymptotic.LWLS
+            cf_class = simulation.accuracy.asymptotic.LWLS
         elif cf_kind.startswith('GLS'):
-            cf_class = ndop.accuracy.asymptotic.GLS
+            cf_class = simulation.accuracy.asymptotic.GLS
             cf_kind_splitted = cf_kind.split('.')
             correlation_min_values = int(cf_kind_splitted[1])
             correlation_max_year_diff = int(cf_kind_splitted[2])

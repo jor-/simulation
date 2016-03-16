@@ -1,7 +1,7 @@
 import os
 import stat
 
-import ndop.model.job
+import simulation.model.job
 
 import util.io.fs
 import util.options
@@ -12,7 +12,7 @@ logger = util.logging.logger
 ## general update functions
 
 def update_job_options(update_function):
-    from ndop.model.constants import MODEL_NAMES, DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME, DATABASE_SPINUP_DIRNAME
+    from simulation.model.constants import MODEL_NAMES, DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME, DATABASE_SPINUP_DIRNAME
 
     for model_name in MODEL_NAMES:
         model_dirname = DATABASE_MODEL_DIRNAME.format(model_name)
@@ -35,7 +35,7 @@ def update_job_options(update_function):
 
 
 def update_job_options_in_run_dirs(run_dir_path, update_function):
-    from ndop.model.constants import DATABASE_RUN_DIRNAME
+    from simulation.model.constants import DATABASE_RUN_DIRNAME
 
     runs_len = len(util.io.fs.get_dirs(run_dir_path))
 
@@ -61,7 +61,7 @@ def update_job_options_in_job_options_dir(job_options_dir, update_function):
 
 def update_output_dir():
     def update_function(job_options_dir):
-        with ndop.model.job.Metos3D_Job(job_options_dir, force_load=True) as job:
+        with simulation.model.job.Metos3D_Job(job_options_dir, force_load=True) as job:
             job.update_output_dir(job_options_dir)
 
     update_job_options(update_function)

@@ -5,10 +5,10 @@ import warnings
 
 import numpy as np
 
-import ndop.constants
-import ndop.model.data
-import ndop.model.job
-import ndop.model.constants
+import simulation.constants
+import simulation.model.data
+import simulation.model.job
+import simulation.model.constants
 
 import measurements.land_sea_mask.data
 import measurements.util.interpolate
@@ -39,9 +39,9 @@ class Model():
         try:
             name = model_options['model_name']
         except KeyError:
-            self._model_options['model_name'] = ndop.model.constants.MODEL_NAMES[0]
-        elif not name in ndop.model.constants.MODEL_NAMES:
-            raise ValueError('Model name {} is unknown. Only the names {} are supported.'.format(name, ndop.model.constants.MODEL_NAMES))
+            self._model_options['model_name'] = simulation.model.constants.MODEL_NAMES[0]
+        elif not name in simulation.model.constants.MODEL_NAMES:
+            raise ValueError('Model name {} is unknown. Only the names {} are supported.'.format(name, simulation.model.constants.MODEL_NAMES))
         
         
         ## set spinup options
@@ -60,7 +60,7 @@ class Model():
             spinup_options = model_options['spinup_options']
         except KeyError:
             spinup_options = None
-        spinup_options = set_default_options(spinup_options, ndop.model.constants.MODEL_DEFAULT_SPINUP_OPTIONS)
+        spinup_options = set_default_options(spinup_options, simulation.model.constants.MODEL_DEFAULT_SPINUP_OPTIONS)
         if spinup_options['combination'] not in ['and', 'or']:
             raise ValueError('Combination "{}" unknown.'.format(spinup_options['combination']))
         self._model_options['spinup_options'] = spinup_options
@@ -72,7 +72,7 @@ class Model():
             derivative_options = model_options['derivative_options']
         except KeyError:
             derivative_options = None
-        derivative_options = set_default_options(derivative_options, ndop.model.constants.MODEL_DEFAULT_DERIVATIVE_OPTIONS)
+        derivative_options = set_default_options(derivative_options, simulation.model.constants.MODEL_DEFAULT_DERIVATIVE_OPTIONS)
         self._model_options['derivative_options'] = derivative_options
         logger.debug('Using derivative options {}.'.format(self.derivative_options))
         
@@ -83,13 +83,13 @@ class Model():
         except KeyError:
             self._model_options['time_step'] = 1
         else:
-            if not time_step in ndop.model.constants.METOS_TIME_STEPS:
-                raise ValueError('Wrong time_step in model options. Time step has to be in {} .'.format(time_step, ndop.model.constants.METOS_TIME_STEPS))
-            assert ndop.model.constants.METOS_T_DIM % time_step == 0
+            if not time_step in simulation.model.constants.METOS_TIME_STEPS:
+                raise ValueError('Wrong time_step in model options. Time step has to be in {} .'.format(time_step, simulation.model.constants.METOS_TIME_STEPS))
+            assert simulation.model.constants.METOS_T_DIM % time_step == 0
         
         
         ## set lsm
-        time_dim = int(ndop.model.constants.METOS_T_DIM / time_step)
+        time_dim = int(simulation.model.constants.METOS_T_DIM / time_step)
         self.lsm = measurements.land_sea_mask.data.LandSeaMaskTMM(t_dim=time_dim, t_centered=False)
         
         
@@ -145,22 +145,22 @@ class Model():
 
 
         ## set parameter bounds and typical values
-        self.parameters_lower_bound = ndop.model.constants.MODEL_PARAMETER_LOWER_BOUND[self.model_name]
-        self.parameters_upper_bound = ndop.model.constants.MODEL_PARAMETER_UPPER_BOUND[self.model_name]
-        self.parameters_typical_values = ndop.model.constants.MODEL_PARAMETER_TYPICAL[self.model_name]
+        self.parameters_lower_bound = simulation.model.constants.MODEL_PARAMETER_LOWER_BOUND[self.model_name]
+        self.parameters_upper_bound = simulation.model.constants.MODEL_PARAMETER_UPPER_BOUND[self.model_name]
+        self.parameters_typical_values = simulation.model.constants.MODEL_PARAMETER_TYPICAL[self.model_name]
 
         ## empty interpolator cache
         self._interpolator_cached = None
         
         ## database output dir
-        self.database_output_dir = ndop.model.constants.DATABASE_OUTPUT_DIR
+        self.database_output_dir = simulation.model.constants.DATABASE_OUTPUT_DIR
         
         ## init parameter db
         time_step_dir = self.time_step_dir()
         os.makedirs(time_step_dir, exist_ok=True)
-        array_file = os.path.join(time_step_dir, ndop.model.constants.DATABASE_PARAMETERS_LOOKUP_ARRAY_FILENAME)
-        value_file = os.path.join(time_step_dir, ndop.model.constants.DATABASE_PARAMETERS_SET_DIRNAME, ndop.model.constants.DATABASE_PARAMETERS_FILENAME)
-        self._parameter_db = util.index_database.array_and_fs_based.Database(array_file, value_file, value_reliable_decimal_places=ndop.model.constants.DATABASE_PARAMETERS_RELIABLE_DECIMAL_PLACES, tolerance_options=model_options['parameter_tolerance_options'])
+        array_file = os.path.join(time_step_dir, simulation.model.constants.DATABASE_PARAMETERS_LOOKUP_ARRAY_FILENAME)
+        value_file = os.path.join(time_step_dir, simulation.model.constants.DATABASE_PARAMETERS_SET_DIRNAME, simulation.model.constants.DATABASE_PARAMETERS_FILENAME)
+        self._parameter_db = util.index_database.array_and_fs_based.Database(array_file, value_file, value_reliable_decimal_places=simulation.model.constants.DATABASE_PARAMETERS_RELIABLE_DECIMAL_PLACES, tolerance_options=model_options['parameter_tolerance_options'])
 
 
 
@@ -207,14 +207,14 @@ class Model():
     ## access to dirs
 
     def model_dir(self):
-        model_dirname = ndop.model.constants.DATABASE_MODEL_DIRNAME.format(self.model_name)
+        model_dirname = simulation.model.constants.DATABASE_MODEL_DIRNAME.format(self.model_name)
         model_dir = os.path.join(self.database_output_dir, model_dirname)
         logger.debug('Returning model directory {} for model {}.'.format(model_dir, self.model_name))
         return model_dir
     
 
     def time_step_dir(self):
-        time_step_dirname = ndop.model.constants.DATABASE_TIME_STEP_DIRNAME.format(self.time_step)
+        time_step_dirname = simulation.model.constants.DATABASE_TIME_STEP_DIRNAME.format(self.time_step)
         time_step_dir = os.path.join(self.model_dir, time_step_dirname, '')
         logger.debug('Returning time step directory {} for time step {}.'.format(time_step_dir, self.time_step))
         return time_step_dir
@@ -222,7 +222,7 @@ class Model():
 
     def parameter_set_dir_with_index(self, index):
         if index is not None:
-            dir = os.path.join(self.time_step_dir(), ndop.model.constants.DATABASE_PARAMETERS_SET_DIRNAME.format(index))
+            dir = os.path.join(self.time_step_dir(), simulation.model.constants.DATABASE_PARAMETERS_SET_DIRNAME.format(index))
             logger.debug('Returning parameter set directory {} for index {}.'.format(dir, index))
             return dir
         else:
@@ -230,7 +230,7 @@ class Model():
 
     def spinup_dir_with_index(self, index):
         if index is not None:
-            dir = os.path.join(self.parameter_set_dir_with_index(index), ndop.model.constants.DATABASE_SPINUP_DIRNAME)
+            dir = os.path.join(self.parameter_set_dir_with_index(index), simulation.model.constants.DATABASE_SPINUP_DIRNAME)
             logger.debug('Returning spinup directory {} for index {}.'.format(dir, index))
             return dir
         else:
@@ -301,7 +301,7 @@ class Model():
             parameter_set_dir = self.parameter_set_dir(parameters, create=create)
         
         ## return
-        spinup_dir = os.path.join(parameter_set_dir, ndop.model.constants.DATABASE_SPINUP_DIRNAME)
+        spinup_dir = os.path.join(parameter_set_dir, simulation.model.constants.DATABASE_SPINUP_DIRNAME)
         logger.debug('Got spinup directory {} for parameters {}.'.format(spinup_dir, parameter_set_dir))
         return spinup_dir
     
@@ -413,8 +413,8 @@ class Model():
         self.check_parameters(model_parameters)
 
         ## execute job
-        output_path_with_env = output_path.replace(ndop.constants.SIMULATION_OUTPUT_DIR, '${{{}}}'.format(ndop.constants.SIMULATION_OUTPUT_DIR_ENV_NAME))
-        with ndop.model.job.Metos3D_Job(output_path_with_env) as job:
+        output_path_with_env = output_path.replace(simulation.constants.SIMULATION_OUTPUT_DIR, '${{{}}}'.format(simulation.constants.SIMULATION_OUTPUT_DIR_ENV_NAME))
+        with simulation.model.job.Metos3D_Job(output_path_with_env) as job:
             job.write_job_file(sel.model_name, model_parameters, years=years, tolerance=tolerance, time_step=time_step, write_trajectory=write_trajectory, tracer_input_path=tracer_input_path, job_setup=job_setup)
             job.start()
             job.make_read_only_input(make_read_only)
@@ -427,7 +427,7 @@ class Model():
 
 
     def wait_until_job_finished(self, run_dir, make_read_only=True):
-        with ndop.model.job.Metos3D_Job(run_dir, force_load=True) as job:
+        with simulation.model.job.Metos3D_Job(run_dir, force_load=True) as job:
             job.make_read_only_input(make_read_only)
             job.wait_until_finished()
             job.make_read_only_output(make_read_only)
@@ -497,7 +497,7 @@ class Model():
             # check job options file
             if last_run_dir is not None:
                 try:
-                    with ndop.model.job.Metos3D_Job(last_run_dir, force_load=True) as job:
+                    with simulation.model.job.Metos3D_Job(last_run_dir, force_load=True) as job:
                         pass
                 except (OSError, IOError) as exception:
                     warnings.warn('Could not read the job options file from "' + last_run_dir + '": ' + str(exception))
@@ -531,7 +531,7 @@ class Model():
         total_years = 0
 
         while run_dir is not None:
-            with ndop.model.job.Metos3D_Job(run_dir, force_load=True) as job:
+            with simulation.model.job.Metos3D_Job(run_dir, force_load=True) as job:
                 years = job.last_year
             total_years += years
             run_dir = self.get_previous_run_dir(run_dir)
@@ -541,7 +541,7 @@ class Model():
 
 
     def get_real_tolerance(self, run_dir):
-        with ndop.model.job.Metos3D_Job(run_dir, force_load=True) as job:
+        with simulation.model.job.Metos3D_Job(run_dir, force_load=True) as job:
             tolerance = job.last_tolerance
 
         return tolerance
@@ -549,7 +549,7 @@ class Model():
 
 
     def get_time_step(self, run_dir):
-        with ndop.model.job.Metos3D_Job(run_dir, force_load=True) as job:
+        with simulation.model.job.Metos3D_Job(run_dir, force_load=True) as job:
             time_step = job.time_step
 
         return time_step
@@ -557,7 +557,7 @@ class Model():
 
 
     def get_tracer_input_dir(self, run_dir):
-        with ndop.model.job.Metos3D_Job(run_dir, force_load=True) as job:
+        with simulation.model.job.Metos3D_Job(run_dir, force_load=True) as job:
             tracer_input_dir = job.tracer_input_path
 
         return tracer_input_dir
@@ -603,7 +603,7 @@ class Model():
 
 
     def _get_load_trajectory_function_for_all(self, time_dim_desired):
-        load_trajectory_function = lambda trajectory_path, tracer_index : ndop.model.data.load_trajectories_to_map(trajectory_path, tracer_index, time_dim_desired=time_dim_desired)
+        load_trajectory_function = lambda trajectory_path, tracer_index : simulation.model.data.load_trajectories_to_map(trajectory_path, tracer_index, time_dim_desired=time_dim_desired)
         return load_trajectory_function
 
 
@@ -631,7 +631,7 @@ class Model():
 
         ## load function
         def load_trajectory_function(trajectory_path, tracer_index):
-            tracer_trajectory = ndop.model.data.load_trajectories_to_map_index_array(trajectory_path, tracer_index=tracer_index)
+            tracer_trajectory = simulation.model.data.load_trajectories_to_map_index_array(trajectory_path, tracer_index=tracer_index)
             interpolated_values_for_tracer = self._interpolate(tracer_trajectory, interpolation_points[tracer_index])
             return interpolated_values_for_tracer
             

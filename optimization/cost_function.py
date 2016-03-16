@@ -4,8 +4,8 @@ import warnings
 import numpy as np
 import scikits.sparse.cholmod
 
-import ndop.util.value_cache
-import ndop.util.data_base
+import simulation.util.value_cache
+import simulation.util.data_base
 
 import util.math.optimize.with_scipy
 import util.math.finite_differences
@@ -16,7 +16,7 @@ from util.math.matrix import SingularMatrixError
 import util.logging
 logger = util.logging.logger
 
-from ndop.optimization.constants import COST_FUNCTION_DIRNAME, COST_FUNCTION_F_FILENAME, COST_FUNCTION_DF_FILENAME, COST_FUNCTION_F_NORMALIZED_FILENAME, COST_FUNCTION_CORRELATION_PARAMETER_FILENAME, COST_FUNCTION_NODES_SETUP_SPINUP, COST_FUNCTION_NODES_SETUP_DERIVATIVE, COST_FUNCTION_NODES_SETUP_TRAJECTORY
+from simulation.optimization.constants import COST_FUNCTION_DIRNAME, COST_FUNCTION_F_FILENAME, COST_FUNCTION_DF_FILENAME, COST_FUNCTION_F_NORMALIZED_FILENAME, COST_FUNCTION_CORRELATION_PARAMETER_FILENAME, COST_FUNCTION_NODES_SETUP_SPINUP, COST_FUNCTION_NODES_SETUP_DERIVATIVE, COST_FUNCTION_NODES_SETUP_TRAJECTORY
 
 
 # option syntax:
@@ -82,8 +82,8 @@ class Base():
                 job_setup['trajectory']['nodes_setup'] = COST_FUNCTION_NODES_SETUP_TRAJECTORY.copy()
 
         ## prepare cache and data base
-        self.data_base = ndop.util.data_base.init_data_base(data_kind, model_options=model_options, job_setup=job_setup)
-        self.cache = ndop.util.value_cache.Cache(model_options=model_options, cache_dirname=self.cache_dirname, use_memory_cache=True)
+        self.data_base = simulation.util.data_base.init_data_base(data_kind, model_options=model_options, job_setup=job_setup)
+        self.cache = simulation.util.value_cache.Cache(model_options=model_options, cache_dirname=self.cache_dirname, use_memory_cache=True)
 
 
     def __str__(self):
@@ -314,7 +314,7 @@ class GLS(BaseGeneralized):
 
 
     def inv_col_factor_mult_residuum(self, parameters):
-        from ndop.optimization.constants import COST_FUNCTION_GLS_PROD_FILENAME
+        from simulation.optimization.constants import COST_FUNCTION_GLS_PROD_FILENAME
         return self.cache.get_value(parameters, COST_FUNCTION_GLS_PROD_FILENAME, self.inv_col_factor_mult_residuum_calculate, derivative_used=False, save_also_txt=False)
 
 
@@ -538,7 +538,7 @@ class LGLS(BaseGeneralized, BaseLog):
 ## Family
 
 
-class Family(ndop.util.data_base.Family): 
+class Family(simulation.util.data_base.Family): 
    
     # member_classes = {'WOA': [(OLS, [{}]), (WLS, [{}]), (LWLS, [{}])], 
     #                   'WOD': [(OLS, [{}]), (WLS, [{}]), (LWLS, [{}]), (GLS, [{'correlation_min_values': correlation_min_values, 'correlation_max_year_diff': float('inf')} for correlation_min_values in (40, 35, 30)])],

@@ -1,7 +1,7 @@
 import argparse
 
 from util.logging import Logger
-from ndop.plot.interface import average_model_confidence_increase
+from simulation.plot.interface import average_model_confidence_increase
 
 
 if __name__ == "__main__":

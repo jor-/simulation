@@ -3,8 +3,8 @@ import os
 import numpy as np
 
 import measurements.constants
-import ndop.constants
-import ndop.optimization.constants
+import simulation.constants
+import simulation.optimization.constants
 
 import util.batch.universal.system
 import util.io.fs
@@ -18,7 +18,7 @@ logger = util.logging.logger
 class CostFunctionJob(util.batch.universal.system.Job):
 
     def __init__(self, output_dir, parameters, cf_kind, eval_f=True, eval_df=True, nodes_setup=None, **cf_kargs):
-        from ndop.optimization.constants import COST_FUNCTION_NODES_SETUP_JOB
+        from simulation.optimization.constants import COST_FUNCTION_NODES_SETUP_JOB
         
         logger.debug('Initiating cost function job with cf_kind {}, eval_f {} and eval_df {}.'.format(cf_kind, eval_f, eval_df))
 
@@ -106,7 +106,7 @@ class CostFunctionJob(util.batch.universal.system.Job):
         commands = ['import util.logging']
         commands += ['import numpy as np']
         commands += ['with util.logging.Logger():']
-        commands += ['    import ndop.optimization.cost_function']
+        commands += ['    import simulation.optimization.cost_function']
         commands += ['    cf_kargs = {}'.format(cf_kargs)]
         if job_setup is not None:
             commands += ['    import util.batch.universal.system']
@@ -118,9 +118,9 @@ class CostFunctionJob(util.batch.universal.system.Job):
                     job_setup_str = "{'" + setup_name + "':{'nodes_setup':" + nodes_setup_str + "}}"
                     commands += ["    job_setup.update({})".format(job_setup_str)]
             commands += ["    cf_kargs.update({'job_setup':job_setup})"]
-        commands += ['    cf = ndop.optimization.cost_function.{}(**cf_kargs)'.format(cf_kind)]
+        commands += ['    cf = simulation.optimization.cost_function.{}(**cf_kargs)'.format(cf_kind)]
 
-        from ndop.model.constants import DATABASE_PARAMETERS_FORMAT_STRING
+        from simulation.model.constants import DATABASE_PARAMETERS_FORMAT_STRING
         parameters_str = str(tuple(map(lambda f: DATABASE_PARAMETERS_FORMAT_STRING.format(f), parameters)))
         parameters_str = parameters_str.replace("'", '')
         if eval_f:
@@ -143,7 +143,7 @@ class CostFunctionJob(util.batch.universal.system.Job):
                 return ''
             else:
                 return 'export {env_name}={env_value}'.format(env_name=env_name, env_value=env_value)
-        env_names = [ndop.constants.BASE_DIR_ENV_NAME, ndop.constants.SIMULATION_OUTPUT_DIR_ENV_NAME, ndop.constants.METOS3D_DIR_ENV_NAME, measurements.constants.BASE_DIR_ENV_NAME, util.batch.universal.system.BATCH_SYSTEM_ENV_NAME, util.io.env.PYTHONPATH_ENV_NAME]
+        env_names = [simulation.constants.BASE_DIR_ENV_NAME, simulation.constants.SIMULATION_OUTPUT_DIR_ENV_NAME, simulation.constants.METOS3D_DIR_ENV_NAME, measurements.constants.BASE_DIR_ENV_NAME, util.batch.universal.system.BATCH_SYSTEM_ENV_NAME, util.io.env.PYTHONPATH_ENV_NAME]
         env_commands = [export_env_command(env_name) for env_name in env_names]
         env_commands = [env_command for env_command in env_commands if len(env_command) > 0]
         export_env_command = os.linesep.join(env_commands)

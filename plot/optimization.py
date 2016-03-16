@@ -1,5 +1,5 @@
 import util.logging
-import ndop.plot.interface
+import simulation.plot.interface
 
 with util.logging.Logger():
-    ndop.plot.interface.optimization(with_line_search_steps=True)
+    simulation.plot.interface.optimization(with_line_search_steps=True)

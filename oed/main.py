@@ -2,10 +2,10 @@ import argparse
 import sys
 import numpy as np
 
-from ndop.oed.cost_function import CostFunction
+from simulation.oed.cost_function import CostFunction
 from util.logging import Logger
 
-from ndop.constants import SIMULATION_OUTPUT_DIR
+from simulation.constants import SIMULATION_OUTPUT_DIR
 
 
 if __name__ == "__main__":

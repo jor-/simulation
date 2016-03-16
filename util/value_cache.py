@@ -1,7 +1,7 @@
 import os
 import numpy as np
 
-import ndop.model.eval
+import simulation.model.eval
 
 import util.cache
 import util.io.np
@@ -54,7 +54,7 @@ class Cache:
 
     def __init__(self, model_options=None, cache_dirname=None, use_memory_cache=True):
         logger.debug('Initiating {} with cache dirname {}, model_options {} and use_memory_cache {}.'.format(self.__class__.__name__, cache_dirname, model_options, use_memory_cache))
-        from ndop.model.constants import MODEL_SPINUP_MAX_YEARS
+        from simulation.model.constants import MODEL_SPINUP_MAX_YEARS
 
         ## prepare cache dirname
         if cache_dirname is None:
@@ -62,7 +62,7 @@ class Cache:
         self.cache_dirname = cache_dirname
 
         ## prepare model
-        self.model = ndop.model.eval.Model(model_options=model_options)
+        self.model = simulation.model.eval.Model(model_options=model_options)
 
         ## prepare spinup options
         # spinup_options = self.model.spinup_options
@@ -95,7 +95,7 @@ class Cache:
     
     
     def real_spinup_options(self, parameters):
-        from ndop.model.constants import DATABASE_SPINUP_DIRNAME
+        from simulation.model.constants import DATABASE_SPINUP_DIRNAME
         parameter_set_dir = self.parameter_set_dir(parameters)
         spinup_dir = os.path.join(parameter_set_dir, DATABASE_SPINUP_DIRNAME)
         last_run_dir = self.model.get_last_run_dir(spinup_dir)

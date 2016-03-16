@@ -1,6 +1,6 @@
 import util.logging
-import ndop.model.eval
+import simulation.model.eval
 
 with util.logging.Logger():
-    m = ndop.model.eval.Model()
+    m = simulation.model.eval.Model()
     m._parameter_db.merge_file_db_to_array_db()
