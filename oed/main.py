@@ -5,7 +5,7 @@ import numpy as np
 from ndop.oed.cost_function import CostFunction
 from util.logging import Logger
 
-from ndop.constants import MODEL_OUTPUT_DIR
+from ndop.constants import SIMULATION_OUTPUT_DIR
 
 
 if __name__ == "__main__":
@@ -41,7 +41,7 @@ if __name__ == "__main__":
 
 
     with Logger(debug):
-        p = np.loadtxt(MODEL_OUTPUT_DIR+'/model_dop_po4/time_step_0001/parameter_set_{:0>5}/parameters.txt'.format(parameter_set_nr))
+        p = np.loadtxt(SIMULATION_OUTPUT_DIR+'/model_dop_po4/time_step_0001/parameter_set_{:0>5}/parameters.txt'.format(parameter_set_nr))
         cf = CostFunction(p, time_dim_df=time_dim_df, value_mask=value_mask)
         p_opt = cf.optimize(number_of_measurements, number_of_initial_individuals=initial_individuals, number_of_generations=generations)
         np.save(output_file, p_opt)

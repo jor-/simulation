@@ -296,11 +296,6 @@ class Metos3D_Job(util.batch.universal.system.Job):
         opt['/model/parameters_file'] = os.path.join(output_dir_not_expanded, 'model_parameter.txt')
         np.savetxt(opt['/model/parameters_file'], opt['/model/parameters'], fmt=DATABASE_PARAMETERS_FORMAT_STRING_OLD_STYLE)
         
-
-        # time_step_count = int(METOS_T_DIM / time_step)
-        # opt['/model/time_step_count'] = time_step_count
-        # opt['/model/time_step'] = 1 / time_step_count
-        
         time_steps_per_year = int(METOS_T_DIM / time_step)
         opt['/model/time_step_multiplier'] = time_step
         opt['/model/time_steps_per_year'] = time_steps_per_year

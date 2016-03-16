@@ -413,7 +413,7 @@ class Model():
         self.check_parameters(model_parameters)
 
         ## execute job
-        output_path_with_env = output_path.replace(ndop.constants.MODEL_OUTPUT_DIR, '${{{}}}'.format(ndop.constants.MODEL_OUTPUT_DIR_ENV_NAME))
+        output_path_with_env = output_path.replace(ndop.constants.SIMULATION_OUTPUT_DIR, '${{{}}}'.format(ndop.constants.SIMULATION_OUTPUT_DIR_ENV_NAME))
         with ndop.model.job.Metos3D_Job(output_path_with_env) as job:
             job.write_job_file(sel.model_name, model_parameters, years=years, tolerance=tolerance, time_step=time_step, write_trajectory=write_trajectory, tracer_input_path=tracer_input_path, job_setup=job_setup)
             job.start()
