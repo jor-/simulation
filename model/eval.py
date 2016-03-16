@@ -27,14 +27,22 @@ logger = util.logging.logger
 class Model():
 
     def __init__(self, model_options=None, job_setup=None):
-        from .constants import MODEL_PARAMETER_LOWER_BOUND, MODEL_PARAMETER_UPPER_BOUND, MODEL_OUTPUT_DIR, METOS_TRACER_DIM
-        
         logger.debug('Model initiated with model_options {} and job setup {}.'.format(model_options, job_setup))
         
         ## extract options
         if model_options is None:
             model_options = {}
         self._model_options = model_options
+        
+        
+        ## set model name
+        try:
+            name = model_options['model_name']
+        except KeyError:
+            self._model_options['model_name'] = ndop.model.constants.MODEL_NAMES[0]
+        elif not name in ndop.model.constants.MODEL_NAMES:
+            raise ValueError('Model name {} is unknown. Only the names {} are supported.'.format(name, ndop.model.constants.MODEL_NAMES))
+        
         
         ## set spinup options
         def set_default_options(current_options, default_options):            
@@ -58,6 +66,7 @@ class Model():
         self._model_options['spinup_options'] = spinup_options
         logger.debug('Using spinup options {}.'.format(self.spinup_options))
         
+        
         ## set derivative options
         try:
             derivative_options = model_options['derivative_options']
@@ -66,6 +75,7 @@ class Model():
         derivative_options = set_default_options(derivative_options, ndop.model.constants.MODEL_DEFAULT_DERIVATIVE_OPTIONS)
         self._model_options['derivative_options'] = derivative_options
         logger.debug('Using derivative options {}.'.format(self.derivative_options))
+        
         
         ## set time step
         try:
@@ -77,9 +87,11 @@ class Model():
                 raise ValueError('Wrong time_step in model options. Time step has to be in {} .'.format(time_step, ndop.model.constants.METOS_TIME_STEPS))
             assert ndop.model.constants.METOS_T_DIM % time_step == 0
         
+        
         ## set lsm
         time_dim = int(ndop.model.constants.METOS_T_DIM / time_step)
         self.lsm = measurements.land_sea_mask.data.LandSeaMaskTMM(t_dim=time_dim, t_centered=False)
+        
         
         ## set tolerance options
         try:
@@ -87,6 +99,7 @@ class Model():
         except KeyError:
             parameter_tolerance_options = {}
         self._model_options['parameter_tolerance_options'] = parameter_tolerance_options
+
 
         ## set job setup collection
         # convert job setup to job setup collection
@@ -130,12 +143,14 @@ class Model():
 
         self.job_setup_collection = job_setup_collection
 
-        ## parameter bounds
-        self.parameters_lower_bound = MODEL_PARAMETER_LOWER_BOUND
-        self.parameters_upper_bound = MODEL_PARAMETER_UPPER_BOUND
+
+        ## set parameter bounds and typical values
+        self.parameters_lower_bound = ndop.model.constants.MODEL_PARAMETER_LOWER_BOUND[self.model_name]
+        self.parameters_upper_bound = ndop.model.constants.MODEL_PARAMETER_UPPER_BOUND[self.model_name]
+        self.parameters_typical_values = ndop.model.constants.MODEL_PARAMETER_TYPICAL[self.model_name]
 
         ## model output dir
-        self.model_output_dir = MODEL_OUTPUT_DIR
+        self.model_output_dir = ndop.model.constants.MODEL_OUTPUT_DIR
 
         ## empty interpolator cache
         self._interpolator_cached = None
@@ -177,6 +192,13 @@ class Model():
     def time_step(self):
         try:
             return self._model_options['time_step']
+        except KeyError:
+            return None
+    
+    @property
+    def model_name(self):
+        try:
+            return self._model_options['model_name']
         except KeyError:
             return None
 
@@ -386,7 +408,7 @@ class Model():
         ## execute job
         output_path_with_env = output_path.replace(ndop.constants.MODEL_OUTPUT_DIR, '${{{}}}'.format(ndop.constants.MODEL_OUTPUT_DIR_ENV_NAME))
         with ndop.model.job.Metos3D_Job(output_path_with_env) as job:
-            job.write_job_file(model_parameters, years=years, tolerance=tolerance, time_step=time_step, write_trajectory=write_trajectory, tracer_input_path=tracer_input_path, job_setup=job_setup)
+            job.write_job_file(sel.model_name, model_parameters, years=years, tolerance=tolerance, time_step=time_step, write_trajectory=write_trajectory, tracer_input_path=tracer_input_path, job_setup=job_setup)
             job.start()
             job.make_read_only_input(make_read_only)
 
@@ -664,7 +686,7 @@ class Model():
 
 
     def _df(self, load_trajectory_function, parameters, spinup_options=None):
-        from .constants import MODEL_OUTPUT_DIR, MODEL_DERIVATIVE_DIRNAME, MODEL_PARTIAL_DERIVATIVE_DIRNAME, METOS_TRACER_DIM, MODEL_START_FROM_CLOSEST_PARAMETER_SET, MODEL_PARAMETER_TYPICAL
+        from .constants import MODEL_OUTPUT_DIR, MODEL_DERIVATIVE_DIRNAME, MODEL_PARTIAL_DERIVATIVE_DIRNAME, METOS_TRACER_DIM, MODEL_START_FROM_CLOSEST_PARAMETER_SET
 
         MODEL_DERIVATIVE_SPINUP_YEARS = self.derivative_options['years']
         MODEL_DERIVATIVE_STEP_SIZE = self.derivative_options['step_size']
@@ -719,7 +741,7 @@ class Model():
 
         ## start derivative runs
         for parameter_index in range(parameters_len):
-            h_i = MODEL_PARAMETER_TYPICAL[parameter_index] * MODEL_DERIVATIVE_STEP_SIZE
+            h_i = self.parameters_typical_values[parameter_index] * MODEL_DERIVATIVE_STEP_SIZE
 
             for h_factor_index in range(h_factors_len):
 

@@ -7,16 +7,11 @@ import measurements.land_sea_mask.data
 
 ## METOS 3D
 METOS_DATA_DIR = os.path.join(METOS3D_DIR, 'data', 'data', 'TMM', '2.8')
-METOS_SIM_FILE = os.path.join(METOS3D_DIR, 'simpack', 'metos3d-simpack-MITgcm-PO4-DOP.exe')
-
-
-## METOS 3D N-DOP
-METOS_TRAJECTORY_FILENAMES = ('sp0000-ts{:0>4}-dop_output.petsc', 'sp0000-ts{:0>4}-po4_output.petsc')
-METOS_TRACER_DIM = len(METOS_TRAJECTORY_FILENAMES)
 
 METOS_T_RANGE = (0, 1)
 METOS_X_RANGE = (0, 360)
 METOS_Y_RANGE = (-90, +90)
+
 METOS_T_DIM = 2880
 METOS_TIME_STEPS = [2**i for i in range(7)]
 LSM = measurements.land_sea_mask.data.LandSeaMaskTMM(t_dim=METOS_T_DIM, t_centered=False)
@@ -29,15 +24,29 @@ METOS_Z_LEFT = LSM.z_left
 METOS_Z_CENTER = LSM.z_center
 
 
+## METOS 3D N-DOP
+METOS_SIM_FILE = os.path.join(METOS3D_DIR, 'simpack', 'metos3d-simpack-MITgcm-PO4-DOP.exe')
+METOS_TRAJECTORY_FILENAMES = ('sp0000-ts{:0>4}-dop_output.petsc', 'sp0000-ts{:0>4}-po4_output.petsc')
+METOS_TRACER_DIM = len(METOS_TRAJECTORY_FILENAMES)
+
+
 ## Job
 JOB_OPTIONS_FILENAME = 'job_options.hdf5'
 JOB_MEMORY_GB = 4
 
+## Model names
+MODEL_NAMES = ['dop_po4',]
+MODEL_NAME_TOTAL_CONCENTRATION_SUFFIX = '_c'
+MODEL_NAMES = MODEL_NAMES + [model + MODEL_NAME_TOTAL_CONCENTRATION_SUFFIX for model in MODEL_NAMES]
 
 ## Model parameter
-MODEL_PARAMETER_LOWER_BOUND = np.array([0, 0, 0, 10**(-8), 10**(-8), 0, 0])
-MODEL_PARAMETER_UPPER_BOUND = np.array([METOS_T_DIM, np.inf, 1, np.inf, np.inf, np.inf, np.inf])
-MODEL_PARAMETER_TYPICAL = np.array([1, 1, 1, 1, 10, 0.01, 1])
+MODEL_PARAMETER_LOWER_BOUND = {'dop_po4': np.array([0, 0, 0, 10**(-8), 10**(-8), 0, 0])}
+MODEL_PARAMETER_UPPER_BOUND = {'dop_po4': np.array([METOS_T_DIM, np.inf, 1, np.inf, np.inf, np.inf, np.inf])}
+MODEL_PARAMETER_TYPICAL = {'dop_po4': np.array([1, 1, 1, 1, 10, 0.01, 1])}
+for model in MODEL_PARAMETER_LOWER_BOUND.keys():
+    MODEL_PARAMETER_LOWER_BOUND[model+MODEL_NAME_TOTAL_CONCENTRATION_SUFFIX] = np.concatenate([MODEL_PARAMETER_LOWER_BOUND[model], [0]])
+    MODEL_PARAMETER_UPPER_BOUND[model+MODEL_NAME_TOTAL_CONCENTRATION_SUFFIX] = np.concatenate([MODEL_PARAMETER_UPPER_BOUND[model], [np.inf]])
+    MODEL_PARAMETER_TYPICAL[model+MODEL_NAME_TOTAL_CONCENTRATION_SUFFIX] = np.concatenate([MODEL_PARAMETER_TYPICAL[model], [1]])
 
 
 ## Model directories and files

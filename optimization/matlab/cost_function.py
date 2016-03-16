@@ -31,6 +31,7 @@ if __name__ == "__main__":
     parser.add_argument('--eval_function_value', '-f', action='store_true', help='Save the value of the cost function.')
     parser.add_argument('--eval_grad_value', '-g', action='store_true', help='Save the values of the derivative of the cost function.')
 
+    parser.add_argument('--model_name', default=None, choices=ndop.model.constants.MODEL_NAMES, help='The name of the model to use for the simulations.')
     parser.add_argument('--time_step', type=int, default=1, choices=ndop.model.constants.METOS_TIME_STEPS, help='The time step multiplier to use for the simulations.')
 
     parser.add_argument('--spinup_years', '-y', '--years', type=int, default=10000, help='The number of years for the spinup.')
@@ -56,37 +57,48 @@ if __name__ == "__main__":
     eval_function_value = args.eval_function_value
     eval_grad_value = args.eval_grad_value
 
+    ## prepare model options
+    model_options = {}
+       
+    ## prepare model name
+    if args.model_name is not None:
+        model_options['model_name'] = args.model_name 
+    
+    ## prepare time step
+    time_step = args.time_step
+    model_options['time_step'] = time_step
+
     ## prepare spinup options
     if args.spinup_satisfy_years_and_tolerance:
         combination='and'
     else:
         combination='or'
     spinup_options = {'years': args.spinup_years, 'tolerance': args.spinup_tolerance, 'combination': combination}
+    model_options['spinup_options'] = spinup_options
 
     ## prepare derivative options
-    derivative_options = {}
-    if args.derivative_step_size is not None:
-        derivative_options['step_size'] = args.derivative_step_size
-    if args.derivative_years is not None:
-        derivative_options['years'] = args.derivative_years
-    if args.derivative_accuracy_order is not None:
-        derivative_options['accuracy_order'] = args.derivative_accuracy_order
-    
-    ## prepare time step
-    time_step = args.time_step
+    if args.derivative_step_size is not None or args.derivative_years is not None or args.derivative_accuracy_order is not None:
+        derivative_options = {}
+        if args.derivative_step_size is not None:
+            derivative_options['step_size'] = args.derivative_step_size
+        if args.derivative_years is not None:
+            derivative_options['years'] = args.derivative_years
+        if args.derivative_accuracy_order is not None:
+            derivative_options['accuracy_order'] = args.derivative_accuracy_order
+        model_options['derivative_options'] = derivative_options
     
     ## prepare parameter tolerance options
-    parameter_tolerance_options = {}
-    if args.parameters_relative_tolerance is not None:
-        assert len(args.parameters_relative_tolerance) in (1, 7)
-        parameter_tolerance_options['relative'] = np.array(args.parameters_relative_tolerance)
-    if args.parameters_absolute_tolerance is not None:
-        assert len(args.parameters_absolute_tolerance) in (1, 7)
-        parameter_tolerance_options['absolute'] = np.array(args.parameters_absolute_tolerance)
+    if args.parameters_relative_tolerance is not None or args.parameters_absolute_tolerance is not None:
+        parameter_tolerance_options = {}
+        if args.parameters_relative_tolerance is not None:
+            assert len(args.parameters_relative_tolerance) in (1, 7)
+            parameter_tolerance_options['relative'] = np.array(args.parameters_relative_tolerance)
+        if args.parameters_absolute_tolerance is not None:
+            assert len(args.parameters_absolute_tolerance) in (1, 7)
+            parameter_tolerance_options['absolute'] = np.array(args.parameters_absolute_tolerance)
+        model_options['parameter_tolerance_options'] = parameter_tolerance_options
     
-    ## prepare model options
-    model_options = {'spinup_options': spinup_options, 'derivative_options': derivative_options, 'time_step': time_step, 'parameter_tolerance_options': parameter_tolerance_options}
-
+    
     ## prepare job setup
     def prepare_job_setup():
         if args.nodes_setup_node_kind is not None:

@@ -196,7 +196,6 @@ class Metos3D_Job(util.batch.universal.system.Job):
 
 
 
-
     def update_output_dir(self, new_output_path):
         opt = self.options
         old_output_path = opt['/metos3d/output_path']
@@ -209,7 +208,8 @@ class Metos3D_Job(util.batch.universal.system.Job):
         opt.replace_all_str_options(old_output_path, new_output_path)
 
 
-    def write_job_file(self, model_parameters, years, tolerance=None, time_step=1, total_concentration_factor=1, write_trajectory=False, tracer_input_path=None, job_setup=None):
+
+    def write_job_file(self, model_name, model_parameters, years, tolerance=None, time_step=1, write_trajectory=False, tracer_input_path=None, job_setup=None):
         from ndop.model.constants import JOB_OPTIONS_FILENAME, JOB_MEMORY_GB, MODEL_PARAMETERS_FORMAT_STRING, MODEL_PARAMETERS_FORMAT_STRING_OLD_STYLE, METOS_T_DIM, METOS_DATA_DIR, METOS_SIM_FILE
 
         logger.debug('Initialising job with job_setup {}.'.format(job_setup))
@@ -237,7 +237,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
         ## prepare job name
         if len(job_name) > 0:
             job_name += '_'
-        job_name += '{}_{}'.format(years, time_step)
+        job_name += '{}_{}_{}'.format(model_name, years, time_step)
 
 
         ## use best node setup if no node setup passed
@@ -282,10 +282,20 @@ class Metos3D_Job(util.batch.universal.system.Job):
         ## set model options
         opt = self.options
 
-        model_parameters = np.asarray(model_parameters, dtype=np.float64)
+        model_parameters = np.asarray(model_parameters, dtype=np.float64) 
+               
+        if model_name.endwith(ndop.model.constants.MODEL_NAME_TOTAL_CONCENTRATION_SUFFIX):
+            total_concentration_factor = model_parameters[-1]
+            model_parameters = model_parameters[:-1]
+        else:
+            total_concentration_factor = 1
+        concentrations = np.array([2.17, 10**-4]) * total_concentration_factor
+        
+        opt['/model/concentrations'] = concentrations
         opt['/model/parameters'] = model_parameters
         opt['/model/parameters_file'] = os.path.join(output_dir_not_expanded, 'model_parameter.txt')
         np.savetxt(opt['/model/parameters_file'], opt['/model/parameters'], fmt=MODEL_PARAMETERS_FORMAT_STRING_OLD_STYLE)
+        
 
         # time_step_count = int(METOS_T_DIM / time_step)
         # opt['/model/time_step_count'] = time_step_count
@@ -295,9 +305,6 @@ class Metos3D_Job(util.batch.universal.system.Job):
         opt['/model/time_step_multiplier'] = time_step
         opt['/model/time_steps_per_year'] = time_steps_per_year
         opt['/model/time_step'] = 1 / time_steps_per_year
-        
-        concentrations = np.array([2.17, 10**-4]) * total_concentration_factor
-        opt['/model/concentrations'] = concentrations
         
 
         ## set metos3d options
@@ -367,7 +374,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
         f.write('-Metos3DTracerOutputFile                {},{} \n\n'.format(opt['/metos3d/po4_output_filename'], opt['/metos3d/dop_output_filename']))
 
         f.write('# bgc parameter \n')
-        f.write('-Metos3DParameterCount                  7 \n')
+        f.write('-Metos3DParameterCount                  {:d} \n'.format(len(opt['/model/parameters'])))
         f.write('-Metos3DParameterValue                  {} \n\n'.format(opt['/metos3d/parameters_string']))
 
         f.write('# bgc boundary conditions \n')
