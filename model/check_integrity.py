@@ -154,12 +154,12 @@ def check_job_file_integrity_spinup(spinup_dir, is_spinup_dir):
 
 
 def check_job_file_integrity(time_step=1, parameter_set_dirs_to_check=None, check_for_same_parameters=True):
-    from ndop.model.constants import MODEL_OUTPUT_DIR, MODEL_TIME_STEP_DIRNAME, MODEL_SPINUP_DIRNAME, MODEL_DERIVATIVE_DIRNAME, JOB_OPTIONS_FILENAME, MODEL_PARAMETERS_FILENAME
+    from ndop.model.constants import MODEL_OUTPUT_DIR, DATABASE_TIME_STEP_DIRNAME, DATABASE_SPINUP_DIRNAME, DATABASE_DERIVATIVE_DIRNAME, JOB_OPTIONS_FILENAME, DATABASE_PARAMETERS_FILENAME
     from ndop.util.constants import CACHE_DIRNAME, WOD_F_FILENAME, WOD_DF_FILENAME
 
     wod_m = ndop.util.data_base.WOD().m
 
-    time_step_dirname = MODEL_TIME_STEP_DIRNAME.format(time_step)
+    time_step_dirname = DATABASE_TIME_STEP_DIRNAME.format(time_step)
     time_step_dir = os.path.join(MODEL_OUTPUT_DIR, time_step_dirname)
     df_step_sizes = [10**(-6), 10**(-7)]
 
@@ -177,18 +177,18 @@ def check_job_file_integrity(time_step=1, parameter_set_dirs_to_check=None, chec
         print('Checking integrity of parameter set {}.'.format(parameter_set_dir))
         
         ## check spinup dir
-        spinup_dir = os.path.join(parameter_set_dir, MODEL_SPINUP_DIRNAME)
+        spinup_dir = os.path.join(parameter_set_dir, DATABASE_SPINUP_DIRNAME)
         check_job_file_integrity_spinup(spinup_dir, True)
         
         ## check derivative dir
         for df_step_size in df_step_sizes:
-            derivative_dir = os.path.join(parameter_set_dir, MODEL_DERIVATIVE_DIRNAME.format(df_step_size))
+            derivative_dir = os.path.join(parameter_set_dir, DATABASE_DERIVATIVE_DIRNAME.format(df_step_size))
             partial_derivative_dirs = util.io.fs.get_dirs(derivative_dir)
             for partial_derivative_dir in partial_derivative_dirs:
                 check_job_file_integrity_spinup(partial_derivative_dir, False)
 
         ## check for parameters
-        p = np.loadtxt(os.path.join(parameter_set_dir, MODEL_PARAMETERS_FILENAME))
+        p = np.loadtxt(os.path.join(parameter_set_dir, DATABASE_PARAMETERS_FILENAME))
         if not np.all(np.isfinite(p)):
             print('Parameters {} in set {} are not finite!'.format(p, parameter_set_dir))
 
@@ -196,7 +196,7 @@ def check_job_file_integrity(time_step=1, parameter_set_dirs_to_check=None, chec
         if check_for_same_parameters:
             for parameter_set_dir_i in parameter_set_dirs_all:
                 if parameter_set_dir_i != parameter_set_dir:
-                    p_i = np.loadtxt(os.path.join(parameter_set_dir_i, MODEL_PARAMETERS_FILENAME))
+                    p_i = np.loadtxt(os.path.join(parameter_set_dir_i, DATABASE_PARAMETERS_FILENAME))
                     # if np.allclose(p, p_i):
                     if np.all(p == p_i):
                         print('Parameter set {} and {} have same parameters!'.format(parameter_set_dir, parameter_set_dir_i))

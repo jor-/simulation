@@ -95,9 +95,9 @@ class Cache:
     
     
     def real_spinup_options(self, parameters):
-        from ndop.model.constants import MODEL_SPINUP_DIRNAME
+        from ndop.model.constants import DATABASE_SPINUP_DIRNAME
         parameter_set_dir = self.parameter_set_dir(parameters)
-        spinup_dir = os.path.join(parameter_set_dir, MODEL_SPINUP_DIRNAME)
+        spinup_dir = os.path.join(parameter_set_dir, DATABASE_SPINUP_DIRNAME)
         last_run_dir = self.model.get_last_run_dir(spinup_dir)
         years = self.model.get_total_years(last_run_dir)
         tolerance = self.model.get_real_tolerance(last_run_dir)

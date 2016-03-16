@@ -23,14 +23,14 @@ class Continue():
 
 
     def continue_parameter_sets(self, years, tolerance, time_step, parameter_set_numbers=None):
-        from ndop.model.constants import MODEL_OUTPUT_DIR, MODEL_TIME_STEP_DIRNAME, MODEL_PARAMETERS_SET_DIRNAME, MODEL_PARAMETERS_FILENAME
+        from ndop.model.constants import MODEL_OUTPUT_DIR, DATABASE_TIME_STEP_DIRNAME, DATABASE_PARAMETERS_SET_DIRNAME, DATABASE_PARAMETERS_FILENAME
 
         logging.debug('Continue runs with years={} tolerance={} and time_step={}.'.format(years, tolerance, time_step))
 
         model = Model()
 
-#         time_step_dirname = util.pattern.replace_int_pattern(MODEL_TIME_STEP_DIRNAME, time_step)
-        time_step_dirname = MODEL_TIME_STEP_DIRNAME.format(time_step)
+#         time_step_dirname = util.pattern.replace_int_pattern(DATABASE_TIME_STEP_DIRNAME, time_step)
+        time_step_dirname = DATABASE_TIME_STEP_DIRNAME.format(time_step)
         time_step_dir = os.path.join(MODEL_OUTPUT_DIR, time_step_dirname)
 
         if parameter_set_numbers is None:
@@ -43,11 +43,11 @@ class Continue():
             if self.continue_execution:
                 logging.debug('Continue runs for parameter set with number {}.'.format(parameter_set_numbers))
 
-#                 parameter_set_dirname = util.pattern.replace_int_pattern(MODEL_PARAMETERS_SET_DIRNAME, parameter_set_number)
-                parameter_set_dirname = MODEL_PARAMETERS_SET_DIRNAME.format(parameter_set_number)
+#                 parameter_set_dirname = util.pattern.replace_int_pattern(DATABASE_PARAMETERS_SET_DIRNAME, parameter_set_number)
+                parameter_set_dirname = DATABASE_PARAMETERS_SET_DIRNAME.format(parameter_set_number)
                 parameter_set_dir = os.path.join(time_step_dir, parameter_set_dirname)
 
-                parameters_file = os.path.join(parameter_set_dir, MODEL_PARAMETERS_FILENAME)
+                parameters_file = os.path.join(parameter_set_dir, DATABASE_PARAMETERS_FILENAME)
                 p = np.loadtxt(parameters_file)
 
                 model.f(p, years=years, tolerance=tolerance, time_step_size=time_step)

@@ -120,8 +120,8 @@ class CostFunctionJob(util.batch.universal.system.Job):
             commands += ["    cf_kargs.update({'job_setup':job_setup})"]
         commands += ['    cf = ndop.optimization.cost_function.{}(**cf_kargs)'.format(cf_kind)]
 
-        from ndop.model.constants import MODEL_PARAMETERS_FORMAT_STRING
-        parameters_str = str(tuple(map(lambda f: MODEL_PARAMETERS_FORMAT_STRING.format(f), parameters)))
+        from ndop.model.constants import DATABASE_PARAMETERS_FORMAT_STRING
+        parameters_str = str(tuple(map(lambda f: DATABASE_PARAMETERS_FORMAT_STRING.format(f), parameters)))
         parameters_str = parameters_str.replace("'", '')
         if eval_f:
             commands += ['    cf.f({})'.format(parameters_str)]

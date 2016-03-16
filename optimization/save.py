@@ -16,11 +16,11 @@ logger = util.logging.logger
 
 
 def save(parameter_sets=range(9999), data_kind='WOA', eval_f=True, eval_df=True, as_jobs=False):
-    from ndop.model.constants import MODEL_OUTPUT_DIR, MODEL_TIME_STEP_DIRNAME, MODEL_PARAMETERS_SET_DIRNAME, MODEL_PARAMETERS_FILENAME, MODEL_SPINUP_DIRNAME, MODEL_DERIVATIVE_DIRNAME
+    from ndop.model.constants import MODEL_OUTPUT_DIR, DATABASE_TIME_STEP_DIRNAME, DATABASE_PARAMETERS_SET_DIRNAME, DATABASE_PARAMETERS_FILENAME, DATABASE_SPINUP_DIRNAME, DATABASE_DERIVATIVE_DIRNAME
     
     ## get time step dir
     time_step = 1
-    time_step_dirname = MODEL_TIME_STEP_DIRNAME.format(time_step)
+    time_step_dirname = DATABASE_TIME_STEP_DIRNAME.format(time_step)
     time_step_dir = os.path.join(MODEL_OUTPUT_DIR, time_step_dirname)
     
     ## create model
@@ -32,13 +32,13 @@ def save(parameter_sets=range(9999), data_kind='WOA', eval_f=True, eval_df=True,
         ## get parameter
         cost_function_family = None
 
-        parameter_set_dirname = MODEL_PARAMETERS_SET_DIRNAME.format(parameter_set_number)
+        parameter_set_dirname = DATABASE_PARAMETERS_SET_DIRNAME.format(parameter_set_number)
         parameter_set_dir = os.path.join(time_step_dir, parameter_set_dirname)
-        parameters_file = os.path.join(parameter_set_dir, MODEL_PARAMETERS_FILENAME)
+        parameters_file = os.path.join(parameter_set_dir, DATABASE_PARAMETERS_FILENAME)
 
         ## create cost functions
         if os.path.exists(parameters_file):
-            spinup_dir = os.path.join(parameter_set_dir, MODEL_SPINUP_DIRNAME)
+            spinup_dir = os.path.join(parameter_set_dir, DATABASE_SPINUP_DIRNAME)
             last_run_dir = model.get_last_run_dir(spinup_dir)
 
             if last_run_dir is not None:
@@ -62,7 +62,7 @@ def save(parameter_sets=range(9999), data_kind='WOA', eval_f=True, eval_df=True,
 
                     ## eval df
                     if eval_df:
-                        derivative_dir = os.path.join(parameter_set_dir, MODEL_DERIVATIVE_DIRNAME)
+                        derivative_dir = os.path.join(parameter_set_dir, DATABASE_DERIVATIVE_DIRNAME)
                         if os.path.exists(derivative_dir):
                             cost_function_family.df(p)
                     

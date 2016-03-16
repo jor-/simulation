@@ -210,7 +210,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
 
 
     def write_job_file(self, model_name, model_parameters, years, tolerance=None, time_step=1, write_trajectory=False, tracer_input_path=None, job_setup=None):
-        from ndop.model.constants import JOB_OPTIONS_FILENAME, JOB_MEMORY_GB, MODEL_PARAMETERS_FORMAT_STRING, MODEL_PARAMETERS_FORMAT_STRING_OLD_STYLE, METOS_T_DIM, METOS_DATA_DIR, METOS_SIM_FILE
+        from ndop.model.constants import JOB_OPTIONS_FILENAME, JOB_MEMORY_GB, DATABASE_PARAMETERS_FORMAT_STRING, DATABASE_PARAMETERS_FORMAT_STRING_OLD_STYLE, METOS_T_DIM, METOS_DATA_DIR, METOS_SIM_FILE
 
         logger.debug('Initialising job with job_setup {}.'.format(job_setup))
 
@@ -294,7 +294,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
         opt['/model/concentrations'] = concentrations
         opt['/model/parameters'] = model_parameters
         opt['/model/parameters_file'] = os.path.join(output_dir_not_expanded, 'model_parameter.txt')
-        np.savetxt(opt['/model/parameters_file'], opt['/model/parameters'], fmt=MODEL_PARAMETERS_FORMAT_STRING_OLD_STYLE)
+        np.savetxt(opt['/model/parameters_file'], opt['/model/parameters'], fmt=DATABASE_PARAMETERS_FORMAT_STRING_OLD_STYLE)
         
 
         # time_step_count = int(METOS_T_DIM / time_step)
@@ -338,7 +338,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
 
             opt['/metos3d/tracer_input_path'] = output_dir_not_expanded
 
-        model_parameters_string = str(tuple(map(lambda f: MODEL_PARAMETERS_FORMAT_STRING.format(f), model_parameters)))
+        model_parameters_string = str(tuple(map(lambda f: DATABASE_PARAMETERS_FORMAT_STRING.format(f), model_parameters)))
         model_parameters_string = model_parameters_string.replace("'", '').replace('(', '').replace(')', '').replace(' ','')
 
         opt['/metos3d/parameters_string'] = model_parameters_string

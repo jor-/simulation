@@ -158,9 +158,9 @@ class Model():
         ## init parameter db
         time_step_dir = self.time_step_dir()
         os.makedirs(time_step_dir, exist_ok=True)
-        array_file = os.path.join(time_step_dir, ndop.model.constants.MODEL_PARAMETERS_DATABASE_FILENAME)
-        value_file = os.path.join(time_step_dir, ndop.model.constants.MODEL_PARAMETERS_SET_DIRNAME, ndop.model.constants.MODEL_PARAMETERS_FILENAME)
-        self._parameter_db = util.index_database.array_and_fs_based.Database(array_file, value_file, value_reliable_decimal_places=ndop.model.constants.MODEL_PARAMETERS_RELIABLE_DECIMAL_PLACES, tolerance_options=model_options['parameter_tolerance_options'])
+        array_file = os.path.join(time_step_dir, ndop.model.constants.DATABASE_PARAMETERS_LOOKUP_ARRAY_FILENAME)
+        value_file = os.path.join(time_step_dir, ndop.model.constants.DATABASE_PARAMETERS_SET_DIRNAME, ndop.model.constants.DATABASE_PARAMETERS_FILENAME)
+        self._parameter_db = util.index_database.array_and_fs_based.Database(array_file, value_file, value_reliable_decimal_places=ndop.model.constants.DATABASE_PARAMETERS_RELIABLE_DECIMAL_PLACES, tolerance_options=model_options['parameter_tolerance_options'])
 
 
 
@@ -207,7 +207,7 @@ class Model():
     ## access to dirs
 
     def time_step_dir(self):
-        time_step_dirname = ndop.model.constants.MODEL_TIME_STEP_DIRNAME.format(self.time_step)
+        time_step_dirname = ndop.model.constants.DATABASE_TIME_STEP_DIRNAME.format(self.time_step)
         time_step_dir = os.path.join(self.model_output_dir, time_step_dirname, '')
         logger.debug('Returning time step directory {} for time step {}.'.format(time_step_dir, self.time_step))
         return time_step_dir
@@ -215,7 +215,7 @@ class Model():
 
     def parameter_set_dir_with_index(self, index):
         if index is not None:
-            dir = os.path.join(self.time_step_dir(), ndop.model.constants.MODEL_PARAMETERS_SET_DIRNAME.format(index))
+            dir = os.path.join(self.time_step_dir(), ndop.model.constants.DATABASE_PARAMETERS_SET_DIRNAME.format(index))
             logger.debug('Returning parameter set directory {} for index {}.'.format(dir, index))
             return dir
         else:
@@ -223,7 +223,7 @@ class Model():
 
     def spinup_dir_with_index(self, index):
         if index is not None:
-            dir = os.path.join(self.parameter_set_dir_with_index(index), ndop.model.constants.MODEL_SPINUP_DIRNAME)
+            dir = os.path.join(self.parameter_set_dir_with_index(index), ndop.model.constants.DATABASE_SPINUP_DIRNAME)
             logger.debug('Returning spinup directory {} for index {}.'.format(dir, index))
             return dir
         else:
@@ -294,13 +294,13 @@ class Model():
             parameter_set_dir = self.parameter_set_dir(parameters, create=create)
         
         ## return
-        spinup_dir = os.path.join(parameter_set_dir, ndop.model.constants.MODEL_SPINUP_DIRNAME)
+        spinup_dir = os.path.join(parameter_set_dir, ndop.model.constants.DATABASE_SPINUP_DIRNAME)
         logger.debug('Got spinup directory {} for parameters {}.'.format(spinup_dir, parameter_set_dir))
         return spinup_dir
     
     
     def spinup_run_dir(self, parameters_or_parameter_set_dir, spinup_options, start_from_closest_parameters=False):
-        from .constants import MODEL_SPINUP_DIRNAME, MODEL_PARAMETERS_FILENAME, MODEL_SPINUP_MAX_YEARS
+        from .constants import DATABASE_SPINUP_DIRNAME, DATABASE_PARAMETERS_FILENAME, MODEL_SPINUP_MAX_YEARS
         
         ## get spinup dir
         spinup_dir = self.spinup_dir(parameters_or_parameter_set_dir)
@@ -322,13 +322,13 @@ class Model():
             logger.debug('No matching spinup found.')
 
             ## get parameters
-            parameter_file = os.path.join(parameter_set_dir, MODEL_PARAMETERS_FILENAME)
+            parameter_file = os.path.join(parameter_set_dir, DATABASE_PARAMETERS_FILENAME)
             parameters = np.loadtxt(parameter_file)
 
             ## no previous run exists and starting from closest parameters get last run from closest parameters
             if last_run_dir is None and start_from_closest_parameters:
                 closest_parameter_set_dir = self.closest_parameter_set_dir(parameters, no_spinup_okay=False)
-                closest_spinup_dir = os.path.join(closest_parameter_set_dir, MODEL_SPINUP_DIRNAME)
+                closest_spinup_dir = os.path.join(closest_parameter_set_dir, DATABASE_SPINUP_DIRNAME)
                 last_run_dir = self.get_last_run_dir(closest_spinup_dir)
 
             ## finish last run
@@ -364,7 +364,7 @@ class Model():
     
     
     def make_run(self, output_path, parameters, years, tolerance, time_step, job_setup, tracer_input_path=None, wait_until_finished=True):
-        from .constants import MODEL_RUN_DIRNAME
+        from .constants import DATABASE_RUN_DIRNAME
 
         ## check parameters
         self.check_parameters(parameters)
@@ -375,7 +375,7 @@ class Model():
         next_run_index = len(run_dirs)
 
         ## create run dir
-        run_dirname = MODEL_RUN_DIRNAME.format(next_run_index)
+        run_dirname = DATABASE_RUN_DIRNAME.format(next_run_index)
         run_dir = os.path.join(output_path, run_dirname)
 
         logger.debug('Creating new run directory at {}.'.format(run_dir))
@@ -462,9 +462,9 @@ class Model():
 
 
     def get_run_dirs(self, search_path):
-        from .constants import MODEL_RUN_DIRNAME
+        from .constants import DATABASE_RUN_DIRNAME
 
-        run_dir_condition = lambda file: os.path.isdir(file) and util.pattern.is_matching(os.path.basename(file), MODEL_RUN_DIRNAME)
+        run_dir_condition = lambda file: os.path.isdir(file) and util.pattern.is_matching(os.path.basename(file), DATABASE_RUN_DIRNAME)
         try:
             run_dirs = util.io.fs.filter_files(search_path, run_dir_condition)
         except (OSError, IOError) as exception:
@@ -505,12 +505,12 @@ class Model():
 
 
     def get_previous_run_dir(self, run_dir):
-        from .constants import MODEL_RUN_DIRNAME
+        from .constants import DATABASE_RUN_DIRNAME
 
         (spinup_dir, run_dirname) = os.path.split(run_dir)
         run_index = util.pattern.get_int_in_string(run_dirname)
         if run_index > 0:
-            previous_run_dirname = MODEL_RUN_DIRNAME.format(run_index - 1)
+            previous_run_dirname = DATABASE_RUN_DIRNAME.format(run_index - 1)
             previous_run_dir = os.path.join(spinup_dir, previous_run_dirname)
         else:
             previous_run_dir = None
@@ -686,7 +686,7 @@ class Model():
 
 
     def _df(self, load_trajectory_function, parameters, spinup_options=None):
-        from .constants import MODEL_OUTPUT_DIR, MODEL_DERIVATIVE_DIRNAME, MODEL_PARTIAL_DERIVATIVE_DIRNAME, METOS_TRACER_DIM, MODEL_START_FROM_CLOSEST_PARAMETER_SET
+        from .constants import MODEL_OUTPUT_DIR, DATABASE_DERIVATIVE_DIRNAME, DATABASE_PARTIAL_DERIVATIVE_DIRNAME, METOS_TRACER_DIM, MODEL_START_FROM_CLOSEST_PARAMETER_SET
 
         MODEL_DERIVATIVE_SPINUP_YEARS = self.derivative_options['years']
         MODEL_DERIVATIVE_STEP_SIZE = self.derivative_options['step_size']
@@ -704,7 +704,7 @@ class Model():
 
         ## search directories
         parameter_set_dir = self.parameter_set_dir(parameters, create=True)
-        derivative_dir = os.path.join(parameter_set_dir, MODEL_DERIVATIVE_DIRNAME.format(MODEL_DERIVATIVE_STEP_SIZE))
+        derivative_dir = os.path.join(parameter_set_dir, DATABASE_DERIVATIVE_DIRNAME.format(MODEL_DERIVATIVE_STEP_SIZE))
 
         ## get spinup run
         years = spinup_options['years']
@@ -771,7 +771,7 @@ class Model():
 
                 ## get run dir
                 h_factor = int(np.sign(h[parameter_index, h_factor_index]))
-                partial_derivative_dirname = MODEL_PARTIAL_DERIVATIVE_DIRNAME.format(parameter_index, h_factor)
+                partial_derivative_dirname = DATABASE_PARTIAL_DERIVATIVE_DIRNAME.format(parameter_index, h_factor)
                 partial_derivative_dir = os.path.join(derivative_dir, partial_derivative_dirname)
                 partial_derivative_run_dir = self.get_last_run_dir(partial_derivative_dir)
 

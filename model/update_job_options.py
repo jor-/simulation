@@ -12,44 +12,44 @@ logger = util.logging.logger
 ## general update functions
 
 def update_job_options(update_function):
-    from ndop.model.constants import MODEL_OUTPUT_DIR, MODEL_TIME_STEP_DIRNAME, MODEL_PARAMETERS_SET_DIRNAME, MODEL_SPINUP_DIRNAME, MODEL_RUN_DIRNAME, MODEL_DERIVATIVE_DIRNAME, MODEL_PARTIAL_DERIVATIVE_DIRNAME
+    from ndop.model.constants import MODEL_OUTPUT_DIR, DATABASE_TIME_STEP_DIRNAME, DATABASE_PARAMETERS_SET_DIRNAME, DATABASE_SPINUP_DIRNAME, DATABASE_RUN_DIRNAME, DATABASE_DERIVATIVE_DIRNAME, DATABASE_PARTIAL_DERIVATIVE_DIRNAME
 
     partial_derivatives = range(7)
     h_factors = (-1, 1)
 
     time_step_sizes=(1,)
     for time_step_size in time_step_sizes:
-        time_step_dirname = MODEL_TIME_STEP_DIRNAME.format(time_step_size)
+        time_step_dirname = DATABASE_TIME_STEP_DIRNAME.format(time_step_size)
         time_step_dir = os.path.join(MODEL_OUTPUT_DIR, time_step_dirname)
 
         parameter_sets_len = len(util.io.fs.get_dirs(time_step_dir))
         logger.debug('{} parameter set dirs found in {}.'.format(parameter_sets_len, time_step_dir))
 
         for parameter_set_number in range(parameter_sets_len):
-            parameter_set_dirname = MODEL_PARAMETERS_SET_DIRNAME.format(parameter_set_number)
+            parameter_set_dirname = DATABASE_PARAMETERS_SET_DIRNAME.format(parameter_set_number)
             parameter_set_dir = os.path.join(time_step_dir, parameter_set_dirname)
 
-            spinup_dir = os.path.join(parameter_set_dir, MODEL_SPINUP_DIRNAME)
+            spinup_dir = os.path.join(parameter_set_dir, DATABASE_SPINUP_DIRNAME)
 
             update_job_options_in_run_dirs(spinup_dir, update_function)
 
-            derivative_dir = os.path.join(parameter_set_dir, MODEL_DERIVATIVE_DIRNAME.format(10**(-7)))
+            derivative_dir = os.path.join(parameter_set_dir, DATABASE_DERIVATIVE_DIRNAME.format(10**(-7)))
 
             for partial_derivative in partial_derivatives:
                 for h_factor in h_factors:
-                    partial_derivative_dirname = MODEL_PARTIAL_DERIVATIVE_DIRNAME.format(partial_derivative, h_factor)
+                    partial_derivative_dirname = DATABASE_PARTIAL_DERIVATIVE_DIRNAME.format(partial_derivative, h_factor)
                     partial_derivative_dir = os.path.join(derivative_dir, partial_derivative_dirname)
 
                     update_job_options_in_run_dirs(partial_derivative_dir, update_function)
 
 
 def update_job_options_in_run_dirs(run_dir_path, update_function):
-    from ndop.model.constants import MODEL_RUN_DIRNAME
+    from ndop.model.constants import DATABASE_RUN_DIRNAME
 
     runs_len = len(util.io.fs.get_dirs(run_dir_path))
 
     for run in range(runs_len):
-        run_dirname = MODEL_RUN_DIRNAME.format(run)
+        run_dirname = DATABASE_RUN_DIRNAME.format(run)
         run_dir = os.path.join(run_dir_path, run_dirname)
 
         if os.path.exists(run_dir):
