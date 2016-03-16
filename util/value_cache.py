@@ -189,10 +189,20 @@ class Cache:
                 ## check spinup options
                 matches_year = desired_options[0] <= loaded_options[0] or np.isclose(desired_options[0], loaded_options[0])
                 matches_tolerance = desired_options[1] >= loaded_options[1] or np.isclose(desired_options[1], loaded_options[1])
-                if desired_options[2]:
-                    matches = matches_year and matches_tolerance
+                # if desired_options[2]:
+                #     matches = matches_year and matches_tolerance
+                # else:
+                #     matches = matches_year or matches_tolerance
+                if loaded_options[2]:
+                    if desired_options[2]:
+                        matches = matches_year and matches_tolerance
+                    else:
+                        matches = matches_year or matches_tolerance
                 else:
-                    matches = matches_year or matches_tolerance
+                    if desired_options[2]:
+                        False
+                    else:
+                        matches = matches_year and matches_tolerance
 
                 ## check derivative options
                 if len(loaded_options) == 6:
@@ -239,7 +249,8 @@ class Cache:
                 self.save_file(parameters, filename, value, save_also_txt=save_also_txt)
 
                 ## saving options
-                options = self.desired_options(parameters)
+                # options = self.desired_options(parameters)
+                options = self.real_spinup_options(parameters)
                 if not derivative_used:
                     options = options[:-3]
                     assert len(options) == 3
