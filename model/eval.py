@@ -29,7 +29,7 @@ class Model():
     def __init__(self, model_options=None, job_setup=None):
         from .constants import MODEL_PARAMETER_LOWER_BOUND, MODEL_PARAMETER_UPPER_BOUND, MODEL_OUTPUT_DIR, METOS_TRACER_DIM
         
-        logger.debug('Model initiated with job setup {} and model_options {}.'.format(job_setup, model_options))
+        logger.debug('Model initiated with model_options {} and job setup {}.'.format(model_options, job_setup))
         
         ## extract options
         if model_options is None:
@@ -342,7 +342,7 @@ class Model():
     
     
     def make_run(self, output_path, parameters, years, tolerance, time_step, job_setup, tracer_input_path=None, wait_until_finished=True):
-        from .constants import MODEL_RUN_DIRNAME, MODEL_RUN_OPTIONS_FILENAME
+        from .constants import MODEL_RUN_DIRNAME
 
         ## check parameters
         self.check_parameters(parameters)
