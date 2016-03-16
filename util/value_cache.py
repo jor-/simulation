@@ -250,12 +250,17 @@ class Cache:
 
                 ## saving options
                 # options = self.desired_options(parameters)
+                # if not derivative_used:
+                #     options = options[:-3]
+                #     assert len(options) == 3
+                # else:
+                #     assert len(options) == 6
                 options = self.real_spinup_options(parameters)
-                if not derivative_used:
-                    options = options[:-3]
-                    assert len(options) == 3
-                else:
+                assert len(options) == 3
+                if derivative_used:
+                    options = options + self.derivative_options
                     assert len(options) == 6
+                
                 self.save_file(parameters, option_filename, options, save_also_txt=True)
 
             ## load value if matching or memmap used
