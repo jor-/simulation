@@ -91,8 +91,35 @@ def update_str_options(old_str, new_str):
     update_job_options(update_function)
 
 
+def update_new_option_entries():
+    def update_function(job_options_dir):
+        options_file = os.path.join(job_options_dir)
+        with util.options.Options(options_file, mode='r') as options:
+            try:
+                options['/model/concentrations']
+                print('Concentrations option already there in job option file {}.'.format(options_file))
+            except KeyError:
+                options['/model/concentrations'] = np.array([2.17, 10**-4])
+                print('Concentrations option added to job option file {}.'.format(options_file))
+            try:
+                options['/model/time_step_multiplier']
+                print('time_step_multiplier option already there in job option file {}.'.format(options_file))
+            except KeyError:
+                options['/model/time_step_multiplier'] = 1
+                print('time_step_multiplier option added to job option file {}.'.format(options_file))
+            try:
+                options['/model/time_steps_per_year']
+                print('time_steps_per_year option already there in job option file {}.'.format(options_file))
+            except KeyError:
+                options['/model/time_steps_per_year'] = options['/model/time_step_count']
+                del options['/model/time_step_count']
+                print('time_steps_per_year option added to job option file {}.'.format(options_file))
+
+    update_job_options(update_function)
+
+
 if __name__ == "__main__":
     with util.logging.Logger():
-        update_str_options('/work_j2/sunip229/NDOP', '${NDOP_DIR}')
-        update_str_options('/sfs/fs3/work-sh1/sunip229/NDOP', '${NDOP_DIR}')
+        update_str_options('${NDOP_DIR}/model_output', '${SIMULATION_OUTPUT_DIR}/model_dop_po4')
+        update_new_option_entries()
     print('Update completed.')
