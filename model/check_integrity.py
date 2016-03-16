@@ -16,7 +16,7 @@ import util.index_database.general
 
 ERROR_IGNORE_LIST = ("librdmacm: Fatal: unable to get RDMA device list"+os.linesep, "librdmacm: Warning: couldn't read ABI version."+os.linesep, "librdmacm: Warning: assuming: 4"+os.linesep, 'cpuinfo: error while loading shared libraries: libgcc_s.so.1: cannot open shared object file: No such file or directory'+os.linesep)
 
-def check_job_file_integrity_spinup(spinup_dir, is_spinup_dir):
+def check_job_file_integrity_spinup(spinup_dir, is_spinup):
     
     
     run_dirs = util.io.fs.get_dirs(spinup_dir)
@@ -64,13 +64,13 @@ def check_job_file_integrity_spinup(spinup_dir, is_spinup_dir):
             ## check petsc input files
             for input_filename in ('dop_input.petsc', 'po4_input.petsc') :
                 input_file = os.path.join(run_dir, input_filename)
-                if run_dir_index == 0 and is_spinup_dir:
+                if run_dir_index == 0 and is_spinup:
                     if os.path.exists(input_file) or os.path.lexists(input_file):
                         print('Petsc input files for run index == 0 found in {}!'.format(run_dir))
                         break
                 else:
                     if not os.path.lexists(input_file):
-                        if is_spinup_dir:
+                        if is_spinup:
                             print('No petsc input files for run index > 0 found in {}!'.format(run_dir))
                         else:
                             print('No petsc input files for derivative run found in {}!'.format(run_dir))
@@ -153,14 +153,16 @@ def check_job_file_integrity_spinup(spinup_dir, is_spinup_dir):
 
 
 
-def check_job_file_integrity(time_step=1, parameter_set_dirs_to_check=None, check_for_same_parameters=True):
-    from ndop.model.constants import MODEL_OUTPUT_DIR, DATABASE_TIME_STEP_DIRNAME, DATABASE_SPINUP_DIRNAME, DATABASE_DERIVATIVE_DIRNAME, JOB_OPTIONS_FILENAME, DATABASE_PARAMETERS_FILENAME
+def check_job_file_integrity(model_name='dop_po4', time_step=1, parameter_set_dirs_to_check=None, check_for_same_parameters=True):
+    from ndop.model.constants import DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME, DATABASE_TIME_STEP_DIRNAME, DATABASE_SPINUP_DIRNAME, DATABASE_DERIVATIVE_DIRNAME, JOB_OPTIONS_FILENAME, DATABASE_PARAMETERS_FILENAME
     from ndop.util.constants import CACHE_DIRNAME, WOD_F_FILENAME, WOD_DF_FILENAME
 
     wod_m = ndop.util.data_base.WOD().m
 
+    model_dirname = DATABASE_MODEL_DIRNAME.format(model_name)
+    model_dir = os.path.join(DATABASE_OUTPUT_DIR, model_dirname)
     time_step_dirname = DATABASE_TIME_STEP_DIRNAME.format(time_step)
-    time_step_dir = os.path.join(MODEL_OUTPUT_DIR, time_step_dirname)
+    time_step_dir = os.path.join(model_dir, time_step_dirname)
     df_step_sizes = [10**(-6), 10**(-7)]
 
     check_all_parameter_sets = parameter_set_dirs_to_check is None or (len(parameter_set_dirs_to_check) == 1 and parameter_set_dirs_to_check[0] is None)
@@ -243,7 +245,7 @@ def check_job_file_integrity(time_step=1, parameter_set_dirs_to_check=None, chec
 
 
 
-def check_db_integrity(time_step=1):
+def check_db_integrity(model_name='dop_po4', time_step=1):
     print('Checking parameter database integrity.')
     
     model_options = {'time_step': time_step}

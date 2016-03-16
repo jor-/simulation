@@ -7,7 +7,7 @@ import util.io.np
 
 
 def update_cache_derivative_options():
-    value_cache_option_files = util.io.fs.filter_files(ndop.model.constants.MODEL_OUTPUT_DIR, lambda s: s.endswith('options.npy'), recursive=True)
+    value_cache_option_files = util.io.fs.filter_files(ndop.model.constants.DATABASE_OUTPUT_DIR, lambda s: s.endswith('options.npy'), recursive=True)
     for value_cache_option_file in value_cache_option_files:
         value_cache_option = np.load(value_cache_option_file)
         if len(value_cache_option) == 4:

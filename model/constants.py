@@ -1,7 +1,7 @@
 import numpy as np
 import os.path
 
-from ndop.constants import MODEL_OUTPUT_DIR, METOS3D_DIR
+from ndop.constants import METOS3D_DIR
 import measurements.land_sea_mask.data
 
 
@@ -43,12 +43,6 @@ MODEL_DEFAULT_SPINUP_OPTIONS = {'years':10000, 'tolerance':0.0, 'combination':'o
 MODEL_DEFAULT_DERIVATIVE_OPTIONS = {'years': 500, 'step_size': 10**(-6), 'accuracy_order': 2}
 
 
-## model interpolator
-MODEL_INTERPOLATOR_FILE = os.path.join(MODEL_OUTPUT_DIR, 'interpolator.ppy')
-MODEL_INTERPOLATOR_AMOUNT_OF_WRAP_AROUND = (1/METOS_T_DIM, 1/METOS_X_DIM, 0, 0)
-MODEL_INTERPOLATOR_NUMBER_OF_LINEAR_INTERPOLATOR = 0
-MODEL_INTERPOLATOR_TOTAL_OVERLAPPING_OF_LINEAR_INTERPOLATOR = 0
-
 
 ## model names
 MODEL_NAMES = ['dop_po4',]
@@ -67,6 +61,8 @@ for model in MODEL_PARAMETER_LOWER_BOUND.keys():
 
 
 ## database directories and files
+from ndop.constants import MODEL_OUTPUT_DIR as DATABASE_OUTPUT_DIR
+DATABASE_MODEL_DIRNAME = 'model_{}'
 DATABASE_TIME_STEP_DIRNAME = 'time_step_{:0>4}'
 DATABASE_PARAMETERS_SET_DIRNAME = 'parameter_set_{:0>5}'   # substituted by the number of the run to 5 digits
 DATABASE_SPINUP_DIRNAME = 'spinup'
@@ -82,3 +78,9 @@ DATABASE_PARAMETERS_FORMAT_STRING_OLD_STYLE = '%.{}f'.format(DATABASE_PARAMETERS
 
 DATABASE_PARAMETERS_LOOKUP_ARRAY_FILENAME = 'database.npy'
 
+
+## model interpolator
+MODEL_INTERPOLATOR_FILE = os.path.join(DATABASE_OUTPUT_DIR, 'interpolator.ppy')
+MODEL_INTERPOLATOR_AMOUNT_OF_WRAP_AROUND = (1/METOS_T_DIM, 1/METOS_X_DIM, 0, 0)
+MODEL_INTERPOLATOR_NUMBER_OF_LINEAR_INTERPOLATOR = 0
+MODEL_INTERPOLATOR_TOTAL_OVERLAPPING_OF_LINEAR_INTERPOLATOR = 0

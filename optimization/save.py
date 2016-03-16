@@ -15,13 +15,14 @@ import util.logging
 logger = util.logging.logger
 
 
-def save(parameter_sets=range(9999), data_kind='WOA', eval_f=True, eval_df=True, as_jobs=False):
-    from ndop.model.constants import MODEL_OUTPUT_DIR, DATABASE_TIME_STEP_DIRNAME, DATABASE_PARAMETERS_SET_DIRNAME, DATABASE_PARAMETERS_FILENAME, DATABASE_SPINUP_DIRNAME, DATABASE_DERIVATIVE_DIRNAME
+def save(model_name='dop_po4', time_step=1, parameter_sets=range(9999), data_kind='WOA', eval_f=True, eval_df=True, as_jobs=False):
+    from ndop.model.constants import DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME, DATABASE_TIME_STEP_DIRNAME, DATABASE_PARAMETERS_SET_DIRNAME, DATABASE_PARAMETERS_FILENAME, DATABASE_SPINUP_DIRNAME, DATABASE_DERIVATIVE_DIRNAME
     
     ## get time step dir
-    time_step = 1
+    model_dirname = DATABASE_MODEL_DIRNAME.format(model_name)
+    model_dir = os.path.join(DATABASE_OUTPUT_DIR, model_dirname)
     time_step_dirname = DATABASE_TIME_STEP_DIRNAME.format(time_step)
-    time_step_dir = os.path.join(MODEL_OUTPUT_DIR, time_step_dirname)
+    time_step_dir = os.path.join(model_dir, time_step_dirname)
     
     ## create model
     model = ndop.model.eval.Model()

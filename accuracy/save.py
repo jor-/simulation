@@ -62,7 +62,7 @@ if __name__ == "__main__":
         asymptotic = cf_class(**cf_kargs)
         
         ## calculate
-        p = np.loadtxt(MODEL_OUTPUT_DIR+'/time_step_0001/parameter_set_{:0>5}/parameters.txt'.format(args.parameter_set_nr))
+        p = np.loadtxt(MODEL_OUTPUT_DIR+'/model_dop_po4/time_step_0001/parameter_set_{:0>5}/parameters.txt'.format(args.parameter_set_nr))
         asymptotic.parameter_confidence(p)
         asymptotic.model_confidence(p, time_dim_df=args.time_dim_df, use_mem_map=args.use_mem_map, parallel_mode=not args.not_parallel)
         asymptotic.average_model_confidence(p, time_dim_df=args.time_dim_df, use_mem_map=args.use_mem_map, parallel_mode=not args.not_parallel)

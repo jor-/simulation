@@ -149,11 +149,11 @@ class Model():
         self.parameters_upper_bound = ndop.model.constants.MODEL_PARAMETER_UPPER_BOUND[self.model_name]
         self.parameters_typical_values = ndop.model.constants.MODEL_PARAMETER_TYPICAL[self.model_name]
 
-        ## model output dir
-        self.model_output_dir = ndop.model.constants.MODEL_OUTPUT_DIR
-
         ## empty interpolator cache
         self._interpolator_cached = None
+        
+        ## database output dir
+        self.database_output_dir = ndop.model.constants.DATABASE_OUTPUT_DIR
         
         ## init parameter db
         time_step_dir = self.time_step_dir()
@@ -206,9 +206,16 @@ class Model():
 
     ## access to dirs
 
+    def model_dir(self):
+        model_dirname = ndop.model.constants.DATABASE_MODEL_DIRNAME.format(self.model_name)
+        model_dir = os.path.join(self.database_output_dir, model_dirname)
+        logger.debug('Returning model directory {} for model {}.'.format(model_dir, self.model_name))
+        return model_dir
+    
+
     def time_step_dir(self):
         time_step_dirname = ndop.model.constants.DATABASE_TIME_STEP_DIRNAME.format(self.time_step)
-        time_step_dir = os.path.join(self.model_output_dir, time_step_dirname, '')
+        time_step_dir = os.path.join(self.model_dir, time_step_dirname, '')
         logger.debug('Returning time step directory {} for time step {}.'.format(time_step_dir, self.time_step))
         return time_step_dir
 
@@ -686,7 +693,7 @@ class Model():
 
 
     def _df(self, load_trajectory_function, parameters, spinup_options=None):
-        from .constants import MODEL_OUTPUT_DIR, DATABASE_DERIVATIVE_DIRNAME, DATABASE_PARTIAL_DERIVATIVE_DIRNAME, METOS_TRACER_DIM, MODEL_START_FROM_CLOSEST_PARAMETER_SET
+        from .constants import DATABASE_DERIVATIVE_DIRNAME, DATABASE_PARTIAL_DERIVATIVE_DIRNAME, METOS_TRACER_DIM, MODEL_START_FROM_CLOSEST_PARAMETER_SET
 
         MODEL_DERIVATIVE_SPINUP_YEARS = self.derivative_options['years']
         MODEL_DERIVATIVE_STEP_SIZE = self.derivative_options['step_size']
