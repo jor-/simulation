@@ -9,7 +9,6 @@ import util.petsc.universal
 ## convert Metos vector to 3D vector
 
 def convert_metos_1D_to_3D(metos_vec):
-#     from simulation.model.constants import METOS_X_DIM, METOS_Y_DIM, METOS_Z_DIM
     from simulation.model.constants import LSM
 
     ## init array
@@ -145,8 +144,6 @@ def load_trajectories_to_universal(path, convert_function=None, converted_result
         logging.debug('Loading trajectory for tracer {}.'.format(tracer_index))
         file_pattern = METOS_TRAJECTORY_FILENAMES[tracer_index]
         for time_index in range(time_dim_desired):
-#             logging.debug('Loading trajectory for time {}.'.format(time_index))
-
             ## average trajectory
             for k in range(time_step):
                 ## prepare filename

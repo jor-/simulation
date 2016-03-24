@@ -8,6 +8,7 @@ import simulation.model.constants
 
 import util.batch.universal.system
 import util.io.fs
+import util.petsc.universal
 
 import util.logging
 logger = util.logging.logger
@@ -78,58 +79,60 @@ class Metos3D_Job(util.batch.universal.system.Job):
 
 
     @property
-    def tracer_input_path(self):
+    def metos3d_option_file(self):
+        return self.options['/metos3d/option_file']
+    
+
+    @property
+    def tracer_input_dir(self):
         opt = self.options
 
         try:
-            input_dir = opt['/metos3d/tracer_input_path']
-            input_filename = opt['/metos3d/po4_input_filename']
+            tracer_input_dir = opt['/model/tracer_input_dir']
         except KeyError:
-            input_filename = None
+            tracer_input_dir = None
 
-        if input_filename is not None:
-            input_file = os.path.join(input_dir, input_filename)
-            real_input_file = os.path.realpath(input_file)
-            tracer_input_path = os.path.dirname(real_input_file)
-        else:
-            tracer_input_path = None
+        return tracer_input_dir
 
-        return tracer_input_path
-
-
-
-    @property
-    def metos3d_option_file(self):
-        return self.options['/metos3d/option_file']
-
-    @property
-    def model_parameters_file(self):
-        return self.options['/model/parameters_file']
-
-    @property
-    def dop_output_file(self):
-        try:
-            output_path = self.options['/metos3d/tracer_output_path']
-        except KeyError:
-            output_path = self.options['/metos3d/output_path']
-        return os.path.join(output_path, self.options['/metos3d/dop_output_filename'])
-
-    @property
-    def dop_output_info_file(self):
-        return self.dop_output_file + '.info'
-
-    @property
-    def po4_output_file(self):
-        try:
-            output_path = self.options['/metos3d/tracer_output_path']
-        except KeyError:
-            output_path = self.options['/metos3d/output_path']
-        return os.path.join(output_path, self.options['/metos3d/po4_output_filename'])
-
-    @property
-    def po4_output_info_file(self):
-        return self.po4_output_file + '.info'
     
+    @property
+    def tracer_output_dir(self):
+        try:
+            tracer_output_dir = self.options['/metos3d/tracer_output_path']
+        except KeyError:
+            tracer_output_dir = self.options['/metos3d/output_path']
+        return tracer_output_dir
+    
+    
+    @property
+    def tracer_output_files(self):
+        tracer_output_dir = self.tracer_output_dir
+        tracer_output_files = [os.path.join(tracer_output_dir, tracer_output_filename) for tracer_output_filename in self.options['/metos3d/output_filenames']]
+        return tracer_output_files
+    
+    
+    @property
+    def tracer_output_info_files(self):
+        tracer_output_dir = self.tracer_output_dir
+        tracer_output_info_files = [tracer_output_files + '.info' for tracer_output_files in self.tracer_output_files]
+        return tracer_output_info_files
+
+    
+
+    def make_read_only_input(self, read_only=True):
+        super().make_read_only_input(read_only=read_only)
+        if read_only:
+            util.io.fs.make_read_only(self.metos3d_option_file)
+
+    def make_read_only_output(self, read_only=True):
+        super().make_read_only_output(read_only=read_only)
+        if read_only:
+            for file in self.tracer_output_files:
+                util.io.fs.make_read_only(file)
+            for file in self.tracer_output_info_files:
+                util.io.fs.make_read_only(file)
+
+
 
     @property
     def exit_code(self):
@@ -180,22 +183,6 @@ class Metos3D_Job(util.batch.universal.system.Job):
     
     
 
-    def make_read_only_input(self, read_only=True):
-        super().make_read_only_input(read_only=read_only)
-        if read_only:
-            util.io.fs.make_read_only(self.metos3d_option_file)
-            util.io.fs.make_read_only(self.model_parameters_file)
-
-    def make_read_only_output(self, read_only=True):
-        super().make_read_only_output(read_only=read_only)
-        if read_only:
-            util.io.fs.make_read_only(self.dop_output_file)
-            util.io.fs.make_read_only(self.dop_output_info_file)
-            util.io.fs.make_read_only(self.po4_output_file)
-            util.io.fs.make_read_only(self.po4_output_info_file)
-
-
-
     def update_output_dir(self, new_output_path):
         opt = self.options
         old_output_path = opt['/metos3d/output_path']
@@ -209,16 +196,22 @@ class Metos3D_Job(util.batch.universal.system.Job):
 
 
 
-    def write_job_file(self, model_name, model_parameters, years, tolerance=None, time_step=1, write_trajectory=False, tracer_input_path=None, job_setup=None):
-        from simulation.model.constants import JOB_OPTIONS_FILENAME, JOB_MEMORY_GB, DATABASE_PARAMETERS_FORMAT_STRING, DATABASE_PARAMETERS_FORMAT_STRING_OLD_STYLE, METOS_T_DIM, METOS_DATA_DIR, METOS_SIM_FILE
+    def write_job_file(self, model_name, model_parameters, years, tolerance=None, time_step=1, total_concentration_factor=1, write_trajectory=False, tracer_input_dir=None, job_setup=None):
+        from simulation.model.constants import JOB_OPTIONS_FILENAME, JOB_MEMORY_GB, DATABASE_PARAMETERS_FORMAT_STRING,  METOS_T_DIM, METOS_DATA_DIR, METOS_SIM_FILE, MODEL_DEFAULT_INITIAL_CONCENTRATION, MODEL_TRACER
 
-        logger.debug('Initialising job with job_setup {}.'.format(job_setup))
-
+        logger.debug('Initialising job with years {}, tolerance {}, time step {}, total concentration factor {}, tracer_input_dir {} and job_setup {}.'.format(years, tolerance, time_step, total_concentration_factor, tracer_input_dir, job_setup))
 
         ## check input
         if not time_step in simulation.model.constants.METOS_TIME_STEPS:
             raise ValueError('Wrong time_step in model options. Time step has to be in {} .'.format(time_step, simulation.model.constants.METOS_TIME_STEPS))
         assert simulation.model.constants.METOS_T_DIM % time_step == 0
+
+        if years < 0:
+            raise ValueError('Years must be greater or equal 0, but it is {} .'.format(years))
+        if tolerance < 0:
+            raise ValueError('Tolerance must be greater or equal 0, but it is {} .'.format(tolerance))
+        if total_concentration_factor < 0:
+            raise ValueError('Total_concentration_factor must be greater or equal 0, but it is {} .'.format(total_concentration_factor))
 
         ## unpack job setup
         if job_setup is not None:
@@ -238,7 +231,6 @@ class Metos3D_Job(util.batch.universal.system.Job):
         if len(job_name) > 0:
             job_name += '_'
         job_name += '{}_{}_{}'.format(model_name, years, time_step)
-
 
         ## use best node setup if no node setup passed
         if nodes_setup is None:
@@ -282,19 +274,13 @@ class Metos3D_Job(util.batch.universal.system.Job):
         ## set model options
         opt = self.options
 
-        model_parameters = np.asarray(model_parameters, dtype=np.float64) 
-               
-        if model_name.endwith(simulation.model.constants.MODEL_NAME_TOTAL_CONCENTRATION_SUFFIX):
-            total_concentration_factor = model_parameters[-1]
-            model_parameters = model_parameters[:-1]
-        else:
-            total_concentration_factor = 1
-        concentrations = np.array([2.17, 10**-4]) * total_concentration_factor
+        model_parameters = np.asarray(model_parameters, dtype=np.float64)
+        assert len(model_parameters) == 7
         
-        opt['/model/concentrations'] = concentrations
+        opt['/model/tracer'] = MODEL_TRACER[model_name]
+        
+        opt['/model/total_concentration_factor'] = total_concentration_factor
         opt['/model/parameters'] = model_parameters
-        opt['/model/parameters_file'] = os.path.join(output_dir_not_expanded, 'model_parameter.txt')
-        np.savetxt(opt['/model/parameters_file'], opt['/model/parameters'], fmt=DATABASE_PARAMETERS_FORMAT_STRING_OLD_STYLE)
         
         time_steps_per_year = int(METOS_T_DIM / time_step)
         opt['/model/time_step_multiplier'] = time_step
@@ -319,23 +305,33 @@ class Metos3D_Job(util.batch.universal.system.Job):
         opt['/metos3d/output_path'] = output_dir_not_expanded
         opt['/metos3d/option_file'] = os.path.join(output_dir_not_expanded, 'metos3d_options.txt')
         opt['/metos3d/debuglevel'] = 1
-        opt['/metos3d/po4_output_filename'] = 'po4_output.petsc'
-        opt['/metos3d/dop_output_filename'] = 'dop_output.petsc'
+        opt['/metos3d/output_filenames'] = ['{}_output.petsc'.format(tracer) for tracer in opt['/model/tracer']]
 
-        if tracer_input_path is not None:
-            opt['/metos3d/po4_input_filename'] = 'po4_input.petsc'
-            opt['/metos3d/dop_input_filename'] = 'dop_input.petsc'
+        if tracer_input_dir is None:
+            initial_concentration = MODEL_DEFAULT_INITIAL_CONCENTRATION[model_name] * total_concentration_factor
+            opt['/model/initial_concentrations'] = initial_concentration
+        else:
+            opt['/model/tracer_input_dir'] = tracer_input_dir
+            opt['/metos3d/tracer_input_dir'] = output_dir_not_expanded
 
-            tracer_input_dir = os.path.relpath(tracer_input_path, start=output_dir)
+            opt['/metos3d/input_filenames'] = ['{}_input.petsc'.format(tracer) for tracer in opt['/model/tracer']]
+            
+            if total_concentration_factor == 1:
+                tracer_input_dir = os.path.relpath(tracer_input_dir, start=output_dir)
+                for i in range(len(opt['/model/tracer'])):
+                    tracer_input_base_file = os.path.join(tracer_input_dir, opt['metos3d/output_filenames'][i])
+                    tracer_input_result_file = os.path.join(output_dir, opt['/metos3d/input_filenames'][i])
+                    os.symlink(tracer_input_base_file, tracer_input_result_file)
+            else:
+                for i in range(len(opt['/model/tracer'])):
+                    tracer_input_base_file = os.path.join(tracer_input_dir, opt['metos3d/output_filenames'][i])
+                    tracer_input_result_file = os.path.join(output_dir, opt['/metos3d/input_filenames'][i])
+                    tracer_input = util.petsc.universal.load_petsc_vec_to_numpy_array(tracer_input_base_file)
+                    tracer_input = tracer_input * total_concentration_factor
+                    util.petsc.universal.save_numpy_array_to_petsc_vec(tracer_input_result_file, tracer_input)
+        
 
-            os.symlink(os.path.join(tracer_input_dir, opt['metos3d/po4_output_filename']), os.path.join(output_dir, opt['/metos3d/po4_input_filename']))
-            os.symlink(os.path.join(tracer_input_dir, opt['metos3d/dop_output_filename']), os.path.join(output_dir, opt['/metos3d/dop_input_filename']))
-
-            opt['/metos3d/tracer_input_path'] = output_dir_not_expanded
-
-        model_parameters_string = str(tuple(map(lambda f: DATABASE_PARAMETERS_FORMAT_STRING.format(f), model_parameters)))
-        model_parameters_string = model_parameters_string.replace("'", '').replace('(', '').replace(')', '').replace(' ','')
-
+        model_parameters_string = ','.join(map(lambda f: DATABASE_PARAMETERS_FORMAT_STRING.format(f), model_parameters))
         opt['/metos3d/parameters_string'] = model_parameters_string
 
 
@@ -355,18 +351,17 @@ class Metos3D_Job(util.batch.universal.system.Job):
         f.write('-Metos3DTracerCount                     2 \n')
 
         try:
-            f.write('-Metos3DTracerInputDirectory            {} \n'.format(opt['/metos3d/tracer_input_path']))
-            f.write('-Metos3DTracerInitFile                  {},{} \n'.format(opt['/metos3d/po4_input_filename'], opt['/metos3d/dop_input_filename']))
+            f.write('-Metos3DTracerInputDirectory            {} \n'.format(opt['/metos3d/tracer_input_dir']))
+            f.write('-Metos3DTracerInitFile                  {} \n'.format(','.join(map(str, opt['/metos3d/input_filenames']))))
         except KeyError:
-            # f.write('-Metos3DTracerInitValue                 2.17e+0,1.e-4 \n')
-            f.write('-Metos3DTracerInitValue                 {},{} \n'.format(*opt['/model/concentrations']))
+            f.write('-Metos3DTracerInitValue                 {},{} \n'.format(*opt['/model/initial_concentrations']))
 
         try:
             f.write('-Metos3DTracerOutputDirectory           {} \n'.format(opt['/metos3d/tracer_output_path']))
         except KeyError:
             f.write('-Metos3DTracerOutputDirectory           {} \n'.format(opt['/metos3d/output_path']))
 
-        f.write('-Metos3DTracerOutputFile                {},{} \n\n'.format(opt['/metos3d/po4_output_filename'], opt['/metos3d/dop_output_filename']))
+        f.write('-Metos3DTracerOutputFile                {} \n\n'.format(','.join(map(str, opt['/metos3d/output_filenames']))))
 
         f.write('# bgc parameter \n')
         f.write('-Metos3DParameterCount                  {:d} \n'.format(len(opt['/model/parameters'])))

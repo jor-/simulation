@@ -128,7 +128,23 @@ class Base():
         raise NotImplementedError("Please implement this method")
 
     def df(self, parameters):
-        return self.cache.get_value(parameters, self.df_filename, self.df_calculate, derivative_used=True)
+        ## get cache value
+        df = self.cache.get_value(parameters, self.df_filename, self.df_calculate, derivative_used=True, save_also_txt=True)
+        
+        ## if cached df has to many parameters, remove unwanted partial derivatives
+        if df.shape[-1] > len(parameters):
+            logger.debug('Cached df has more partial derivatives ({}) than needed ({}). Truncating df.'.format(df.shape[-1], len(parameters)))
+            slices = (slice(None),) * (df.ndim - 1) + (slice(len(parameters)),)
+            df = df[slices]        
+        ## if cached df has to few parameters, recalculate
+        elif df.shape[-1] < len(parameters):
+            logger.debug('Cached df has to few partial derivatives ({}) than needed ({}). Recalculating df.'.format(df.shape[-1], len(parameters)))
+            df = self.df_calculate(parameters)
+            self.cache.save_value(parameters, self.df_filename, df, derivative_used=True, save_also_txt=True)
+        
+        ## return
+        assert df.shape[-1] == len(parameters)
+        return df
 
     def df_available(self, parameters):
         return self.cache.has_value(parameters, self.df_filename)
@@ -137,10 +153,10 @@ class Base():
     ## model and data values
 
     def model_f(self, parameters):
-        return self.data_base.F(parameters)
+        return self.data_base.f(parameters)
 
     def model_df(self, parameters):
-        return self.data_base.DF(parameters)
+        return self.data_base.df(parameters)
 
     @property
     def results(self):
@@ -420,7 +436,7 @@ class GLS_P3(Base):
 
         ## calculate f
         f = self.f_calculate_with_diff(diff_projected)
-        self.cache.save_file(parameters, COST_FUNCTION_CORRELATION_PARAMETER_FILENAME, self.last_correlation_parameters)
+        self.cache.save_value(parameters, COST_FUNCTION_CORRELATION_PARAMETER_FILENAME, self.last_correlation_parameters)
 
         return f
 
@@ -540,13 +556,13 @@ class LGLS(BaseGeneralized, BaseLog):
 
 class Family(simulation.util.data_base.Family): 
    
-    # member_classes = {'WOA': [(OLS, [{}]), (WLS, [{}]), (LWLS, [{}])], 
-    #                   'WOD': [(OLS, [{}]), (WLS, [{}]), (LWLS, [{}]), (GLS, [{'correlation_min_values': correlation_min_values, 'correlation_max_year_diff': float('inf')} for correlation_min_values in (40, 35, 30)])],
-    #                   'WOD.1': [(OLS, [{}]), (WLS, [{}]), (LWLS, [{}]), (GLS, [{'correlation_min_values': correlation_min_values, 'correlation_max_year_diff': float('inf')} for correlation_min_values in (40, 35, 30, 25)])],
-    #                   'WOD.0': [(OLS, [{}]), (WLS, [{}]), (LWLS, [{}]), (GLS, [{'correlation_min_values': correlation_min_values, 'correlation_max_year_diff': float('inf')} for correlation_min_values in (40, 35, 30, 25, 20)])]
-    #                   } 
+    member_classes = {'WOA': [(OLS, [{}]), (WLS, [{}]), (LWLS, [{}])], 
+                      'WOD': [(OLS, [{}]), (WLS, [{}]), (LWLS, [{}]), (GLS, [{'correlation_min_values': correlation_min_values, 'correlation_max_year_diff': float('inf')} for correlation_min_values in (50, 45,)])],
+                      'WOD.1': [(OLS, [{}]), (WLS, [{}]), (LWLS, [{}]), (GLS, [{'correlation_min_values': correlation_min_values, 'correlation_max_year_diff': float('inf')} for correlation_min_values in (50, 45, 40,)])],
+                      'WOD.0': [(OLS, [{}]), (WLS, [{}]), (LWLS, [{}]), (GLS, [{'correlation_min_values': correlation_min_values, 'correlation_max_year_diff': float('inf')} for correlation_min_values in (50, 45, 40,)])]
+                      } 
    
-    member_classes = {'WOD.1': [(GLS, [{'correlation_min_values': correlation_min_values, 'correlation_max_year_diff': float('inf')} for correlation_min_values in (40, 45, 50)]), ],}
+    # member_classes = {'WOD.1': [(GLS, [{'correlation_min_values': correlation_min_values, 'correlation_max_year_diff': float('inf')} for correlation_min_values in (40, 45, 50)]), ],}
 
     def f(self, parameters):
         fun = lambda o: o.f(parameters)

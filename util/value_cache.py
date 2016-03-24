@@ -2,6 +2,7 @@ import os
 import numpy as np
 
 import simulation.model.eval
+import simulation.util.constants
 
 import util.cache
 import util.io.np
@@ -65,8 +66,6 @@ class Cache:
         self.model = simulation.model.eval.Model(model_options=model_options)
 
         ## prepare spinup options
-        # spinup_options = self.model.spinup_options
-        # if spinup_options is not None:
         years = self.model.spinup_options['years']
         tolerance = self.model.spinup_options['tolerance']
         combination = self.model.spinup_options['combination']
@@ -98,7 +97,7 @@ class Cache:
         from simulation.model.constants import DATABASE_SPINUP_DIRNAME
         parameter_set_dir = self.parameter_set_dir(parameters)
         spinup_dir = os.path.join(parameter_set_dir, DATABASE_SPINUP_DIRNAME)
-        last_run_dir = self.model.get_last_run_dir(spinup_dir)
+        last_run_dir = self.model.last_run_dir(spinup_dir)
         years = self.model.get_total_years(last_run_dir)
         tolerance = self.model.get_real_tolerance(last_run_dir)
         spinup_options = (years, tolerance, True)
@@ -143,7 +142,66 @@ class Cache:
 
         return file
     
-    def load_file(self, parameters, filename, use_memmap=False, as_shared_array=False):
+    
+    def options_filename(self, filename):
+        filename_root, filename_ext = os.path.splitext(filename)
+        option_filename = filename_root + simulation.util.constants.OPTION_FILE_SUFFIX + filename_ext
+        return option_filename
+        
+    
+
+    def matches_options(self, parameters, filename):
+        options_filename = self.options_filename(filename)
+        loaded_options = self.load_value(parameters, options_filename)
+        desired_options = self.desired_options(parameters)
+
+        def is_matching(loaded_options, desired_options):
+            assert loaded_options is None or len(loaded_options) in [3, 6]
+            assert len(desired_options) == 6
+            
+            ## if previous value is available, check its options.
+            if loaded_options is not None:
+                
+                ## check spinup options
+                matches_year = desired_options[0] <= loaded_options[0] or np.isclose(desired_options[0], loaded_options[0])
+                matches_tolerance = desired_options[1] >= loaded_options[1] or np.isclose(desired_options[1], loaded_options[1])
+                if loaded_options[2]:
+                    if desired_options[2]:
+                        matches = matches_year and matches_tolerance
+                    else:
+                        matches = matches_year or matches_tolerance
+                else:
+                    if desired_options[2]:
+                        matches = False
+                    else:
+                        matches = matches_year and matches_tolerance
+
+                ## check derivative options
+                if len(loaded_options) == 6:
+                    matches_year = desired_options[3] <= loaded_options[3] or np.isclose(desired_options[3], loaded_options[3])
+                    matches_step_size = np.isclose(desired_options[4], loaded_options[4])
+                    matches_accuracy_order = desired_options[5] <= loaded_options[5] or np.isclose(desired_options[5], loaded_options[5])
+                    matches = matches and matches_year and matches_step_size and matches_accuracy_order
+            
+            ## if no previous value with options is available, return False.
+            else:
+                matches = False
+            
+            return matches
+
+        matches_options = is_matching(loaded_options, desired_options)
+        logger.debug('Loaded options {} matches desired options {}: {}.'.format(loaded_options, desired_options, matches_options))
+
+        if not matches_options:
+            matches_options = is_matching(loaded_options, self.max_options)
+            logger.debug('Loaded options {} matches max options {}: {}.'.format(loaded_options, self.max_options, matches_options))
+
+        return matches_options
+
+
+    ## value
+    
+    def load_value(self, parameters, filename, use_memmap=False, as_shared_array=False):
         file = self.get_file(parameters, filename)
         if file is not None and os.path.exists(file):
             if use_memmap or as_shared_array:
@@ -159,13 +217,14 @@ class Cache:
         return value
 
 
-
-    def save_file(self, parameters, filename, value, save_also_txt=True):
+    def _save_value_without_options(self, parameters, filename, value, save_also_txt=True):
+        ## check inpput
         if value is None:
             raise ValueError('Value for {} with parameters {} is None!'.format(filename, parameters))
         if filename is None:
             raise ValueError('Filename for parameters {} is None!'.format(parameters))
-
+        
+        ## save value
         file = self.get_file(parameters, filename)
         logger.debug('Saving value to {} file with save_also_txt {}.'.format(file, save_also_txt))
         assert file is not None
@@ -177,56 +236,22 @@ class Cache:
             util.io.np.save(file, value, make_read_only=True, overwrite=True)
 
 
-    def matches_options(self, parameters, options_filename):
-        loaded_options = self.load_file(parameters, options_filename)
-        desired_options = self.desired_options(parameters)
+    def save_value(self, parameters, filename, value, derivative_used=True, save_also_txt=True):
+        ## save value
+        self._save_value_without_options(parameters, filename, value, save_also_txt=save_also_txt)
+        
+        ## save option
+        options = self.real_spinup_options(parameters)
+        assert len(options) == 3
+        if derivative_used:
+            options = options + self.derivative_options
+            assert len(options) == 6
+        
+        option_filename = self.options_filename(filename)
+        self._save_value_without_options(parameters, option_filename, options, save_also_txt=True)
 
-        def is_matching(loaded_options, desired_options):
-            assert loaded_options is None or len(loaded_options) in [3, 6]
-            assert len(desired_options) == 6
-            
-            if loaded_options is not None:
-                ## check spinup options
-                matches_year = desired_options[0] <= loaded_options[0] or np.isclose(desired_options[0], loaded_options[0])
-                matches_tolerance = desired_options[1] >= loaded_options[1] or np.isclose(desired_options[1], loaded_options[1])
-                # if desired_options[2]:
-                #     matches = matches_year and matches_tolerance
-                # else:
-                #     matches = matches_year or matches_tolerance
-                if loaded_options[2]:
-                    if desired_options[2]:
-                        matches = matches_year and matches_tolerance
-                    else:
-                        matches = matches_year or matches_tolerance
-                else:
-                    if desired_options[2]:
-                        False
-                    else:
-                        matches = matches_year and matches_tolerance
-
-                ## check derivative options
-                if len(loaded_options) == 6:
-                    matches_year = desired_options[3] <= loaded_options[3] or np.isclose(desired_options[3], loaded_options[3])
-                    matches_step_size = np.isclose(desired_options[4], loaded_options[4])
-                    matches_accuracy_order = desired_options[5] <= loaded_options[5] or np.isclose(desired_options[5], loaded_options[5])
-                    matches = matches and matches_year and matches_step_size and matches_accuracy_order
-            else:
-                matches = False
-            return matches
-
-        matches_options = is_matching(loaded_options, desired_options)
-        logger.debug('Loaded options {} matches desired options {}: {}.'.format(loaded_options, desired_options, matches_options))
-
-        if not matches_options:
-            matches_options = is_matching(loaded_options, self.max_options)
-            logger.debug('Loaded options {} matches max options {}: {}.'.format(loaded_options, self.max_options, matches_options))
-
-        return matches_options
-
-
-    ## value
+    
     def get_value(self, parameters, filename, calculate_function, derivative_used=True, save_also_txt=True, use_memmap=False, as_shared_array=False):
-        from .constants import OPTION_FILE_SUFFIX
 
         assert callable(calculate_function)
 
@@ -236,36 +261,18 @@ class Cache:
 
         ## if not found try to load from file or calculate
         except util.cache.CacheMissError:
-            filename_root, filename_ext = os.path.splitext(filename)
-            option_filename = filename_root + OPTION_FILE_SUFFIX + filename_ext
-
-            is_matchig = self.matches_options(parameters, option_filename)
+            is_matchig = self.matches_options(parameters, filename)
 
             ## if not matching calculate and save value
             if not is_matchig:
                 ## calculating and saving value
                 logger.debug('Calculating value with {} and saving with filename {} with derivative_used {}.'.format(calculate_function, filename, derivative_used))
                 value = calculate_function(parameters)
-                self.save_file(parameters, filename, value, save_also_txt=save_also_txt)
-
-                ## saving options
-                # options = self.desired_options(parameters)
-                # if not derivative_used:
-                #     options = options[:-3]
-                #     assert len(options) == 3
-                # else:
-                #     assert len(options) == 6
-                options = self.real_spinup_options(parameters)
-                assert len(options) == 3
-                if derivative_used:
-                    options = options + self.derivative_options
-                    assert len(options) == 6
-                
-                self.save_file(parameters, option_filename, options, save_also_txt=True)
+                self.save_value(parameters, filename, value, derivative_used=derivative_used, save_also_txt=save_also_txt)
 
             ## load value if matching or memmap used
             if is_matchig or use_memmap or as_shared_array:
-                value = self.load_file(parameters, filename, use_memmap=use_memmap, as_shared_array=as_shared_array)
+                value = self.load_value(parameters, filename, use_memmap=use_memmap, as_shared_array=as_shared_array)
 
             ## update memory cache
             self.memory_cache.save_value(parameters, filename, value)
@@ -274,10 +281,7 @@ class Cache:
 
 
     def has_value(self, parameters, filename):
-        from .constants import OPTION_FILE_SUFFIX
-        filename_root, filename_ext = os.path.splitext(filename)
-        option_filename = filename_root + OPTION_FILE_SUFFIX + filename_ext
-        return self.matches_options(parameters, option_filename)
+        return self.matches_options(parameters, filename)
 
 
 

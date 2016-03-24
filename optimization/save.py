@@ -15,7 +15,7 @@ import util.logging
 logger = util.logging.logger
 
 
-def save(model_name='dop_po4', time_step=1, parameter_sets=range(9999), data_kind='WOA', eval_f=True, eval_df=True, as_jobs=False):
+def save(model_name='dop_po4', time_step=1, parameter_sets=range(9999), data_kind='WOA', eval_f=True, eval_df=True, as_jobs=False, node_kind='clexpress'):
     from simulation.model.constants import DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME, DATABASE_TIME_STEP_DIRNAME, DATABASE_PARAMETERS_SET_DIRNAME, DATABASE_PARAMETERS_FILENAME, DATABASE_SPINUP_DIRNAME, DATABASE_DERIVATIVE_DIRNAME
     
     ## get time step dir
@@ -40,14 +40,10 @@ def save(model_name='dop_po4', time_step=1, parameter_sets=range(9999), data_kin
         ## create cost functions
         if os.path.exists(parameters_file):
             spinup_dir = os.path.join(parameter_set_dir, DATABASE_SPINUP_DIRNAME)
-            last_run_dir = model.get_last_run_dir(spinup_dir)
+            last_run_dir = model.last_run_dir(spinup_dir)
 
             if last_run_dir is not None:
-                years = model.get_total_years(last_run_dir)
-                tolerance = model.get_real_tolerance(last_run_dir)
-                time_step = model.get_time_step(last_run_dir)
-
-                cf_kargs = {'data_kind': data_kind, 'model_options': {'spinup_options': {'years':years, 'tolerance':tolerance, 'combination':'and'}}, 'job_setup':{'name': 'SCF_' + data_kind}}
+                cf_kargs = {'data_kind': data_kind, 'model_options': {'spinup_options': {'years':1,}, 'time_step': time_step, 'total_concentration_factor_included_in_parameters': True}, 'job_setup':{'name': 'SCF_' + data_kind}}
                 cost_function_family = simulation.optimization.cost_function.Family(**cf_kargs)
                 
         ## eval cf family
@@ -75,7 +71,7 @@ def save(model_name='dop_po4', time_step=1, parameter_sets=range(9999), data_kin
                             output_dir = tempfile.TemporaryDirectory(dir=TMP_DIR, prefix='save_value_cost_function_tmp_').name
                             cf_kargs = cf.kargs
                             cf_kargs['job_setup'] = {'name': '{}:{}'.format(cf, parameter_set_number)}
-                            nodes_setup = util.batch.universal.system.NodeSetup(memory=50, node_kind='clexpress', nodes=1, cpus=1, total_cpus_max=1, walltime=1)
+                            nodes_setup = util.batch.universal.system.NodeSetup(memory=50, node_kind=node_kind, nodes=1, cpus=1, total_cpus_max=1, walltime=1)
                             with simulation.optimization.job.CostFunctionJob(output_dir, p, cf.kind, eval_f=eval_f, eval_df=eval_df, nodes_setup=nodes_setup, **cf_kargs) as cf_job:
                                 cf_job.start()
                             time.sleep(10)
@@ -94,6 +90,7 @@ if __name__ == "__main__":
     parser.add_argument('-l', '--last', type=int, default=9999, help='Last parameter set number for which to calculate the values.')
     parser.add_argument('-d', '--debug', action='store_true', help='Print debug infos.')
     parser.add_argument('-j', '--as_jobs', action='store_true', help='Run as jobs.')
+    parser.add_argument('-n', '--node_kind', default='clexpress', help='Node kind to use for the jobs.')
     parser.add_argument('--DF', action='store_true', help='Eval (also) DF.')
     parser.add_argument('--version', action='version', version='%(prog)s 0.1')
 
@@ -101,4 +98,4 @@ if __name__ == "__main__":
     parameter_sets = range(args.first, args.last+1)
     
     with util.logging.Logger(disp_stdout=args.debug):
-        save(parameter_sets=parameter_sets, data_kind=args.kind_of_cost_function, eval_df=args.DF, as_jobs=args.as_jobs)
+        save(parameter_sets=parameter_sets, data_kind=args.kind_of_cost_function, eval_df=args.DF, as_jobs=args.as_jobs, node_kind=args.node_kind)

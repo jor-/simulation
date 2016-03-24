@@ -24,30 +24,31 @@ if __name__ == "__main__":
     ## parse arguments
     parser = argparse.ArgumentParser(description='Evaluating a cost function for matlab.')
 
-    parser.add_argument('--kind_of_cost_function', '-c', choices=KIND_OF_COST_FUNCTIONS, help='The cost function which should be evaluated.')
-    parser.add_argument('--exchange_dir', '-p', help='The directory from where to load the parameters and where to save the cost function values.')
-    parser.add_argument('--debug_logging_file', '-d', default=None, help='File to store debug informations.')
+    parser.add_argument('--kind_of_cost_function', choices=KIND_OF_COST_FUNCTIONS, help='The cost function which should be evaluated.')
+    parser.add_argument('--exchange_dir', help='The directory from where to load the parameters and where to save the cost function values.')
+    parser.add_argument('--debug_logging_file', default=None, help='File to store debug informations.')
 
-    parser.add_argument('--eval_function_value', '-f', action='store_true', help='Save the value of the cost function.')
-    parser.add_argument('--eval_grad_value', '-g', action='store_true', help='Save the values of the derivative of the cost function.')
+    parser.add_argument('--eval_function_value', action='store_true', help='Save the value of the cost function.')
+    parser.add_argument('--eval_grad_value', action='store_true', help='Save the values of the derivative of the cost function.')
 
     parser.add_argument('--model_name', default=None, choices=simulation.model.constants.MODEL_NAMES, help='The name of the model to use for the simulations.')
     parser.add_argument('--time_step', type=int, default=1, choices=simulation.model.constants.METOS_TIME_STEPS, help='The time step multiplier to use for the simulations.')
+    parser.add_argument('--total_concentration_factor_included_in_parameters', action='store_true', help='If used, the total concentration factor is included in the last component of the parameter vector.')
 
-    parser.add_argument('--spinup_years', '-y', '--years', type=int, default=10000, help='The number of years for the spinup.')
-    parser.add_argument('--spinup_tolerance', '-t', '--tolerance', type=float, default=0, help='The tolerance for the spinup.')
-    parser.add_argument('--spinup_satisfy_years_and_tolerance', '-a', '--and_combination', action='store_true', help='If used, the spinup is terminated if years and tolerance have been satisfied. Otherwise, the spinup is terminated as soon as years or tolerance have been satisfied.')
-
-    parser.add_argument('--nodes_setup_node_kind', '--node_kind', default=None, help='The node kind to use for the spinup.')
-    parser.add_argument('--nodes_setup_number_of_nodes', '--nodes', type=int, default=0, help='The number of nodes to use for the spinup.')
-    parser.add_argument('--nodes_setup_number_of_cpus', '--cpus', type=int, default=0, help='The number of cpus to use for the spinup.')
-
-    parser.add_argument('--parameters_relative_tolerance', type=float, nargs='+', default=None, help='The relative tolerance up to which two parameter vectors are considered equal.')
-    parser.add_argument('--parameters_absolute_tolerance', type=float, nargs='+', default=None, help='The absolute tolerance up to which two parameter vectors are considered equal.')
+    parser.add_argument('--spinup_years', type=int, default=10000, help='The number of years for the spinup.')
+    parser.add_argument('--spinup_tolerance', type=float, default=0, help='The tolerance for the spinup.')
+    parser.add_argument('--spinup_satisfy_years_and_tolerance', action='store_true', help='If used, the spinup is terminated if years and tolerance have been satisfied. Otherwise, the spinup is terminated as soon as years or tolerance have been satisfied.')
 
     parser.add_argument('--derivative_step_size', type=float, default=None, help='The step size used for the finite difference approximation.')
     parser.add_argument('--derivative_years', type=int, default=None, help='The number of years for the finite difference approximation spinup.')
     parser.add_argument('--derivative_accuracy_order', type=int, default=None, help='The accuracy order used for the finite difference approximation. 1 = forward differences. 2 = central differences.')
+
+    parser.add_argument('--nodes_setup_node_kind', default=None, help='The node kind to use for the spinup.')
+    parser.add_argument('--nodes_setup_number_of_nodes', type=int, default=0, help='The number of nodes to use for the spinup.')
+    parser.add_argument('--nodes_setup_number_of_cpus', type=int, default=0, help='The number of cpus to use for the spinup.')
+
+    parser.add_argument('--parameters_relative_tolerance', type=float, nargs='+', default=None, help='The relative tolerance up to which two parameter vectors are considered equal.')
+    parser.add_argument('--parameters_absolute_tolerance', type=float, nargs='+', default=None, help='The absolute tolerance up to which two parameter vectors are considered equal.')
 
     parser.add_argument('--version', action='version', version='%(prog)s 0.1')
 
@@ -63,6 +64,10 @@ if __name__ == "__main__":
     ## prepare model name
     if args.model_name is not None:
         model_options['model_name'] = args.model_name 
+    
+    ## prepare total_concentration_factor_included_in_parameters
+    if args.total_concentration_factor_included_in_parameters:
+        model_options['total_concentration_factor_included_in_parameters'] = True 
     
     ## prepare time step
     time_step = args.time_step
@@ -91,10 +96,8 @@ if __name__ == "__main__":
     if args.parameters_relative_tolerance is not None or args.parameters_absolute_tolerance is not None:
         parameter_tolerance_options = {}
         if args.parameters_relative_tolerance is not None:
-            assert len(args.parameters_relative_tolerance) in (1, 7)
             parameter_tolerance_options['relative'] = np.array(args.parameters_relative_tolerance)
         if args.parameters_absolute_tolerance is not None:
-            assert len(args.parameters_absolute_tolerance) in (1, 7)
             parameter_tolerance_options['absolute'] = np.array(args.parameters_absolute_tolerance)
         model_options['parameter_tolerance_options'] = parameter_tolerance_options
     
@@ -163,7 +166,7 @@ if __name__ == "__main__":
                 from util.constants import TMP_DIR
 
                 ## start spinup job
-                cf.data_base.model.spinup_run_dir(parameters, cf.data_base.model.spinup_options, start_from_closest_parameters=MODEL_START_FROM_CLOSEST_PARAMETER_SET)
+                cf.data_base.model.matching_run_dir(parameters, cf.data_base.model.spinup_options, start_from_closest_parameters=MODEL_START_FROM_CLOSEST_PARAMETER_SET)
 
                 ## start cf calculation job
                 os.makedirs(TMP_DIR, exist_ok=True)

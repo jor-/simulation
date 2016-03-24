@@ -27,18 +27,22 @@ class DataBase:
         from .constants import CACHE_DIRNAME, BOXES_F_FILENAME, BOXES_DF_FILENAME
 
         logger.debug('Initiating {} with model_options {} and job_setup {}.'.format(self, model_options, job_setup))
-        
-        self.model = simulation.model.eval.Model(model_options=model_options, job_setup=job_setup)
 
-        self._F_boxes_cache_filename = BOXES_F_FILENAME
-        self._DF_boxes_cache_filename = BOXES_DF_FILENAME
+        ## init values
+        self._f_boxes_cache_filename = BOXES_F_FILENAME
+        self._df_boxes_cache_filename = BOXES_DF_FILENAME
         
         self.default_boxes_t_dim = DEFAULT_BOXES_T_DIM
         
+        ## init model
+        self.model = simulation.model.eval.Model(model_options=model_options, job_setup=job_setup)
+        
+        ## init caches
         self.hdd_cache = simulation.util.value_cache.Cache(model_options=model_options, cache_dirname=CACHE_DIRNAME, use_memory_cache=True)
         self.memory_cache = util.cache.MemoryCache()
         self.memory_cache_with_parameters = simulation.util.value_cache.MemoryCache()
-
+        
+        ## init job setup
         if job_setup is None:
             job_setup = {}
         try:
@@ -53,11 +57,11 @@ class DataBase:
     
     ## boxes cache filenames
 
-    def F_boxes_cache_filename(self, time_dim):
-        return self._F_boxes_cache_filename.format(time_dim=time_dim)
+    def f_boxes_cache_filename(self, time_dim):
+        return self._f_boxes_cache_filename.format(time_dim=time_dim)
 
-    def DF_boxes_cache_filename(self, time_dim):
-        return self._DF_boxes_cache_filename.format(time_dim=time_dim, step_size=self.model.derivative_options['step_size'])
+    def df_boxes_cache_filename(self, time_dim):
+        return self._df_boxes_cache_filename.format(time_dim=time_dim, step_size=self.model.derivative_options['step_size'])
 
     
 
@@ -73,7 +77,7 @@ class DataBase:
         ## calculate
         calculation_time_dim = max([time_dim, self.default_boxes_t_dim])
         calculation_function = lambda p: self.f_boxes_calculate(p, time_dim=calculation_time_dim)
-        data = self.hdd_cache.get_value(parameters, self.F_boxes_cache_filename(calculation_time_dim), calculation_function, derivative_used=False, save_also_txt=False, use_memmap=use_memmap)
+        data = self.hdd_cache.get_value(parameters, self.f_boxes_cache_filename(calculation_time_dim), calculation_function, derivative_used=False, save_also_txt=False, use_memmap=use_memmap)
         
         ## average if needed
         if time_dim < self.default_boxes_t_dim:
@@ -95,35 +99,57 @@ class DataBase:
 
 
     def df_boxes(self, parameters, time_dim=12, use_memmap=False, as_shared_array=False):
-        ## calculate
+        ## calculate df
         calculation_time_dim = max([time_dim, self.default_boxes_t_dim])
         calculation_function = lambda p: self.df_boxes_calculate(p, time_dim=calculation_time_dim)
-        data = self.hdd_cache.get_value(parameters, self.DF_boxes_cache_filename(calculation_time_dim), calculation_function, derivative_used=True, save_also_txt=False, use_memmap=use_memmap, as_shared_array=as_shared_array)
+        filename = self.df_boxes_cache_filename(calculation_time_dim)
+        df_boxes = self.hdd_cache.get_value(parameters, filename, calculation_function, derivative_used=True, save_also_txt=False, use_memmap=use_memmap, as_shared_array=as_shared_array)
         
-        ## average if needed
+        ## if cached df has to many parameters, remove unwanted partial derivatives
+        if df_boxes.shape[-1] > len(parameters):
+            logger.debug('Cached df has more partial derivatives ({}) than needed ({}). Truncating df.'.format(df_boxes.shape[-1], len(parameters)))
+            slices = (slice(None),) * (df_boxes.ndim - 1) + (slice(len(parameters)),)
+            df_boxes = df_boxes[slices]
+        ## if cached df has to few parameters, recalculate
+        elif df_boxes.shape[-1] < len(parameters):
+            logger.debug('Cached df has to few partial derivatives ({}) than needed ({}). Recalculating df.'.format(df_boxes.shape[-1], len(parameters)))
+            df_boxes = calculation_function()
+            self.hdd_cache.save_value(parameters, filename, df_boxes, derivative_used=True, save_also_txt=False)
+        
+        ## average time if needed
         if time_dim < self.default_boxes_t_dim:
-            data = util.math.interpolate.change_dim(data, 1, time_dim)
+            df_boxes = util.math.interpolate.change_dim(df_boxes, 1, time_dim)
         
         ## return
-        assert data.shape[1] == time_dim
-        return data
+        assert df_boxes.shape[1] == time_dim
+        assert df.shape[-1] == len(parameters)
+        return df_boxes
 
 
-    def F_calculate(self, parameters):
+    def f_calculate(self, parameters):
         raise NotImplementedError("Please implement this method.")
     
-    def F(self, parameters):
-        values = self.memory_cache_with_parameters.get_value(parameters, 'F', self.F_calculate)
+    def f(self, parameters):
+        values = self.memory_cache_with_parameters.get_value(parameters, 'F', self.f_calculate)
         assert values.ndim == 1 and len(values) == self.m
         return values
 
-    def DF_calculate(self, parameters):
+    def df_calculate(self, parameters):
         raise NotImplementedError("Please implement this method.")
 
-    def DF(self, parameters):
-        values = self.memory_cache_with_parameters.get_value(parameters, 'DF', self.DF_calculate)
-        assert values.ndim == 2 and len(values) == self.m and values.shape[1] == len(parameters)
-        return values
+    def df(self, parameters):
+        ## get value form hdd cache        
+        df = self.memory_cache_with_parameters.get_value(parameters, 'DF', self.df_calculate)
+        assert df.ndim == 2 and len(df) == self.m and df.shape[1] in [len(parameters), len(parameters)+1]
+        
+        ## if cached df has to many parameters, remove unwanted partial derivatives
+        if df.shape[-1] > len(parameters):
+            logger.debug('Cached df has more partial derivatives ({}) than needed ({}). Truncating df.'.format(df.shape[-1], len(parameters)))
+            slices = (slice(None),) * (df.ndim - 1) + (slice(len(parameters)),)
+            df = df[slices]
+        
+        ## return
+        return df
 
 
     ## m
@@ -227,15 +253,30 @@ class DataBaseHDD(DataBase):
         return self._DF_cache_filename.format(step_size=self.model.derivative_options['step_size'])
         
     
-    def F(self, parameters):
-        values = self.hdd_cache.get_value(parameters, self.F_cache_filename, self.F_calculate, derivative_used=False, save_also_txt=False)
+    def f(self, parameters):
+        values = self.hdd_cache.get_value(parameters, self.F_cache_filename, self.f_calculate, derivative_used=False, save_also_txt=False)
         assert values.ndim == 1 and len(values) == self.m
         return values
 
-    def DF(self, parameters):
-        values = self.hdd_cache.get_value(parameters, self.DF_cache_filename, self.DF_calculate, derivative_used=True, save_also_txt=False)
-        assert values.ndim == 2 and len(values) == self.m and values.shape[1] == len(parameters)
-        return values
+    def df(self, parameters):
+        ## get value form hdd cache
+        df = self.hdd_cache.get_value(parameters, self.DF_cache_filename, self.df_calculate, derivative_used=True, save_also_txt=False)
+        assert df.ndim == 2 and len(df) == self.m
+        
+        ## if cached df has to many parameters, remove unwanted partial derivatives
+        if df.shape[-1] > len(parameters):
+            logger.debug('Cached df has more partial derivatives ({}) than needed ({}). Truncating df.'.format(df.shape[-1], len(parameters)))
+            slices = (slice(None),) * (df.ndim - 1) + (slice(len(parameters)),)
+            df = df[slices]        
+        ## if cached df has to few parameters, recalculate
+        elif df.shape[-1] < len(parameters):
+            logger.debug('Cached df has to few partial derivatives ({}) than needed ({}). Recalculating df.'.format(df.shape[-1], len(parameters)))
+            df = self.df_calculate(parameters)
+            self.hdd_cache.save_value(parameters, self.DF_cache_filename, df, derivative_used=True, save_also_txt=False)
+        
+        ## return
+        assert df.shape[1] == len(parameters)
+        return df
     
 
 
@@ -262,13 +303,13 @@ class WOA(DataBaseHDD):
 
     ## model output
 
-    def F_calculate(self, parameters):
+    def f_calculate(self, parameters):
         f_boxes = self.f_boxes(parameters)
         F = self._get_data_with_annual_averaged(f_boxes)
         return F
 
 
-    def DF_calculate(self, parameters):
+    def df_calculate(self, parameters):
         df_boxes = self.df_boxes(parameters)
         DF = self._get_data_with_annual_averaged(df_boxes)
         return DF
@@ -315,18 +356,6 @@ class WOD_Base(DataBase):
 
     def __init__(self, *args, **kargs):
         super().__init__(*args, **kargs)
-
-
-    ## model output
-
-    def F_dop(self, parameters):
-        F = self.F(parameters)
-        return F[:self.m_dop]
-
-
-    def F_po4(self, parameters):
-        F = self.F(parameters)
-        return F[self.m_dop:]
 
 
     ## measurements
@@ -381,13 +410,15 @@ class WOD(DataBaseHDD, WOD_Base):
 
     ## model output
 
-    def F_calculate(self, parameters):
+    def f_calculate(self, parameters):
+        ## calculate f
         (f_dop, f_po4) = self.model.f_points(parameters, self.points)
         F = np.concatenate([f_dop, f_po4])
         return F
 
 
-    def DF_calculate(self, parameters):
+    def df_calculate(self, parameters):
+        ## calculate df
         (df_dop, df_po4) = self.model.df_points(parameters, self.points)
         DF = np.concatenate([df_dop, df_po4], axis=-1)
         DF = np.swapaxes(DF, 0, 1)
@@ -604,11 +635,11 @@ class WOD_TMM(WOD_Base):
         return self.wod.deviations[self.points_near_water_mask_concatenated]
 
 
-    def F_calculate(self, parameters):
-        return self.wod.F(parameters)[self.points_near_water_mask_concatenated]
+    def f_calculate(self, parameters):
+        return self.wod.f(parameters)[self.points_near_water_mask_concatenated]
 
-    def DF_calculate(self, parameters):
-        return self.wod.DF(parameters)[self.points_near_water_mask_concatenated]
+    def df_calculate(self, parameters):
+        return self.wod.df(parameters)[self.points_near_water_mask_concatenated]
 
 
     ## correlation matrix
@@ -624,11 +655,13 @@ class WOD_TMM(WOD_Base):
 class OLDWOD(WOD):
 
     def deviations_calculate(self):
+        import os.path
         import measurements.dop.pw.deviation
         import measurements.land_sea_mask.data
+        from measurements.constants import BASE_DIR
         sample_lsm = measurements.land_sea_mask.data.LandSeaMaskWOA13R(t_dim=52) 
         deviation_dop = measurements.dop.pw.deviation.total_deviation_for_points(sample_lsm=sample_lsm)
-        file = '/sfs/fs3/work-sh1/sunip229/NDOP/measurements/po4/wod13/analysis/deviation/old/interpolated_deviation_lexsorted_points_0.1,2,0.2,1.npy'
+        file = os.path.join(BASE_DIR, 'po4/wod13/analysis/deviation/old/interpolated_deviation_lexsorted_points_0.1,2,0.2,1.npy')
         logger.debug('Loading OLD deviations: {}.'.format(file))
         deviation_po4 = np.load(file)
         deviations = np.concatenate([deviation_dop, deviation_po4])
@@ -637,9 +670,11 @@ class OLDWOD(WOD):
 
     def correlation_matrix_cholesky_decomposition_calculate(self, min_measurements, max_year_diff=float('inf'), positive_definite_approximation_min_diag_value=0.01):
         if positive_definite_approximation_min_diag_value != 0.01:
-            raise NotImplementedError("Not implement!")
+            raise NotImplementedError("Not implemented!")
+        import os.path
         import util.io.object
-        file = '/sfs/fs3/work-sh1/sunip229/NDOP/measurements/all/pw/correlation/old/lsm_48_woa13r/correlation_matrix.min_{}_measurements.max_inf_year_diff.positive_definite.default_ordering.reordering_True.min_diag_1e-02.cholesky_factors.csc.ppy'.format(min_measurements)
+        from measurements.constants import BASE_DIR
+        file = os.path.join(BASE_DIR, 'all/pw/correlation/old/lsm_48_woa13r/correlation_matrix.min_{}_measurements.max_inf_year_diff.positive_definite.default_ordering.reordering_True.min_diag_1e-02.cholesky_factors.csc.ppy'.format(min_measurements))
         logger.debug('Loading OLD correlation: {}.'.format(min_measurements))
         return util.io.object.load(file)
         
@@ -652,9 +687,11 @@ class OLDWOD_TMM(WOD_TMM):
 
     def correlation_matrix_cholesky_decomposition_calculate(self, min_measurements, max_year_diff=float('inf'), positive_definite_approximation_min_diag_value=0.01):
         if positive_definite_approximation_min_diag_value != 0.01:
-            raise NotImplementedError("Not implement!")
+            raise NotImplementedError("Not implemented!")
+        import os.path
         import util.io.object
-        file = '/sfs/fs3/work-sh1/sunip229/NDOP/measurements/all/pw_nearest_lsm_tmm_{}/correlation/old/lsm_48_woa13r/correlation_matrix.min_{}_measurements.max_inf_year_diff.positive_definite.default_ordering.reordering_True.min_diag_1e-02.cholesky_factors.csc.ppy'.format(self.max_land_boxes, min_measurements)
+        from measurements.constants import BASE_DIR
+        file = os.path.join(BASE_DIR, 'all/pw_nearest_lsm_tmm_{}/correlation/old/lsm_48_woa13r/correlation_matrix.min_{}_measurements.max_inf_year_diff.positive_definite.default_ordering.reordering_True.min_diag_1e-02.cholesky_factors.csc.ppy'.format(self.max_land_boxes, min_measurements))
         logger.debug('Loading OLD correlation: {}.'.format(self.max_land_boxes, min_measurements))
         return util.io.object.load(file)
     

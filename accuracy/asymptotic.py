@@ -309,7 +309,7 @@ class OLS(Base):
     def information_matrix_calculate_with_parameters(self, parameters):
         logger.debug('Calculating information matrix of type {} for parameters {}.'.format(self.__class__.__name__, parameters))
 
-        DF = self.data_base.DF(parameters)
+        DF = self.data_base.df(parameters)
         M = self.information_matrix_calculate_with_DF(DF, self.data_base.inverse_average_variance)
 
         assert M.ndim == 2 and M.shape[0] == M.shape[1] == len(parameters) and M.dtype == self.dtype
@@ -344,7 +344,7 @@ class WLS(Base):
     def information_matrix_calculate_with_parameters(self, parameters):
         logger.debug('Calculating information matrix of type {} for parameters {}.'.format(self.__class__.__name__, parameters))
 
-        DF = self.data_base.DF(parameters)
+        DF = self.data_base.df(parameters)
         M = self.information_matrix_calculate_with_DF(DF, self.data_base.inverse_deviations)
 
         assert M.ndim == 2 and M.shape[0] == M.shape[1] == len(parameters) and M.dtype == self.dtype
@@ -400,7 +400,7 @@ class GLS(Base):
 
     def information_matrix_calculate_with_parameters(self, parameters):
         P, L = self.data_base.correlation_matrix_cholesky_decomposition(min_measurements=self.correlation_min_measurements, max_year_diff=self.correlation_max_year_diff, positive_definite_approximation_min_diag_value=self.positive_definite_approximation_min_diag_value)
-        DF = self.data_base.DF(parameters)
+        DF = self.data_base.df(parameters)
         
         weighted_DF = DF * self.data_base.inverse_deviations[:, np.newaxis]
         weighted_DF = P * np.asmatrix(weighted_DF, dtype=self.dtype)
@@ -435,7 +435,7 @@ class GLS_P3(Base):
         logger.debug('Calculating projected DF {} for parameters {}.'.format(projected_value_index, parameters))
 
         n = self.data_base.m_dop
-        DF = self.data_base.DF(parameters)
+        DF = self.data_base.df(parameters)
         inverse_deviations = self.data_base.inverse_deviations
 
         return self.DF_projected_calculate_with_DF(DF, inverse_deviations, n, projected_value_index=projected_value_index)

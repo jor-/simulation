@@ -8,7 +8,7 @@ COST_FUNCTION_DIRNAME = 'cost_functions'
 COST_FUNCTION_F_FILENAME = 'f.npy'
 COST_FUNCTION_DF_FILENAME = 'df_-_step_size_{step_size:g}.npy'
 COST_FUNCTION_F_NORMALIZED_FILENAME = 'f_normalized.npy'
-COST_FUNCTION_GLS_PROD_FILENAME = 'inv_col_factor_mult_residuum.npy'
+COST_FUNCTION_GLS_PROD_FILENAME = 'inverse_cholesky_factor_multiplied_with_residuum.npy'
 COST_FUNCTION_CORRELATION_PARAMETER_FILENAME = 'cp.npy'
 
 CONCENTRATION_MIN_VALUE = 10**(-6)

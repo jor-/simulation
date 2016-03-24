@@ -237,7 +237,7 @@ def model_output(parameter_set_nr, kind='BOXES', path='/tmp', y_max=(None, None)
             f = f.mean(axis=1)
     else:
         data_base = simulation.util.data_base.init_data_base('WOD')
-        f = data_base.F(p)
+        f = data_base.f(p)
         f = data_base.convert_to_boxes(f, no_data_value=np.inf)
 
     file = os.path.join(path, 'model_output_-_' + kind + '_-_' + parameter_set_dirname + '_-_{tracer}.png')
