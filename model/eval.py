@@ -902,7 +902,7 @@ class Model():
                         ## remove old run
                         if partial_derivative_run_dir is not None:
                             logger.debug('Old partial derivative spinup run {} is not matching desired option. It is removed.'.format(partial_derivative_run_dir))
-                            util.io.fs.remove_recursively(partial_derivative_run_dir, not_exist_okay=True, exclude_dir=True)
+                            util.io.fs.remove_recursively(partial_derivative_run_dir, not_exist_okay=True, exclude_dir=False)
                         
                         ## create new run dir
                         partial_derivative_run_dir = self.make_new_run_dir(partial_derivative_dir)   
