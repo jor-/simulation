@@ -139,7 +139,7 @@ def print_all_values_for_min_values(cost_function_names):
     cost_function_names = [cf.replace('/max_year_diff_inf/min_diag_1e-02', '').replace('min_values_','') for cf in cost_function_names]
     print('All min cost function values for:')
     print(cost_function_names)
-    print_for_parameter_set('', 0, values_array(0, cost_function_names) / best_values)
+    print_for_parameter_set('', 184, values_array(184, cost_function_names) / best_values)
     for i in range(len(best_indices)):
         if best_indices[i] >= 0:
             print_for_parameter_set(cost_function_names[i], best_indices[i], all_normalized_values[i])
