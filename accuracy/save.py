@@ -61,14 +61,20 @@ if __name__ == "__main__":
         ## init asymptotic
         asymptotic = cf_class(**cf_kargs)
         
+        ## parallel mode
+        if not args.not_parallel:
+            parallel_mode = util.parallel.universal.MODES['serial']
+        else:
+            parallel_mode = util.parallel.universal.max_parallel_mode()
+        
         ## calculate
         p = np.loadtxt(SIMULATION_OUTPUT_DIR+'/model_dop_po4/time_step_0001/parameter_set_{:0>5}/parameters.txt'.format(args.parameter_set_nr))
         asymptotic.parameter_confidence(p)
-        asymptotic.model_confidence(p, time_dim_df=args.time_dim_df, use_mem_map=args.use_mem_map, parallel_mode=not args.not_parallel)
-        asymptotic.average_model_confidence(p, time_dim_df=args.time_dim_df, use_mem_map=args.use_mem_map, parallel_mode=not args.not_parallel)
+        asymptotic.model_confidence(p, time_dim_df=args.time_dim_df, use_mem_map=args.use_mem_map, parallel_mode=parallel_mode)
+        asymptotic.average_model_confidence(p, time_dim_df=args.time_dim_df, use_mem_map=args.use_mem_map, parallel_mode=parallel_mode)
         if args.number_of_measurements > 0:
             value_mask = np.load(args.value_mask_file)
-            average_model_confidence_increase = asymptotic.average_model_confidence_increase(p, number_of_measurements=args.number_of_measurements, time_dim_confidence_increase=args.time_dim_confidence_increase, time_dim_df=args.time_dim_df, value_mask=value_mask, use_mem_map=args.use_mem_map, parallel_mode=not args.not_parallel)
+            average_model_confidence_increase = asymptotic.average_model_confidence_increase(p, number_of_measurements=args.number_of_measurements, time_dim_confidence_increase=args.time_dim_confidence_increase, time_dim_df=args.time_dim_df, value_mask=value_mask, use_mem_map=args.use_mem_map, parallel_mode=parallel_mode)
             if args.output_file is not None:
                 np.save(args.output_file, average_model_confidence_increase)
 
