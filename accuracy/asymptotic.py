@@ -239,40 +239,32 @@ class Base():
 
 
     def average_model_confidence_increase_calculate(self, parameters, number_of_measurements=1, time_dim_confidence_increase=12, time_dim_df=2880, value_mask=None, use_mem_map=False, parallel_mode=util.parallel.universal.max_parallel_mode()):
-        logger.debug('Calculating average model confidence increase for parameters {} with {} additional measurements, time dim {} and and df time dim {}.'.format(parameters, number_of_measurements, time_dim_confidence_increase, time_dim_df))
+        logger.debug('Calculating average model confidence increase for parameters {} with {} additional measurements, time dim {} and df time dim {} in parallel mode {}.'.format(parameters, number_of_measurements, time_dim_confidence_increase, time_dim_df, parallel_mode))
 
-        ## set parallel mode and share arrays
-        if parallel_mode == util.parallel.universal.MODES['scoop']:
-            parallel_mode_average_model_confidence_increase = util.parallel.universal.MODES['scoop']
-            parallel_mode_average_model_confidence = util.parallel.universal.MODES['multiprocessing']
-            parallel_mode_average_model_confidence_last = util.parallel.universal.MODES['multiprocessing']
-        elif parallel_mode == util.parallel.universal.MODES['multiprocessing']:
-            parallel_mode_average_model_confidence_increase = util.parallel.universal.MODES['multiprocessing']
-            parallel_mode_average_model_confidence = util.parallel.universal.MODES['serial']
-            parallel_mode_average_model_confidence_last = util.parallel.universal.MODES['multiprocessing']
-
-            ## create shared arrays
+        ## set parallel modes
+        parallel_mode_average_model_confidence_increase = parallel_mode
+        parallel_mode_average_model_confidence = max([parallel_mode - 1, 0])
+        parallel_mode_average_model_confidence_last = min([parallel_mode, 1])
+        
+        ## create shared arrays
+        if parallel_mode == util.parallel.universal.MODES['multiprocessing']:
             value_mask = util.parallel.with_multiprocessing.shared_array(value_mask)
             self.data_base.df_boxes(parameters, time_dim=time_dim_df, as_shared_array=True)
             self.data_base.df_boxes(parameters, time_dim=time_dim_confidence_increase, as_shared_array=True)
             self.data_base.inverse_deviations_boxes(time_dim=time_dim_confidence_increase, as_shared_array=True)
-        else:
-            parallel_mode_average_model_confidence_increase = util.parallel.universal.MODES['serial']
-            parallel_mode_average_model_confidence = util.parallel.universal.MODES['serial']
-            parallel_mode_average_model_confidence_last = util.parallel.universal.MODES['serial']
 
-        ## calculate
+        ## calculate needed dfs
+        self.data_base.df_boxes(parameters, time_dim=time_dim_df)
         df_boxes_increase = self.data_base.df_boxes(parameters, time_dim=time_dim_confidence_increase)
-        df_boxes_confidence = self.data_base.df_boxes(parameters, time_dim=time_dim_df)
         assert df_boxes_increase.ndim == 6
-        logger.debug('Calculating average model confidence increase for {} values.'.format(np.sum(~ np.isnan(df_boxes_increase))))
-        
 
         ## calculate confidence increase shape
         confidence_increase_shape = (df_boxes_increase.shape[0], time_dim_confidence_increase) + df_boxes_increase.shape[2:-1]
         assert value_mask is None or confidence_increase_shape == value_mask.shape
 
-        ## calculate
+        ## calculate average model confidence increase
+        logger.debug('Calculating average model confidence increase for {} values.'.format(np.sum(~ np.isnan(df_boxes_increase))))
+        
         average_model_confidence_increase = util.parallel.universal.create_array(confidence_increase_shape, self.average_model_confidence_increase_calculate_for_index, parameters, number_of_measurements, time_dim_confidence_increase, time_dim_df, value_mask, use_mem_map, parallel_mode_average_model_confidence, parallel_mode=parallel_mode_average_model_confidence_increase)
 
         average_model_confidence = self.average_model_confidence(parameters, time_dim_df=time_dim_df, value_mask=value_mask, use_mem_map=use_mem_map, parallel_mode=parallel_mode_average_model_confidence_last)
