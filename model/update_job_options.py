@@ -101,17 +101,19 @@ def update_new_option_entries():
             try:
                 options['/metos3d/tracer_input_path']
                 options['/metos3d/initial_concentrations']
-                del options['/metos3d/initial_concentrations']
-                print('Initial concentration option removed, since tracer input is available to job option file {}.'.format(options_file))
             except KeyError:
                 pass
+            else:
+                del options['/metos3d/initial_concentrations']
+                print('Initial concentration option removed, since tracer input is available to job option file {}.'.format(options_file))
             
             try:
                 options['/model/concentrations']
-                del options['/model/concentrations']
-                print('Concentrations option removed in job option file {}.'.format(options_file))
             except KeyError:
                 pass
+            else:
+                del options['/model/concentrations']
+                print('Concentrations option removed in job option file {}.'.format(options_file))
             
             try:
                 options['/metos3d/initial_concentrations']
@@ -143,32 +145,40 @@ def update_new_option_entries():
                 
             try:
                 options['/metos3d/po4_output_filename']
-                del options['/metos3d/po4_output_filename']
-                del options['/metos3d/dop_output_filename']
             except KeyError:
                 pass
             else:
+                del options['/metos3d/po4_output_filename']
+                del options['/metos3d/dop_output_filename']
                 options['/metos3d/output_filenames'] = ['{}_output.petsc'.format(tracer) for tracer in options['/model/tracer']]
                 print('generic output filenames added to job option file {}.'.format(options_file))
                 
             try:
                 options['/metos3d/po4_input_filename']
-                del options['/metos3d/po4_input_filename']
-                del options['/metos3d/dop_input_filename']
             except KeyError:
                 pass
             else:
+                del options['/metos3d/po4_input_filename']
+                del options['/metos3d/dop_input_filename']
                 options['/metos3d/input_filenames'] = ['{}_input.petsc'.format(tracer) for tracer in options['/model/tracer']]
                 print('generic input filenames added to job option file {}.'.format(options_file))
-
+            
             try:
                 options['/metos3d/tracer_input_path']
             except KeyError:
                 pass
             else:
+                del options['/metos3d/tracer_input_path']
+                print('tracer input path added to job option file {}.'.format(options_file))
+
+            try:
+                options['/model/tracer_input_dir']
+            except KeyError:
+                pass
+            else:
                 import simulation.constants
-                input_tracer = os.path.join(options['/metos3d/tracer_input_path'], options['/metos3d/input_filenames'][0])
-                options['/model/tracer_input_path'] = os.path.dirname(os.path.realpath('dop_input.petsc')).replace(simulation.constants.SIMULATION_OUTPUT_DIR, '${{{}}}'.format(simulation.constants.SIMULATION_OUTPUT_DIR_ENV_NAME))
+                input_tracer = os.path.join(options['/metos3d/tracer_input_dir'], options['/metos3d/input_filenames'][0])
+                options['/model/tracer_input_dir'] = os.path.dirname(os.path.realpath(input_tracer)).replace(simulation.constants.SIMULATION_OUTPUT_DIR, '${{{}}}'.format(simulation.constants.SIMULATION_OUTPUT_DIR_ENV_NAME))
                 print('tracer input path added to job option file {}.'.format(options_file))
             
             try:
@@ -178,7 +188,43 @@ def update_new_option_entries():
             else:
                 del options['/model/parameters_file']
                 print('Model parameters file removed in job option file {}.'.format(options_file))
-                
+            
+            try:
+                options['/metos3d/data_path']
+            except KeyError:
+                pass
+            else:
+                options['/metos3d/data_dir'] = options['/metos3d/data_path']
+                del options['/metos3d/data_path']
+                print('/metos3d/data_path renamed to /metos3d/data_dir in job option file {}.'.format(options_file))
+
+            try:
+                options['/metos3d/data_path']
+            except KeyError:
+                pass
+            else:
+                options['/metos3d/data_dir'] = options['/metos3d/data_path']
+                del options['/metos3d/data_path']
+                print('/metos3d/data_path renamed to /metos3d/data_dir in job option file {}.'.format(options_file))
+
+            try:
+                options['/metos3d/tracer_output_path']
+            except KeyError:
+                pass
+            else:
+                options['/metos3d/tracer_output_dir'] = options['/metos3d/tracer_output_path']
+                del options['/metos3d/tracer_output_path']
+                print('/metos3d/tracer_output_path renamed to /metos3d/tracer_output_dir in job option file {}.'.format(options_file))
+
+            try:
+                options['/metos3d/output_path']
+            except KeyError:
+                pass
+            else:
+                options['/metos3d/output_dir'] = options['/metos3d/output_path']
+                del options['/metos3d/output_path']
+                print('/metos3d/output_path renamed to /metos3d/output_dir in job option file {}.'.format(options_file))
+            
                 
             
 

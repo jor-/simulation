@@ -98,9 +98,9 @@ class Metos3D_Job(util.batch.universal.system.Job):
     @property
     def tracer_output_dir(self):
         try:
-            tracer_output_dir = self.options['/metos3d/tracer_output_path']
+            tracer_output_dir = self.options['/metos3d/tracer_output_dir']
         except KeyError:
-            tracer_output_dir = self.options['/metos3d/output_path']
+            tracer_output_dir = self.options['/metos3d/output_dir']
         return tracer_output_dir
     
     
@@ -185,7 +185,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
 
     def update_output_dir(self, new_output_path):
         opt = self.options
-        old_output_path = opt['/metos3d/output_path']
+        old_output_path = opt['/metos3d/output_dir']
 
         if old_output_path.endswith('/'):
             old_output_path = old_output_path[:-1]
@@ -244,9 +244,10 @@ class Metos3D_Job(util.batch.universal.system.Job):
             nodes_setup.memory = simulation.model.constants.JOB_MEMORY_GB
 
         ## check/set walltime
-        sec_per_year = np.exp(- (nodes_setup.nodes * nodes_setup.cpus) / 40) * 30 + 1.5
+        sec_per_year = np.exp(- (nodes_setup.nodes * nodes_setup.cpus) / 6*16) * 10 + 2
         sec_per_year /= time_step**(1/2)
         estimated_walltime_hours = np.ceil(years * sec_per_year / 60**2)
+        logger.debug('The estimated walltime for {} nodes with {} cpus, {} years and time step {} is {} hours.'.format(nodes_setup.nodes, nodes_setup.cpus, years, time_step, estimated_walltime_hours))
         if nodes_setup.walltime is None:
             nodes_setup.walltime = estimated_walltime_hours
         else:
@@ -289,7 +290,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
         
 
         ## set metos3d options
-        opt['/metos3d/data_path'] = METOS_DATA_DIR
+        opt['/metos3d/data_dir'] = METOS_DATA_DIR
         opt['/metos3d/sim_file'] = METOS_SIM_FILE
         opt['/metos3d/years'] = years
         opt['/metos3d/write_trajectory'] = write_trajectory
@@ -300,9 +301,9 @@ class Metos3D_Job(util.batch.universal.system.Job):
             tracer_output_dir = os.path.join(output_dir, 'trajectory/')
             os.makedirs(tracer_output_dir, exist_ok=True)
             tracer_output_dir_not_expanded = os.path.join(output_dir_not_expanded, 'trajectory/')
-            opt['/metos3d/tracer_output_path'] = tracer_output_dir_not_expanded
+            opt['/metos3d/tracer_output_dir'] = tracer_output_dir_not_expanded
 
-        opt['/metos3d/output_path'] = output_dir_not_expanded
+        opt['/metos3d/output_dir'] = output_dir_not_expanded
         opt['/metos3d/option_file'] = os.path.join(output_dir_not_expanded, 'metos3d_options.txt')
         opt['/metos3d/debuglevel'] = 1
         opt['/metos3d/output_filenames'] = ['{}_output.petsc'.format(tracer) for tracer in opt['/model/tracer']]
@@ -343,7 +344,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
 
         f.write('# geometry \n')
         f.write('-Metos3DGeometryType                    Profile \n')
-        f.write('-Metos3DProfileInputDirectory           {}/Geometry/ \n'.format(opt['/metos3d/data_path']))
+        f.write('-Metos3DProfileInputDirectory           {}/Geometry/ \n'.format(opt['/metos3d/data_dir']))
         f.write('-Metos3DProfileIndexStartFile           gStartIndices.bin \n')
         f.write('-Metos3DProfileIndexEndFile             gEndIndices.bin \n\n')
 
@@ -357,9 +358,9 @@ class Metos3D_Job(util.batch.universal.system.Job):
             f.write('-Metos3DTracerInitValue                 {},{} \n'.format(*opt['/model/initial_concentrations']))
 
         try:
-            f.write('-Metos3DTracerOutputDirectory           {} \n'.format(opt['/metos3d/tracer_output_path']))
+            f.write('-Metos3DTracerOutputDirectory           {} \n'.format(opt['/metos3d/tracer_output_dir']))
         except KeyError:
-            f.write('-Metos3DTracerOutputDirectory           {} \n'.format(opt['/metos3d/output_path']))
+            f.write('-Metos3DTracerOutputDirectory           {} \n'.format(opt['/metos3d/output_dir']))
 
         f.write('-Metos3DTracerOutputFile                {} \n\n'.format(','.join(map(str, opt['/metos3d/output_filenames']))))
 
@@ -369,7 +370,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
 
         f.write('# bgc boundary conditions \n')
         f.write('-Metos3DBoundaryConditionCount          2 \n')
-        f.write('-Metos3DBoundaryConditionInputDirectory {}/Forcing/BoundaryCondition/ \n'.format(opt['/metos3d/data_path']))
+        f.write('-Metos3DBoundaryConditionInputDirectory {}/Forcing/BoundaryCondition/ \n'.format(opt['/metos3d/data_dir']))
         f.write('-Metos3DBoundaryConditionName           Latitude,IceCover \n')
         f.write('-Metos3DLatitudeCount                   1 \n')
         f.write('-Metos3DLatitudeFileFormat              latitude.petsc \n')
@@ -378,7 +379,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
 
         f.write('# bgc domain conditions \n')
         f.write('-Metos3DDomainConditionCount            2 \n')
-        f.write('-Metos3DDomainConditionInputDirectory   {}/Forcing/DomainCondition/ \n'.format(opt['/metos3d/data_path']))
+        f.write('-Metos3DDomainConditionInputDirectory   {}/Forcing/DomainCondition/ \n'.format(opt['/metos3d/data_dir']))
         f.write('-Metos3DDomainConditionName             LayerDepth,LayerHeight \n')
         f.write('-Metos3DLayerDepthCount                 1 \n')
         f.write('-Metos3DLayerDepthFileFormat            z.petsc \n\n')
@@ -387,7 +388,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
 
         f.write('# transport \n')
         f.write('-Metos3DTransportType                   Matrix \n')
-        f.write('-Metos3DMatrixInputDirectory            {}/Transport/Matrix5_4/{:d}dt/ \n'.format(opt['/metos3d/data_path'], opt['/model/time_step_multiplier']))
+        f.write('-Metos3DMatrixInputDirectory            {}/Transport/Matrix5_4/{:d}dt/ \n'.format(opt['/metos3d/data_dir'], opt['/model/time_step_multiplier']))
         f.write('-Metos3DMatrixCount                     12 \n')
         f.write('-Metos3DMatrixExplicitFileFormat        Ae_$02d.petsc \n')
         f.write('-Metos3DMatrixImplicitFileFormat        Ai_$02d.petsc \n\n')
