@@ -259,9 +259,12 @@ class Model():
         job_setup = self.job_setup_collection[kind]
         job_setup = job_setup.copy()
         try:
-            job_setup['nodes_setup'] = job_setup['nodes_setup'].copy()
+            job_setup['nodes_setup']
         except KeyError:
             pass
+        else:
+            if job_setup['nodes_setup'] is not None:
+                job_setup['nodes_setup'] = job_setup['nodes_setup'].copy()
         return job_setup
 
     
