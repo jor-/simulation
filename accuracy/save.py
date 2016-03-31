@@ -40,28 +40,28 @@ if __name__ == "__main__":
         assert len(kind_splitted) == 2
         data_kind = kind_splitted[0]
         cf_kind = kind_splitted[1]
-        cf_kargs = {'data_kind': data_kind}
+        asymptotic_kargs = {'data_kind': data_kind, 'model_options': {'time_step': time_step, 'total_concentration_factor_included_in_parameters': True}}
 
         if cf_kind == 'OLS':
-            cf_class = simulation.accuracy.asymptotic.OLS
+            asymptotic_class = simulation.accuracy.asymptotic.OLS
         elif cf_kind == 'WLS':
-            cf_class = simulation.accuracy.asymptotic.WLS
+            asymptotic_class = simulation.accuracy.asymptotic.WLS
         elif cf_kind == 'LWLS':
-            cf_class = simulation.accuracy.asymptotic.LWLS
+            asymptotic_class = simulation.accuracy.asymptotic.LWLS
         elif cf_kind.startswith('GLS'):
-            cf_class = simulation.accuracy.asymptotic.GLS
+            asymptotic_class = simulation.accuracy.asymptotic.GLS
             cf_kind_splitted = cf_kind.split('.')
             correlation_min_values = int(cf_kind_splitted[1])
             correlation_max_year_diff = int(cf_kind_splitted[2])
             if correlation_max_year_diff < 0:
                 correlation_max_year_diff = float('inf')
-            cf_kargs['correlation_min_values'] = correlation_min_values
-            cf_kargs['correlation_max_year_diff'] = correlation_max_year_diff
+            asymptotic_kargs['correlation_min_values'] = correlation_min_values
+            asymptotic_kargs['correlation_max_year_diff'] = correlation_max_year_diff
         else:
             raise ValueError('Unknown cf kind {}.'.format(cf_kind))
         
         ## init asymptotic
-        asymptotic = cf_class(**cf_kargs)
+        asymptotic = asymptotic_class(**asymptotic_kargs)
         
         ## parallel mode
         if not args.not_parallel:
