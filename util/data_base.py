@@ -113,7 +113,7 @@ class DataBase:
         ## if cached df has to few parameters, recalculate
         elif df_boxes.shape[-1] < len(parameters):
             logger.debug('Cached df has to few partial derivatives ({}) than needed ({}). Recalculating df.'.format(df_boxes.shape[-1], len(parameters)))
-            df_boxes = calculation_function()
+            df_boxes = calculation_function(parameters)
             self.hdd_cache.save_value(parameters, filename, df_boxes, derivative_used=True, save_also_txt=False)
         
         ## average time if needed
@@ -147,6 +147,12 @@ class DataBase:
             logger.debug('Cached df has more partial derivatives ({}) than needed ({}). Truncating df.'.format(df.shape[-1], len(parameters)))
             slices = (slice(None),) * (df.ndim - 1) + (slice(len(parameters)),)
             df = df[slices]
+
+        ## if cached df has to few parameters, recalculate
+        elif df.shape[-1] < len(parameters):
+            logger.debug('Cached df has to few partial derivatives ({}) than needed ({}). Recalculating df.'.format(df.shape[-1], len(parameters)))
+            df = self.df_calculate(parameters)
+            self.memory_cache_with_parameters.save_value(parameters, 'DF', df)
         
         ## return
         return df
