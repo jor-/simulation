@@ -6,6 +6,8 @@ if __name__ == "__main__":
     
     import simulation.optimization.constants
     import simulation.accuracy.asymptotic
+    
+    import util.parallel.universal
     from util.logging import Logger
     
     from simulation.constants import SIMULATION_OUTPUT_DIR
