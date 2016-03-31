@@ -40,6 +40,7 @@ if __name__ == "__main__":
         assert len(kind_splitted) == 2
         data_kind = kind_splitted[0]
         cf_kind = kind_splitted[1]
+        time_step = 1
         asymptotic_kargs = {'data_kind': data_kind, 'model_options': {'time_step': time_step, 'total_concentration_factor_included_in_parameters': True}}
 
         if cf_kind == 'OLS':
