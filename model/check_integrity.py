@@ -6,7 +6,9 @@ import numpy as np
 import simulation.model.eval
 import simulation.model.job
 import simulation.util.data_base
+import simulation.constants
 
+import util.options
 import util.io.fs
 import util.batch.universal.system
 import util.index_database.general
@@ -17,7 +19,7 @@ import util.index_database.general
 
 ERROR_IGNORE_LIST = ("librdmacm: Fatal: unable to get RDMA device list"+os.linesep, "librdmacm: Warning: couldn't read ABI version."+os.linesep, "librdmacm: Warning: assuming: 4"+os.linesep, 'cpuinfo: error while loading shared libraries: libgcc_s.so.1: cannot open shared object file: No such file or directory'+os.linesep)
 
-def check_job_file_integrity_spinup(spinup_dir, is_spinup):
+def check_db_entry_integrity_spinup(spinup_dir, is_spinup):
     
     
     run_dirs = util.io.fs.get_dirs(spinup_dir)
@@ -54,11 +56,27 @@ def check_job_file_integrity_spinup(spinup_dir, is_spinup):
                     except Exception:
                         print('Job in {} is not started!'.format(run_dir))
                         break
+                    
                     ## check read only
                     if not job.options.is_read_only():
                         print('Job option file in {} is writeable!'.format(run_dir))
+                    
+                    ## check options
+                    options_file = os.path.join(run_dir, 'job_options.hdf5')
+                    options = util.options.Options(options_file, replace_environment_vars_at_set=False, replace_environment_vars_at_get=False)
+                    file_entry_prefix = '${{{}}}'.format(simulation.constants.SIMULATION_OUTPUT_DIR_ENV_NAME)
+                    for file_key, must_exists in [('/job/id_file', True), ('/job/option_file', True), ('/job/output_file', True), ('/job/finished_file', True), ('/job/unfinished_file', True), ('/model/tracer_input_dir', False), ('/metos3d/tracer_input_dir', False), ('/metos3d/output_dir', True), ('/metos3d/option_file', True)]:
+                        try:
+                            value = options[file_key]
+                        except KeyError:
+                            if must_exists:
+                                print('Job option {} in {} is missing.'.format(file_key, run_dir))
+                        else:
+                            if not value.startswith(file_entry_prefix):
+                                print('Job option {} in {} is not okay. It should start with {} but its is {}.'.format(file_key, run_dir, file_entry_prefix, value))
+                            
             except (OSError, IOError):
-                print('Job file in ' + run_dir + ' is not okay.')
+                print('Job file in {} is not okay.'.format(run_dir))
                 break
 
 
@@ -154,7 +172,7 @@ def check_job_file_integrity_spinup(spinup_dir, is_spinup):
 
 
 
-def check_job_file_integrity(model_name='dop_po4', time_step=1, parameter_set_dirs_to_check=None, check_for_same_parameters=True):
+def check_db_entry_integrity(model_name='dop_po4', time_step=1, parameter_set_dirs_to_check=None, check_for_same_parameters=True):
     from simulation.model.constants import DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME, DATABASE_TIME_STEP_DIRNAME, DATABASE_SPINUP_DIRNAME, DATABASE_DERIVATIVE_DIRNAME, JOB_OPTIONS_FILENAME, DATABASE_PARAMETERS_FILENAME
     from simulation.util.constants import CACHE_DIRNAME, WOD_F_FILENAME, WOD_DF_FILENAME
 
@@ -181,14 +199,14 @@ def check_job_file_integrity(model_name='dop_po4', time_step=1, parameter_set_di
         
         ## check spinup dir
         spinup_dir = os.path.join(parameter_set_dir, DATABASE_SPINUP_DIRNAME)
-        check_job_file_integrity_spinup(spinup_dir, True)
+        check_db_entry_integrity_spinup(spinup_dir, True)
         
         ## check derivative dir
         for df_step_size in df_step_sizes:
             derivative_dir = os.path.join(parameter_set_dir, DATABASE_DERIVATIVE_DIRNAME.format(df_step_size))
             partial_derivative_dirs = util.io.fs.get_dirs(derivative_dir)
             for partial_derivative_dir in partial_derivative_dirs:
-                check_job_file_integrity_spinup(partial_derivative_dir, False)
+                check_db_entry_integrity_spinup(partial_derivative_dir, False)
 
         ## check for parameters
         p = np.loadtxt(os.path.join(parameter_set_dir, DATABASE_PARAMETERS_FILENAME))
@@ -276,5 +294,5 @@ if __name__ == "__main__":
     time_step = 1
     if args.parameter_set_dir is None:
         check_db_integrity(time_step=time_step)
-    check_job_file_integrity(time_step=time_step, parameter_set_dirs_to_check=(args.parameter_set_dir,), check_for_same_parameters=not args.skip_same_parameter_check)
+    check_db_entry_integrity(time_step=time_step, parameter_set_dirs_to_check=(args.parameter_set_dir,), check_for_same_parameters=not args.skip_same_parameter_check)
     print('Check completed.')
