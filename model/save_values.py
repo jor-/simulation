@@ -55,6 +55,8 @@ if __name__ == "__main__":
     model_options = {}
     model_options['spinup_options'] = spinup_options
     model_options['derivative_options'] = derivative_options
+    model_options['time_step'] = 1
+    model_options['total_concentration_factor_included_in_parameters'] = True
     
     ## prepare job option
     from simulation.optimization.constants import COST_FUNCTION_NODES_SETUP_SPINUP, COST_FUNCTION_NODES_SETUP_DERIVATIVE, COST_FUNCTION_NODES_SETUP_TRAJECTORY
