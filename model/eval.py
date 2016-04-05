@@ -918,7 +918,8 @@ class Model():
                         metos3d_model_parameters_dict = self.database_parameter_entry_to_metos3d_model_parameters_dict(parameters_for_derivative[parameter_index, h_factor_index])
                         model_parameters = metos3d_model_parameters_dict['model_parameters']
                         del metos3d_model_parameters_dict['model_parameters']
-                        self.start_run(model_parameters, partial_derivative_run_dir, MODEL_DERIVATIVE_SPINUP_YEARS, tolerance=0, **metos3d_model_parameters_dict, job_setup=job_setup, tracer_input_dir=spinup_matching_run_dir, wait_until_finished=False)
+                        spinup_matching_run_dir_with_env = spinup_matching_run_dir.replace(simulation.constants.SIMULATION_OUTPUT_DIR, '${{{}}}'.format(simulation.constants.SIMULATION_OUTPUT_DIR_ENV_NAME))
+                        self.start_run(model_parameters, partial_derivative_run_dir, MODEL_DERIVATIVE_SPINUP_YEARS, tolerance=0, **metos3d_model_parameters_dict, job_setup=job_setup, tracer_input_dir=spinup_matching_run_dir_with_env, wait_until_finished=False)
                         
                     partial_derivative_run_dirs[parameter_index, h_factor_index] = partial_derivative_run_dir
 
