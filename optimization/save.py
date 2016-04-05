@@ -85,7 +85,7 @@ def save(model_name='dop_po4', time_step=1, parameter_sets=range(9999), data_kin
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Calculating cost function values.')
 
-    parser.add_argument('-k', '--kind_of_cost_function', choices=tuple(simulation.optimization.cost_function.Family.member_classes.keys()), help='The kind of the cost function to chose.')
+    parser.add_argument('-k', '--kind_of_cost_function', required=True, choices=tuple(simulation.optimization.cost_function.Family.member_classes.keys()), help='The kind of the cost function to chose.')
     parser.add_argument('-f', '--first', type=int, default=0, help='First parameter set number for which to calculate the values.')
     parser.add_argument('-l', '--last', type=int, default=9999, help='Last parameter set number for which to calculate the values.')
     parser.add_argument('-d', '--debug', action='store_true', help='Print debug infos.')
