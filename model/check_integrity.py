@@ -5,6 +5,7 @@ import numpy as np
 
 import simulation.model.eval
 import simulation.model.job
+import simulation.model.constants
 import simulation.util.data_base
 import simulation.constants
 
@@ -23,6 +24,7 @@ def check_db_entry_integrity_spinup(spinup_dir, is_spinup):
     
     
     run_dirs = util.io.fs.get_dirs(spinup_dir)
+    run_dirs.sort()
     n = len(run_dirs)
 
     if n == 0:
@@ -65,7 +67,8 @@ def check_db_entry_integrity_spinup(spinup_dir, is_spinup):
                     options_file = os.path.join(run_dir, 'job_options.hdf5')
                     options = util.options.Options(options_file, replace_environment_vars_at_set=False, replace_environment_vars_at_get=False)
                     file_entry_prefix = '${{{}}}'.format(simulation.constants.SIMULATION_OUTPUT_DIR_ENV_NAME)
-                    for file_key, must_exists in [('/job/id_file', True), ('/job/option_file', True), ('/job/output_file', True), ('/job/finished_file', True), ('/job/unfinished_file', True), ('/model/tracer_input_dir', False), ('/metos3d/tracer_input_dir', False), ('/metos3d/output_dir', True), ('/metos3d/option_file', True)]:
+                    must_have_tracer_input = not is_spinup or run_dir_index > 0
+                    for file_key, must_exists in [('/job/id_file', True), ('/job/option_file', True), ('/job/output_file', True), ('/job/finished_file', True), ('/job/unfinished_file', True), ('/model/tracer_input_dir', must_have_tracer_input), ('/metos3d/tracer_input_dir', must_have_tracer_input), ('/metos3d/output_dir', True), ('/metos3d/option_file', True)]:
                         try:
                             value = options[file_key]
                         except KeyError:
@@ -74,6 +77,14 @@ def check_db_entry_integrity_spinup(spinup_dir, is_spinup):
                         else:
                             if not value.startswith(file_entry_prefix):
                                 print('Job option {} in {} is not okay. It should start with {} but its is {}.'.format(file_key, run_dir, file_entry_prefix, value))
+                    
+                    ## check tracer input
+                    if must_have_tracer_input:
+                        if not simulation.model.constants.DATABASE_SPINUP_DIRNAME in options['/model/tracer_input_dir']:
+                            print('Model tracer input dir {} in job file in {} is not a spinup run dir.'.format(options['/model/tracer_input_dir'], run_dir))
+                        if options['/metos3d/tracer_input_dir'] != options['/metos3d/output_dir']:
+                            print('Metos3D tracer input dir {} and tracer output dir in job file in {} are not the same.'.format(options['/metos3d/tracer_input_dir'], options['/metos3d/output_dir'], run_dir))
+                            
                             
             except (OSError, IOError):
                 print('Job file in {} is not okay.'.format(run_dir))
