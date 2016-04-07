@@ -308,28 +308,28 @@ class Metos3D_Job(util.batch.universal.system.Job):
         opt['/metos3d/debuglevel'] = 1
         opt['/metos3d/output_filenames'] = ['{}_output.petsc'.format(tracer) for tracer in opt['/model/tracer']]
 
-        if tracer_input_dir is None:
-            initial_concentration = MODEL_DEFAULT_INITIAL_CONCENTRATION[model_name] * total_concentration_factor
-            opt['/model/initial_concentrations'] = initial_concentration
-        else:
+        if tracer_input_dir is not None:
             opt['/model/tracer_input_dir'] = tracer_input_dir
             opt['/metos3d/tracer_input_dir'] = output_dir_not_expanded
 
             opt['/metos3d/input_filenames'] = ['{}_input.petsc'.format(tracer) for tracer in opt['/model/tracer']]
             
             if total_concentration_factor == 1:
-                tracer_input_dir = os.path.relpath(tracer_input_dir, start=output_dir)
+                tracer_input_dir = os.path.relpath(self.tracer_input_dir, start=output_dir)
                 for i in range(len(opt['/model/tracer'])):
                     tracer_input_base_file = os.path.join(tracer_input_dir, opt['metos3d/output_filenames'][i])
                     tracer_input_result_file = os.path.join(output_dir, opt['/metos3d/input_filenames'][i])
                     os.symlink(tracer_input_base_file, tracer_input_result_file)
             else:
                 for i in range(len(opt['/model/tracer'])):
-                    tracer_input_base_file = os.path.join(tracer_input_dir, opt['metos3d/output_filenames'][i])
+                    tracer_input_base_file = os.path.join(self.tracer_input_dir, opt['metos3d/output_filenames'][i])
                     tracer_input_result_file = os.path.join(output_dir, opt['/metos3d/input_filenames'][i])
                     tracer_input = util.petsc.universal.load_petsc_vec_to_numpy_array(tracer_input_base_file)
                     tracer_input = tracer_input * total_concentration_factor
                     util.petsc.universal.save_numpy_array_to_petsc_vec(tracer_input_result_file, tracer_input)
+        else:
+            initial_concentration = MODEL_DEFAULT_INITIAL_CONCENTRATION[model_name] * total_concentration_factor
+            opt['/model/initial_concentrations'] = initial_concentration
         
 
         model_parameters_string = ','.join(map(lambda f: DATABASE_PARAMETERS_FORMAT_STRING.format(f), model_parameters))
