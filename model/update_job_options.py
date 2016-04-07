@@ -172,14 +172,22 @@ def update_new_option_entries():
                 print('tracer input path added to job option file {}.'.format(options_file))
 
             try:
-                options['/model/tracer_input_dir']
+                options['/metos3d/tracer_input_dir']
             except KeyError:
                 pass
             else:
+                # try:
+                #     options['/model/tracer_input_dir']
+                # except KeyError:
+                #     import simulation.constants
+                #     input_tracer = os.path.join(options['/metos3d/tracer_input_dir'], options['/metos3d/input_filenames'][0])
+                #     options['/model/tracer_input_dir'] = os.path.dirname(os.path.realpath(input_tracer)).replace(simulation.constants.SIMULATION_OUTPUT_DIR, '${{{}}}'.format(simulation.constants.SIMULATION_OUTPUT_DIR_ENV_NAME))
+                #     print('Model tracer input path added to job option file {}.'.format(options_file))
+                
                 import simulation.constants
                 input_tracer = os.path.join(options['/metos3d/tracer_input_dir'], options['/metos3d/input_filenames'][0])
                 options['/model/tracer_input_dir'] = os.path.dirname(os.path.realpath(input_tracer)).replace(simulation.constants.SIMULATION_OUTPUT_DIR, '${{{}}}'.format(simulation.constants.SIMULATION_OUTPUT_DIR_ENV_NAME))
-                print('tracer input path added to job option file {}.'.format(options_file))
+                print('Model tracer input path added to job option file {}.'.format(options_file))
             
             try:
                 options['/model/parameters_file']
@@ -276,8 +284,8 @@ if __name__ == "__main__":
     with util.logging.Logger():
         # update_str_options('$NDOP_DIR/model_output', '${SIMULATION_OUTPUT_DIR}/model_dop_po4')
         # update_str_options('${NDOP_DIR}/model_output', '${SIMULATION_OUTPUT_DIR}/model_dop_po4')
-        # update_str_options('${MODEL_OUTPUT_DIR}/time_step_0001', '${SIMULATION_OUTPUT_DIR}/model_dop_po4/time_step_0001')
-        # update_new_option_entries()
+        update_str_options('${MODEL_OUTPUT_DIR}/time_step_0001', '${SIMULATION_OUTPUT_DIR}/model_dop_po4/time_step_0001')
+        update_new_option_entries()
         # update_parameter_files_add_total_concentration_factors()
 
     print('Update completed.')
