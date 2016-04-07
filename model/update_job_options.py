@@ -224,6 +224,12 @@ def update_new_option_entries():
                 options['/metos3d/output_dir'] = options['/metos3d/output_path']
                 del options['/metos3d/output_path']
                 print('/metos3d/output_path renamed to /metos3d/output_dir in job option file {}.'.format(options_file))
+
+            try:
+                options['/job/unfinished_file']
+            except KeyError:
+                options['/job/unfinished_file'] = os.path.join(job_options_dir, 'unfinished.txt')
+                print('/job/unfinished_file added to job option file {}.'.format(options_file))
             
                 
             
@@ -270,8 +276,8 @@ if __name__ == "__main__":
     with util.logging.Logger():
         # update_str_options('$NDOP_DIR/model_output', '${SIMULATION_OUTPUT_DIR}/model_dop_po4')
         # update_str_options('${NDOP_DIR}/model_output', '${SIMULATION_OUTPUT_DIR}/model_dop_po4')
-        update_str_options('${MODEL_OUTPUT_DIR}/time_step_0001', '${SIMULATION_OUTPUT_DIR}/model_dop_po4/time_step_0001')
-        update_new_option_entries()
-        update_parameter_files_add_total_concentration_factors()
+        # update_str_options('${MODEL_OUTPUT_DIR}/time_step_0001', '${SIMULATION_OUTPUT_DIR}/model_dop_po4/time_step_0001')
+        # update_new_option_entries()
+        # update_parameter_files_add_total_concentration_factors()
 
     print('Update completed.')
