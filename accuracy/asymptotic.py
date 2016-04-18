@@ -353,9 +353,9 @@ class WLS(Base):
 
 class GLS(Base):
 
-    def __init__(self, *args, correlation_min_measurements=10, correlation_max_year_diff=float('inf'), positive_definite_approximation_min_diag_value=0.1, **kargs):
+    def __init__(self, *args, correlation_min_values=10, correlation_max_year_diff=float('inf'), positive_definite_approximation_min_diag_value=0.1, **kargs):
         ## save additional kargs
-        self.correlation_min_measurements = correlation_min_measurements
+        self.correlation_min_values = correlation_min_values
         if correlation_max_year_diff is None or correlation_max_year_diff < 0:
             correlation_max_year_diff = float('inf')
         self.correlation_max_year_diff = correlation_max_year_diff
@@ -367,7 +367,7 @@ class GLS(Base):
 
     @property
     def cache_dirname(self):
-        return os.path.join(CACHE_DIRNAME, str(self.data_base), self.__class__.__name__, 'min_values_{}'.format(self.correlation_min_measurements), 'max_year_diff_{}'.format(self.correlation_max_year_diff), 'min_diag_{:.0e}'.format(self.positive_definite_approximation_min_diag_value))
+        return os.path.join(CACHE_DIRNAME, str(self.data_base), self.__class__.__name__, 'min_values_{}'.format(self.correlation_min_values), 'max_year_diff_{}'.format(self.correlation_max_year_diff), 'min_diag_{:.0e}'.format(self.positive_definite_approximation_min_diag_value))
     
 
     def information_matrix_calculate_with_DF(self, DF, inverse_deviations, correlation_matrix):
@@ -391,7 +391,7 @@ class GLS(Base):
 
 
     def information_matrix_calculate_with_parameters(self, parameters):
-        P, L = self.data_base.correlation_matrix_cholesky_decomposition(min_measurements=self.correlation_min_measurements, max_year_diff=self.correlation_max_year_diff, positive_definite_approximation_min_diag_value=self.positive_definite_approximation_min_diag_value)
+        P, L = self.data_base.correlation_matrix_cholesky_decomposition(min_measurements=self.correlation_min_values, max_year_diff=self.correlation_max_year_diff, positive_definite_approximation_min_diag_value=self.positive_definite_approximation_min_diag_value)
         DF = self.data_base.df(parameters)
         
         weighted_DF = DF * self.data_base.inverse_deviations[:, np.newaxis]
@@ -464,7 +464,7 @@ class GLS_P3(Base):
 
 class Family(simulation.util.data_base.Family):
     
-    member_classes = {'WOA': [(OLS, [{}]), (WLS, [{}])], 'WOD': [(OLS, [{}]), (WLS, [{}]), (GLS, [{'correlation_min_measurements': correlation_min_measurements, 'correlation_max_year_diff': float('inf')} for correlation_min_measurements in (30, 35, 40)])]}
+    member_classes = {'WOA': [(OLS, [{}]), (WLS, [{}])], 'WOD': [(OLS, [{}]), (WLS, [{}]), (GLS, [{'correlation_min_values': correlation_min_values, 'correlation_max_year_diff': float('inf')} for correlation_min_values in (30, 35, 40)])]}
 
     def information_matrix(self, parameters):
         fun = lambda o: o.information_matrix(parameters)
