@@ -65,25 +65,50 @@ def check_db_entry_integrity_spinup(spinup_dir, is_spinup):
                     
                     ## check options
                     options_file = os.path.join(run_dir, 'job_options.hdf5')
-                    options = util.options.Options(options_file, replace_environment_vars_at_set=False, replace_environment_vars_at_get=False)
-                    file_entry_prefix = '${{{}}}'.format(simulation.constants.SIMULATION_OUTPUT_DIR_ENV_NAME)
-                    must_have_tracer_input = not is_spinup or run_dir_index > 0
-                    for file_key, must_exists in [('/job/id_file', True), ('/job/option_file', True), ('/job/output_file', True), ('/job/finished_file', True), ('/job/unfinished_file', True), ('/model/tracer_input_dir', must_have_tracer_input), ('/metos3d/tracer_input_dir', must_have_tracer_input), ('/metos3d/output_dir', True), ('/metos3d/option_file', True)]:
+                    with util.options.Options(options_file, replace_environment_vars_at_set=False, replace_environment_vars_at_get=False) as options:
+                        ## check files and dirs
+                        file_entry_prefix = '${{{}}}'.format(simulation.constants.SIMULATION_OUTPUT_DIR_ENV_NAME)
+                        should_have_tracer_input = not is_spinup or run_dir_index > 0
+                        for file_key, should_exists in [('/job/id_file', True), ('/job/option_file', True), ('/job/output_file', True), ('/job/finished_file', True), ('/job/unfinished_file', True), ('/model/tracer_input_dir', should_have_tracer_input), ('/metos3d/tracer_input_dir', should_have_tracer_input), ('/metos3d/tracer_output_dir', True), ('/metos3d/output_dir', True), ('/metos3d/option_file', True)]:
+                            try:
+                                value = options[file_key]
+                            except KeyError:
+                                if should_exists:
+                                    print('Job option {} in {} is missing.'.format(file_key, run_dir))
+                            else:
+                                if should_exists:
+                                    if not value.startswith(file_entry_prefix):
+                                        print('Job option {} in {} is not okay. It should start with {} but its is {}.'.format(file_key, run_dir, file_entry_prefix, value))
+                                else:
+                                    print('Job option {} in {} should not exist.'.format(file_key, run_dir))
+                        
+                        ## check tracer input dir
+                        if should_have_tracer_input:
+                            try:
+                                if not simulation.model.constants.DATABASE_SPINUP_DIRNAME in options['/model/tracer_input_dir']:
+                                    print('Model tracer input dir {} in job file in {} is not a spinup run dir.'.format(options['/model/tracer_input_dir'], run_dir))
+                            except KeyError:
+                                pass
+                            try:
+                                if options['/metos3d/tracer_input_dir'] != options['/metos3d/output_dir']:
+                                    print('Metos3d tracer input dir {} is not the expected {} in job option file  in {}.'.format(options['/metos3d/tracer_input_dir'], correct_metos3d_tracer_input_dir, run_dir))
+                            except KeyError:
+                                pass
+                            try:
+                                if options['/metos3d/tracer_input_dir'] != options['/metos3d/tracer_output_dir']:
+                                    print('Metos3D tracer input dir {} and tracer output dir in job file in {} are not the same.'.format(options['/metos3d/tracer_input_dir'], options['/metos3d/tracer_output_dir'], run_dir))
+                            except KeyError:
+                                pass
+                        
+                        ## check tracer input filenmes
                         try:
-                            value = options[file_key]
+                            options['/metos3d/input_filenames']
                         except KeyError:
-                            if must_exists:
-                                print('Job option {} in {} is missing.'.format(file_key, run_dir))
+                            if should_have_tracer_input:
+                                print('Metos3D tracer input filnames are missing in job file in {}.'.format(run_dir))
                         else:
-                            if not value.startswith(file_entry_prefix):
-                                print('Job option {} in {} is not okay. It should start with {} but its is {}.'.format(file_key, run_dir, file_entry_prefix, value))
-                    
-                    ## check tracer input
-                    if must_have_tracer_input:
-                        if not simulation.model.constants.DATABASE_SPINUP_DIRNAME in options['/model/tracer_input_dir']:
-                            print('Model tracer input dir {} in job file in {} is not a spinup run dir.'.format(options['/model/tracer_input_dir'], run_dir))
-                        if options['/metos3d/tracer_input_dir'] != options['/metos3d/output_dir']:
-                            print('Metos3D tracer input dir {} and tracer output dir in job file in {} are not the same.'.format(options['/metos3d/tracer_input_dir'], options['/metos3d/output_dir'], run_dir))
+                            if not should_have_tracer_input:
+                                print('Metos3D tracer input filnames found in job file in {} where not expected.'.format(run_dir))
                             
                             
             except (OSError, IOError):
@@ -201,8 +226,6 @@ def check_db_entry_integrity(model_name='dop_po4', time_step=1, parameter_set_di
         parameter_set_dirs_all = util.io.fs.get_dirs(time_step_dir)
     if check_all_parameter_sets:
         parameter_set_dirs_to_check = parameter_set_dirs_all
-    # if parameter_set_dirs_to_check is None or (len(parameter_set_dirs_to_check) == 1 and parameter_set_dirs_to_check[0] is None):
-    #     parameter_set_dirs_to_check = parameter_set_dirs_all
 
     for parameter_set_dir in parameter_set_dirs_to_check:
     
