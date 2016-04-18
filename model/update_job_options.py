@@ -3,6 +3,7 @@ import stat
 
 import numpy as np
 
+import simulation.constants
 import simulation.model.job
 
 import util.io.fs
@@ -116,13 +117,21 @@ def update_new_option_entries():
                 print('Concentrations option removed in job option file {}.'.format(options_file))
             
             try:
-                options['/metos3d/initial_concentrations']
+                options['/model/initial_concentrations']
             except KeyError:
                 try:
                     options['/metos3d/tracer_input_path']
                 except KeyError:
-                    options['/metos3d/initial_concentrations'] = np.array([2.17, 10**-4])
-                    print('Initial concentration option added to job option file {}.'.format(options_file))
+                    options['/model/initial_concentrations'] = np.array([2.17, 10**-4])
+                    print('Model initial concentration option added to job option file {}.'.format(options_file))
+            
+            try:
+                options['/metos3d/initial_concentrations']
+            except KeyError:
+                pass
+            else:
+                del options['/metos3d/initial_concentrations']
+                print('Metos3d concentrations option removed in job option file {}.'.format(options_file))
             
             try:
                 options['/model/time_step_multiplier']
@@ -169,33 +178,63 @@ def update_new_option_entries():
                 pass
             else:
                 del options['/metos3d/tracer_input_path']
-                print('tracer input path added to job option file {}.'.format(options_file))
-
+                print('Metos3d tracer input path removed from job option file {}.'.format(options_file))
+            
             try:
-                options['/metos3d/tracer_input_dir']
+                options['/metos3d/path']
             except KeyError:
                 pass
             else:
-                # try:
-                #     options['/model/tracer_input_dir']
-                # except KeyError:
-                #     import simulation.constants
-                #     input_tracer = os.path.join(options['/metos3d/tracer_input_dir'], options['/metos3d/input_filenames'][0])
-                #     options['/model/tracer_input_dir'] = os.path.dirname(os.path.realpath(input_tracer)).replace(simulation.constants.SIMULATION_OUTPUT_DIR, '${{{}}}'.format(simulation.constants.SIMULATION_OUTPUT_DIR_ENV_NAME))
-                #     print('Model tracer input path added to job option file {}.'.format(options_file))
-                
-                import simulation.constants
-                input_tracer = os.path.join(options['/metos3d/tracer_input_dir'], options['/metos3d/input_filenames'][0])
-                options['/model/tracer_input_dir'] = os.path.dirname(os.path.realpath(input_tracer)).replace(simulation.constants.SIMULATION_OUTPUT_DIR, '${{{}}}'.format(simulation.constants.SIMULATION_OUTPUT_DIR_ENV_NAME))
-                print('Model tracer input path added to job option file {}.'.format(options_file))
+                del options['/metos3d/path']
+                print('Metos3d path removed from job option file {}.'.format(options_file))
             
+            try:
+                options['/model/tracer_input_path']
+            except KeyError:
+                pass
+            else:
+                del options['/model/tracer_input_path']
+                print('Model tracer input path removed from job option file {}.'.format(options_file))
+
+            try:
+                options['/metos3d/tracer_output_dir']
+            except KeyError:
+                options['/metos3d/tracer_output_dir'] = options['/metos3d/output_dir']
+                print('Metos3d tracer output dir added to job option file {}.'.format(options_file))
+            
+            
+            
+
+            
+            try:
+                input_tracer_filename = options['/metos3d/input_filenames'][0]
+            except KeyError:
+                input_tracer_filename = None
+            if input_tracer_filename is not None:
+                input_tracer_dir = options['/metos3d/output_dir'].replace('${{{}}}'.format(simulation.constants.SIMULATION_OUTPUT_DIR_ENV_NAME), simulation.constants.SIMULATION_OUTPUT_DIR)
+                input_tracer = os.path.join(input_tracer_dir, input_tracer_filename)
+                
+                correct_metos3d_tracer_input_dir = options['/metos3d/output_dir']
+                try:
+                    options['/metos3d/tracer_input_dir']
+                except KeyError:
+                    options['/metos3d/tracer_input_dir'] = correct_metos3d_tracer_input_dir
+                    print('Metos3d tracer input dir was not set, added to job option file {}.'.format(options_file))
+
+                correct_model_tracer_input_dir = os.path.dirname(os.path.realpath(input_tracer)).replace(simulation.constants.SIMULATION_OUTPUT_DIR, '${{{}}}'.format(simulation.constants.SIMULATION_OUTPUT_DIR_ENV_NAME))
+                try:
+                    options['/model/tracer_input_dir']
+                except KeyError:
+                    options['/model/tracer_input_dir'] = correct_model_tracer_input_dir
+                    print('Model tracer input dir added to job option file {}.'.format(options_file))
+
             try:
                 options['/model/parameters_file']
             except KeyError:
                 pass
             else:
                 del options['/model/parameters_file']
-                print('Model parameters file removed in job option file {}.'.format(options_file))
+                print('Model parameters file removed from job option file {}.'.format(options_file))
             
             try:
                 options['/metos3d/data_path']
@@ -239,7 +278,6 @@ def update_new_option_entries():
                 options['/job/unfinished_file'] = os.path.join(job_options_dir, 'unfinished.txt')
                 print('/job/unfinished_file added to job option file {}.'.format(options_file))
             
-                
             
 
     update_job_options(update_function)
@@ -284,7 +322,7 @@ if __name__ == "__main__":
     with util.logging.Logger():
         # update_str_options('$NDOP_DIR/model_output', '${SIMULATION_OUTPUT_DIR}/model_dop_po4')
         # update_str_options('${NDOP_DIR}/model_output', '${SIMULATION_OUTPUT_DIR}/model_dop_po4')
-        update_str_options('${MODEL_OUTPUT_DIR}/time_step_0001', '${SIMULATION_OUTPUT_DIR}/model_dop_po4/time_step_0001')
+        # update_str_options('${MODEL_OUTPUT_DIR}/time_step_0001', '${SIMULATION_OUTPUT_DIR}/model_dop_po4/time_step_0001')
         update_new_option_entries()
         # update_parameter_files_add_total_concentration_factors()
 
