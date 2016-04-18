@@ -85,10 +85,8 @@ class Metos3D_Job(util.batch.universal.system.Job):
 
     @property
     def tracer_input_dir(self):
-        opt = self.options
-
         try:
-            tracer_input_dir = opt['/model/tracer_input_dir']
+            tracer_input_dir = self.options['/model/tracer_input_dir']
         except KeyError:
             tracer_input_dir = None
 
@@ -96,12 +94,25 @@ class Metos3D_Job(util.batch.universal.system.Job):
 
     
     @property
-    def tracer_output_dir(self):
+    def tracer_input_files(self):
         try:
-            tracer_output_dir = self.options['/metos3d/tracer_output_dir']
+            tracer_input_dir = self.options['/metos3d/tracer_input_dir']
         except KeyError:
-            tracer_output_dir = self.options['/metos3d/output_dir']
-        return tracer_output_dir
+            tracer_input_files = []
+        else:
+            tracer_input_files = [os.path.join(tracer_input_dir, tracer_input_filename) for tracer_input_filename in self.options['/metos3d/input_filenames']]
+        return tracer_input_files
+    
+    
+    @property
+    def tracer_input_info_files(self):
+        tracer_input_info_files = [tracer_input_file + '.info' for tracer_input_file in self.tracer_input_files]
+        return tracer_input_info_files
+    
+    
+    @property
+    def tracer_output_dir(self):
+        return self.options['/metos3d/tracer_output_dir']
     
     
     @property
@@ -113,8 +124,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
     
     @property
     def tracer_output_info_files(self):
-        tracer_output_dir = self.tracer_output_dir
-        tracer_output_info_files = [tracer_output_files + '.info' for tracer_output_files in self.tracer_output_files]
+        tracer_output_info_files = [tracer_output_file + '.info' for tracer_output_file in self.tracer_output_files]
         return tracer_output_info_files
 
     
@@ -123,6 +133,9 @@ class Metos3D_Job(util.batch.universal.system.Job):
         super().make_read_only_input(read_only=read_only)
         if read_only:
             util.io.fs.make_read_only(self.metos3d_option_file)
+            for file in self.tracer_input_files:
+                util.io.fs.make_read_only(file)
+
 
     def make_read_only_output(self, read_only=True):
         super().make_read_only_output(read_only=read_only)
@@ -244,7 +257,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
             nodes_setup.memory = simulation.model.constants.JOB_MEMORY_GB
 
         ## check/set walltime
-        sec_per_year = np.exp(- (nodes_setup.nodes * nodes_setup.cpus) / (6*16)) * 10 + 2
+        sec_per_year = np.exp(- (nodes_setup.nodes * nodes_setup.cpus) / (6*16)) * 10 + 2.5
         sec_per_year /= time_step**(1/2)
         estimated_walltime_hours = np.ceil(years * sec_per_year / 60**2)
         logger.debug('The estimated walltime for {} nodes with {} cpus, {} years and time step {} is {} hours.'.format(nodes_setup.nodes, nodes_setup.cpus, years, time_step, estimated_walltime_hours))
@@ -297,7 +310,9 @@ class Metos3D_Job(util.batch.universal.system.Job):
         if tolerance is not None:
             opt['/metos3d/tolerance'] = tolerance
 
-        if write_trajectory:
+        if not write_trajectory:
+            opt['/metos3d/tracer_output_dir'] = output_dir_not_expanded
+        else:
             tracer_output_dir = os.path.join(output_dir, 'trajectory/')
             os.makedirs(tracer_output_dir, exist_ok=True)
             tracer_output_dir_not_expanded = os.path.join(output_dir_not_expanded, 'trajectory/')
@@ -357,11 +372,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
         except KeyError:
             f.write('-Metos3DTracerInitValue                 {},{} \n'.format(*opt['/model/initial_concentrations']))
 
-        try:
-            f.write('-Metos3DTracerOutputDirectory           {} \n'.format(opt['/metos3d/tracer_output_dir']))
-        except KeyError:
-            f.write('-Metos3DTracerOutputDirectory           {} \n'.format(opt['/metos3d/output_dir']))
-
+        f.write('-Metos3DTracerOutputDirectory           {} \n'.format(opt['/metos3d/tracer_output_dir']))
         f.write('-Metos3DTracerOutputFile                {} \n\n'.format(','.join(map(str, opt['/metos3d/output_filenames']))))
 
         f.write('# bgc parameter \n')
