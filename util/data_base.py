@@ -122,7 +122,7 @@ class DataBase:
         
         ## return
         assert df_boxes.shape[1] == time_dim
-        assert df.shape[-1] == len(parameters)
+        assert df_boxes.shape[-1] == len(parameters)
         return df_boxes
 
 
