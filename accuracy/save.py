@@ -41,7 +41,14 @@ if __name__ == "__main__":
         data_kind = kind_splitted[0]
         cf_kind = kind_splitted[1]
         time_step = 1
-        asymptotic_kargs = {'data_kind': data_kind, 'model_options': {'time_step': time_step, 'total_concentration_factor_included_in_parameters': True}}
+        
+        from simulation.optimization.constants import COST_FUNCTION_NODES_SETUP_SPINUP, COST_FUNCTION_NODES_SETUP_DERIVATIVE, COST_FUNCTION_NODES_SETUP_TRAJECTORY
+        job_setup = {'name':'Accuracy'}
+        job_setup['spinup'] = {'nodes_setup' : COST_FUNCTION_NODES_SETUP_SPINUP}
+        job_setup['derivative'] = {'nodes_setup' : COST_FUNCTION_NODES_SETUP_DERIVATIVE}
+        job_setup['trajectory'] = {'nodes_setup' : COST_FUNCTION_NODES_SETUP_TRAJECTORY}
+        
+        asymptotic_kargs = {'data_kind': data_kind, 'model_options': {'time_step': time_step, 'total_concentration_factor_included_in_parameters': True}, 'job_setup': job_setup}
 
         if cf_kind == 'OLS':
             asymptotic_class = simulation.accuracy.asymptotic.OLS
