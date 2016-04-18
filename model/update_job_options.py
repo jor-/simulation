@@ -195,6 +195,15 @@ def update_new_option_entries():
             else:
                 del options['/model/tracer_input_path']
                 print('Model tracer input path removed from job option file {}.'.format(options_file))
+            
+            try:
+                options['/metos3d/output_dir']
+            except KeyError:
+                pass
+            else:
+                options['/metos3d/output_dir'] = options['/metos3d/output_path']
+                del options['/metos3d/output_path']
+                print('Metos3d output_path remamed to ouput_dir in job option file {}.'.format(options_file))
 
             try:
                 options['/metos3d/tracer_output_dir']
