@@ -18,40 +18,40 @@ COST_FUNCTION_OUTPUT_DIRNAME = 'cost_functions'
 COST_FUNCTION_F_FILENAME = 'f.txt'
 
 
-def values_dict(parameter_set_index, cost_function_names):
-    m = simulation.model.eval.Model()
-    parameter_set_dir = m.parameter_set_dir_with_index(parameter_set_index)
-    
-    values = {}
-    for cost_function_name in cost_function_names:
-        cost_function_f_file = os.path.join(parameter_set_dir, COST_FUNCTION_OUTPUT_DIRNAME, cost_function_name, COST_FUNCTION_F_FILENAME)
-        try:
-            values[cost_function_name] = np.loadtxt(cost_function_f_file)
-        except FileNotFoundError:
-            pass
-    return values
-
-
-def min_values_dicts(cost_function_names):
-    ## init dicts
-    best_values = {}
-    for cost_function_name in cost_function_names:
-        best_values[cost_function_name] = np.inf
-    best_indices = {}
-    for cost_function_name in cost_function_names:
-        best_indices[cost_function_name] = -1
-    
-    ## check alls parameter sets
-    m = simulation.model.eval.Model()
-    used_indices = m._parameter_db.used_indices()
-    for parameter_set_index in used_indices:
-        current_values_dict = values_dict(parameter_set_index, cost_function_names)
-        for key, value in current_values_dict.items():
-            if value < best_values[key]:
-                best_indices[key] = int(parameter_set_index)
-                best_values[key] = value
-                
-    return (best_indices, best_values)
+# def values_dict(parameter_set_index, cost_function_names):
+#     m = simulation.model.eval.Model()
+#     parameter_set_dir = m.parameter_set_dir_with_index(parameter_set_index)
+#     
+#     values = {}
+#     for cost_function_name in cost_function_names:
+#         cost_function_f_file = os.path.join(parameter_set_dir, COST_FUNCTION_OUTPUT_DIRNAME, cost_function_name, COST_FUNCTION_F_FILENAME)
+#         try:
+#             values[cost_function_name] = np.loadtxt(cost_function_f_file)
+#         except FileNotFoundError:
+#             pass
+#     return values
+# 
+# 
+# def min_values_dicts(cost_function_names):
+#     ## init dicts
+#     best_values = {}
+#     for cost_function_name in cost_function_names:
+#         best_values[cost_function_name] = np.inf
+#     best_indices = {}
+#     for cost_function_name in cost_function_names:
+#         best_indices[cost_function_name] = -1
+#     
+#     ## check alls parameter sets
+#     m = simulation.model.eval.Model()
+#     used_indices = m._parameter_db.used_indices()
+#     for parameter_set_index in used_indices:
+#         current_values_dict = values_dict(parameter_set_index, cost_function_names)
+#         for key, value in current_values_dict.items():
+#             if value < best_values[key]:
+#                 best_indices[key] = int(parameter_set_index)
+#                 best_values[key] = value
+#                 
+#     return (best_indices, best_values)
 
 
 def values_array(parameter_set_index, cost_function_names):
@@ -69,7 +69,11 @@ def values_array(parameter_set_index, cost_function_names):
     return values
 
 
-def min_values_arrays(cost_function_names):
+def min_values_arrays(cost_function_names, parameter_set_filter_function=None):
+    ## set no filter as default
+    if parameter_set_filter_function is None:
+        parameter_set_filter_function = lambda parameters: True
+    
     ## init arrays
     cost_function_names = np.asarray(cost_function_names)
     n = len(cost_function_names)
@@ -79,15 +83,17 @@ def min_values_arrays(cost_function_names):
         best_indices[i] = -1
         best_values[i] = np.inf
     
-    ## check alls parameter sets
+    ## check all parameter sets
     m = simulation.model.eval.Model()
     used_indices = m._parameter_db.used_indices()
     for parameter_set_index in used_indices:
-        current_values = values_array(parameter_set_index, cost_function_names)
-        for i in range(n):
-            if current_values[i] < best_values[i]:
-                best_indices[i] = int(parameter_set_index)
-                best_values[i] = current_values[i]
+        parameter_set = m._parameter_db.get_value(parameter_set_index)
+        if parameter_set_filter_function(parameter_set):
+            current_values = values_array(parameter_set_index, cost_function_names)
+            for i in range(n):
+                if current_values[i] < best_values[i]:
+                    best_indices[i] = int(parameter_set_index)
+                    best_values[i] = current_values[i]
     
     ## return
     mask = best_indices >= 0
@@ -98,8 +104,8 @@ def min_values_arrays(cost_function_names):
 
 
 
-def all_values_for_min_values(cost_function_names):
-    (cost_function_names, best_indices, best_values) = min_values_arrays(cost_function_names)
+def all_values_for_min_values(cost_function_names, parameter_set_filter_function=None):
+    (cost_function_names, best_indices, best_values) = min_values_arrays(cost_function_names, parameter_set_filter_function=parameter_set_filter_function)
     n = len(cost_function_names)
     all_values = np.empty(n, n)
     for i in range(n):
@@ -108,8 +114,8 @@ def all_values_for_min_values(cost_function_names):
     return cost_function_names, all_values
 
 
-def all_normalized_values_for_min_values(cost_function_names):
-    (cost_function_names, best_indices, best_values) = min_values_arrays(cost_function_names)
+def all_normalized_values_for_min_values(cost_function_names, parameter_set_filter_function=None):
+    (cost_function_names, best_indices, best_values) = min_values_arrays(cost_function_names, parameter_set_filter_function=parameter_set_filter_function)
     n = len(cost_function_names)
     all_normalized_values = np.empty([n, n])
     for i in range(n):
@@ -118,8 +124,8 @@ def all_normalized_values_for_min_values(cost_function_names):
     return cost_function_names, all_normalized_values, best_indices, best_values
 
 
-def print_all_values_for_min_values(cost_function_names):
-    cost_function_names, all_normalized_values, best_indices, best_values = all_normalized_values_for_min_values(cost_function_names)
+def print_all_values_for_min_values(cost_function_names, parameter_set_filter_function=None):
+    cost_function_names, all_normalized_values, best_indices, best_values = all_normalized_values_for_min_values(cost_function_names, parameter_set_filter_function=parameter_set_filter_function)
     m = simulation.model.eval.Model()
     
     parameter_formatter = lambda value: '{:.3}'.format(value)    
@@ -148,5 +154,8 @@ def print_all_values_for_min_values(cost_function_names):
 
 if __name__ == "__main__":
     cost_function_names = [cf for cf in COST_FUNCTION_NAMES if 'WOD_TMM_1' in cf and not 'LWLS' in cf]
-    print_all_values_for_min_values(cost_function_names)   
+    print_all_values_for_min_values(cost_function_names)
+    cost_function_names = [cf for cf in COST_FUNCTION_NAMES if 'WOD_TMM_1' in cf and not 'OLD' in cf and not 'LWLS' in cf]
+    parameter_set_filter_function = lambda p: p[-1] == 1
+    print_all_values_for_min_values(cost_function_names, parameter_set_filter_function)
 
