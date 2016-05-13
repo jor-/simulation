@@ -80,18 +80,18 @@ class CostFunctionJob(util.batch.universal.system.Job):
                 elif cf_kargs['correlation_min_values'] >= 40:
                     memory_gb = 30
                 elif cf_kargs['correlation_min_values'] >= 35:
-                    memory_gb = 35
+                    memory_gb = 30
                 else:
-                    memory_gb = 40
+                    memory_gb = 35
             if data_kind  == 'WOD.0' and cf_kind == 'GLS':
                 if cf_kargs['correlation_min_values'] >= 45:
                     memory_gb = 25
                 elif cf_kargs['correlation_min_values'] >= 40:
-                    memory_gb = 30
+                    memory_gb = 25
                 elif cf_kargs['correlation_min_values'] >= 35:
-                    memory_gb = 35
+                    memory_gb = 25
                 else:
-                    memory_gb = 40
+                    memory_gb = 25
         if nodes_setup is None:
             nodes_setup = COST_FUNCTION_NODES_SETUP_JOB.copy()
         nodes_setup['memory'] = memory_gb
