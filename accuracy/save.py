@@ -83,7 +83,10 @@ if __name__ == "__main__":
         asymptotic.model_confidence(p, time_dim_df=args.time_dim_df, use_mem_map=args.use_mem_map, parallel_mode=parallel_mode)
         asymptotic.average_model_confidence(p, time_dim_df=args.time_dim_df, use_mem_map=args.use_mem_map, parallel_mode=parallel_mode)
         if args.number_of_measurements > 0:
-            value_mask = np.load(args.value_mask_file)
+            if args.value_mask_file is not None:
+                value_mask = np.load(args.value_mask_file)
+            else:
+                value_mask = None
             average_model_confidence_increase = asymptotic.average_model_confidence_increase(p, number_of_measurements=args.number_of_measurements, time_dim_confidence_increase=args.time_dim_confidence_increase, time_dim_df=args.time_dim_df, value_mask=value_mask, use_mem_map=args.use_mem_map, parallel_mode=parallel_mode)
             if args.output_file is not None:
                 np.save(args.output_file, average_model_confidence_increase)
