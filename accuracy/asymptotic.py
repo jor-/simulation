@@ -141,7 +141,7 @@ class Base():
 
 
     def model_confidence_calculate(self, parameters, information_matrix=None, alpha=0.99, time_dim_confidence=12, time_dim_df=2880, value_mask=None, use_mem_map=False, parallel_mode=util.parallel.universal.max_parallel_mode()):
-        logger.debug('Calculating model confidence with confidence level {}, desired time dim {} of the confidence and time dim {} of df.'.format(alpha, time_dim_confidence, time_dim_df))
+        logger.debug('Calculating model confidence with confidence level {}, desired time dim {} of the confidence and time dim {} of df in parallel mode {}.'.format(alpha, time_dim_confidence, time_dim_df, parallel_mode))
 
         ## calculate time step size
         if time_dim_df % time_dim_confidence == 0:
