@@ -210,9 +210,6 @@ def update_new_option_entries():
                 print('Metos3d tracer output dir added to job option file {}.'.format(options_file))
             
             
-            
-
-            
             try:
                 input_tracer_filename = options['/metos3d/input_filenames'][0]
             except KeyError:
