@@ -14,7 +14,7 @@ import measurements.land_sea_mask.data
 import measurements.util.interpolate
 
 import util.io.fs
-import util.index_database.array_and_fs_based
+import util.index_database.array_and_txt_file_based
 import util.pattern
 import util.math.interpolate
 import util.batch.universal.system
@@ -192,7 +192,7 @@ class Model():
         os.makedirs(time_step_dir, exist_ok=True)
         array_file = os.path.join(time_step_dir, simulation.model.constants.DATABASE_PARAMETERS_LOOKUP_ARRAY_FILENAME)
         value_file = os.path.join(time_step_dir, simulation.model.constants.DATABASE_PARAMETERS_SET_DIRNAME, simulation.model.constants.DATABASE_PARAMETERS_FILENAME)
-        self._parameter_db = util.index_database.array_and_fs_based.Database(array_file, value_file, value_reliable_decimal_places=simulation.model.constants.DATABASE_PARAMETERS_RELIABLE_DECIMAL_PLACES, tolerance_options=self.parameter_tolerance_options)
+        self._parameter_db = util.index_database.array_and_txt_file_based.Database(array_file, value_file, value_reliable_decimal_places=simulation.model.constants.DATABASE_PARAMETERS_RELIABLE_DECIMAL_PLACES, tolerance_options=self.parameter_tolerance_options)
 
 
 
@@ -429,10 +429,10 @@ class Model():
 
     def run_dirs(self, search_path):
         from .constants import DATABASE_RUN_DIRNAME
-
-        run_dir_condition = lambda file: os.path.isdir(file) and util.pattern.is_matching(os.path.basename(file), DATABASE_RUN_DIRNAME)
+        
+        DATABASE_RUN_DIRNAME_REGULAR_EXPRESSION = util.pattern.convert_format_string_in_regular_expression(DATABASE_RUN_DIRNAME)
         try:
-            run_dirs = util.io.fs.filter_files(search_path, run_dir_condition)
+            run_dirs = util.io.fs.filter_with_regular_expression(search_path, DATABASE_RUN_DIRNAME_REGULAR_EXPRESSION, exclude_files=True, use_absolute_filenames=False, recursive=False)
         except (OSError, IOError) as exception:
             warnings.warn('It could not been searched in the search path "' + search_path + '": ' + str(exception))
             run_dirs = []

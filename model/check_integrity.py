@@ -276,7 +276,7 @@ def check_db_entry_integrity(model_name='dop_po4', time_step=1, parameter_set_di
                 print('Wod df file {} has wrong shape {}!'.format(df_wod_file, df_wod.shape))
 
         ## check value cache
-        value_cache_option_files = util.io.fs.filter_files(parameter_set_dir, lambda s: s.endswith('options.npy'), recursive=True)
+        value_cache_option_files = util.io.fs.filter_with_filename_pattern(parameter_set_dir, '*options.npy', exclude_dirs=True, use_absolute_filenames=True, recursive=True)
         for value_cache_option_file in value_cache_option_files:
             value_cache_option = np.load(value_cache_option_file)
             if not value_cache_option.ndim == 1:
