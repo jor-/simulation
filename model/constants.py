@@ -59,12 +59,12 @@ MODEL_DEFAULT_INITIAL_CONCENTRATION = {'dop_po4': np.array([2.17, 10**-4])}
 ## database directories and files
 from simulation.constants import SIMULATION_OUTPUT_DIR as DATABASE_OUTPUT_DIR
 DATABASE_MODEL_DIRNAME = 'model_{}'
-DATABASE_TIME_STEP_DIRNAME = 'time_step_{:0>4}'
-DATABASE_PARAMETERS_SET_DIRNAME = 'parameter_set_{:0>5}'   # substituted by the number of the run to 5 digits
+DATABASE_TIME_STEP_DIRNAME = 'time_step_{:0>4d}'
+DATABASE_PARAMETERS_SET_DIRNAME = 'parameter_set_{:0>5d}'   # substituted by the number of the run to 5 digits
 DATABASE_SPINUP_DIRNAME = 'spinup'
 DATABASE_DERIVATIVE_DIRNAME = os.path.join('derivative', 'step_size_{}')     # finite differences step size
-DATABASE_PARTIAL_DERIVATIVE_DIRNAME = 'partial_derivative_{}_{:+}' # partial_derivative, h_factor
-DATABASE_RUN_DIRNAME = 'run_{:0>2}'              # substituted by the number of the run to 2 digits
+DATABASE_PARTIAL_DERIVATIVE_DIRNAME = 'partial_derivative_{:d}_{:+d}' # partial_derivative, h_factor
+DATABASE_RUN_DIRNAME = 'run_{:0>2d}'              # substituted by the number of the run to 2 digits
 
 DATABASE_PARAMETERS_FILENAME = 'parameters.txt'
 DATABASE_PARAMETERS_RELIABLE_DECIMAL_PLACES = np.finfo(np.float64).precision
