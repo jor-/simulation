@@ -1,11 +1,11 @@
 import numpy as np
 
-import simulation.model.constants
-
 import util.options
 import util.cache
-
 import util.logging
+
+import simulation.model.constants
+
 logger = util.logging.logger
 
 

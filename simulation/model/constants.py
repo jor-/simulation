@@ -1,9 +1,12 @@
-import numpy as np
 import os.path
 
+import numpy as np
+
 import util.constants
-from simulation.constants import METOS3D_DIR, METOS3D_DIR_ENV_NAME
+
 import measurements.land_sea_mask.lsm
+
+from simulation.constants import METOS3D_DIR, METOS3D_DIR_ENV_NAME
 
 
 ## METOS 3D
