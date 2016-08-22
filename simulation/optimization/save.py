@@ -16,7 +16,7 @@ logger = util.logging.logger
 
 
 def save(model_name='dop_po4', time_step=1, parameter_sets=range(9999), data_kind='WOA', eval_f=True, eval_df=True, as_jobs=False, node_kind='clexpress'):
-    from simulation.model.constants import DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME, DATABASE_TIME_STEP_DIRNAME, DATABASE_PARAMETERS_SET_DIRNAME, DATABASE_PARAMETERS_FILENAME, DATABASE_SPINUP_DIRNAME, DATABASE_DERIVATIVE_DIRNAME
+    from simulation.model.constants import DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME, DATABASE_TIME_STEP_DIRNAME, DATABASE_PARAMETERS_DIRNAME, DATABASE_PARAMETERS_FILENAME, DATABASE_SPINUP_DIRNAME, DATABASE_DERIVATIVE_DIRNAME
     
     ## get time step dir
     model_dirname = DATABASE_MODEL_DIRNAME.format(model_name)
@@ -33,7 +33,7 @@ def save(model_name='dop_po4', time_step=1, parameter_sets=range(9999), data_kin
         ## get parameter
         cost_function_family = None
 
-        parameter_set_dirname = DATABASE_PARAMETERS_SET_DIRNAME.format(parameter_set_number)
+        parameter_set_dirname = DATABASE_PARAMETERS_DIRNAME.format(parameter_set_number)
         parameter_set_dir = os.path.join(time_step_dir, parameter_set_dirname)
         parameters_file = os.path.join(parameter_set_dir, DATABASE_PARAMETERS_FILENAME)
 

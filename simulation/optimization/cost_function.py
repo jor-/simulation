@@ -2,10 +2,11 @@ import os.path
 import warnings
 
 import numpy as np
-import scikits.sparse.cholmod
 
-import simulation.util.value_cache
-import simulation.util.data_base
+import simulation.model.cache
+import simulation.optimization.constants
+
+import measurements.universal.data
 
 import util.math.optimize.with_scipy
 import util.math.finite_differences
@@ -16,7 +17,7 @@ from util.math.matrix import SingularMatrixError
 import util.logging
 logger = util.logging.logger
 
-from simulation.optimization.constants import COST_FUNCTION_DIRNAME, COST_FUNCTION_F_FILENAME, COST_FUNCTION_DF_FILENAME, COST_FUNCTION_F_NORMALIZED_FILENAME, COST_FUNCTION_CORRELATION_PARAMETER_FILENAME, COST_FUNCTION_NODES_SETUP_SPINUP, COST_FUNCTION_NODES_SETUP_DERIVATIVE, COST_FUNCTION_NODES_SETUP_TRAJECTORY
+# from simulation.optimization.constants import COST_FUNCTION_DIRNAME, COST_FUNCTION_F_FILENAME, COST_FUNCTION_DF_FILENAME, COST_FUNCTION_F_NORMALIZED_FILENAME, COST_FUNCTION_CORRELATION_PARAMETER_FILENAME, COST_FUNCTION_NODES_SETUP_SPINUP, COST_FUNCTION_NODES_SETUP_DERIVATIVE, COST_FUNCTION_NODES_SETUP_TRAJECTORY
 
 
 # option syntax:
@@ -29,211 +30,308 @@ from simulation.optimization.constants import COST_FUNCTION_DIRNAME, COST_FUNCTI
 # 
 # time_step in (1, 2, 4, 8, 16, 32, 64)
 # 
-# job_setup = {'name': job_name, 'spinup': job_setup_spinup, 'derivative': job_setup_derivative, 'trajectory': job_setup_trajectory}
+# job_options = {'name': job_name, 'spinup': job_options_spinup, 'derivative': job_options_derivative, 'trajectory': job_options_trajectory}
 # job_name = str
-# job_setup_spinup, job_setup_derivative, job_setup_trajectory = {'nodes_setup': util.batch.universal.system.NodeSetup}
+# job_options_spinup, job_options_derivative, job_options_trajectory = {'nodes_setup': util.batch.universal.system.NodeSetup}
 
 
 ## Base
 
 class Base():
 
-    def __init__(self, data_kind, model_options=None, job_setup=None):
+    def __init__(self, measurements_collection, model_options=None, job_options=None):
+
+        ## set measurements
+        self.measurements = measurements.universal.data.as_measurements_collection(measurements_collection)
+        
         ## save kargs
-        self.kargs = {'data_kind': data_kind, 'model_options': model_options, 'job_setup': job_setup}
+        self.kargs = {'measurements_collection': measurements_collection, 'model_options': model_options, 'job_options': job_options}
 
-        ##
-        cf_kind = str(self)
-
-        ## prepare job setup
-        if job_setup is None:
-            job_setup = {}
+        ## prepare job options
+        if job_options is None:
+            job_options = {}
         try:
-            job_setup['name']
+            job_options['name']
         except KeyError:
-            job_setup['name'] = data_kind + '_' + cf_kind
+            job_options['name'] = str(self)
 
         try:
-            job_setup['nodes_setup']
+            job_options['nodes_setup']
         except KeyError:
             try:
-                job_setup['spinup']
+                job_options['spinup']
             except KeyError:
-                job_setup['spinup'] = {}
+                job_options['spinup'] = {}
             try:
-                job_setup['spinup']['nodes_setup']
+                job_options['spinup']['nodes_setup']
             except KeyError:
-                job_setup['spinup']['nodes_setup'] = COST_FUNCTION_NODES_SETUP_SPINUP.copy()
+                job_options['spinup']['nodes_setup'] = simulation.optimization.constants.COST_FUNCTION_NODES_SETUP_SPINUP.copy()
             try:
-                job_setup['derivative']
+                job_options['derivative']
             except KeyError:
-                job_setup['derivative'] = {}
+                job_options['derivative'] = {}
             try:
-                job_setup['derivative']['nodes_setup']
+                job_options['derivative']['nodes_setup']
             except KeyError:
-                job_setup['derivative']['nodes_setup'] = COST_FUNCTION_NODES_SETUP_DERIVATIVE.copy()
+                job_options['derivative']['nodes_setup'] = simulation.optimization.constants.COST_FUNCTION_NODES_SETUP_DERIVATIVE.copy()
             try:
-                job_setup['trajectory']
+                job_options['trajectory']
             except KeyError:
-                job_setup['trajectory'] = {}
+                job_options['trajectory'] = {}
             try:
-                job_setup['trajectory']['nodes_setup']
+                job_options['trajectory']['nodes_setup']
             except KeyError:
-                job_setup['trajectory']['nodes_setup'] = COST_FUNCTION_NODES_SETUP_TRAJECTORY.copy()
+                job_options['trajectory']['nodes_setup'] = simulation.optimization.constants.COST_FUNCTION_NODES_SETUP_TRAJECTORY.copy()
 
-        ## prepare cache and data base
-        self.data_base = simulation.util.data_base.init_data_base(data_kind, model_options=model_options, job_setup=job_setup)
-        self.cache = simulation.util.value_cache.Cache(model_options=model_options, cache_dirname=self.cache_dirname, use_memory_cache=True)
+        ## set model and cache
+        self.initial_base_concentrations = np.asanyarray(model_options.initial_concentration_options.concentrations)
+        self.model = simulation.model.cache.Model(model_options=model_options, job_options=job_options)
+        self.cache = self.model._cache
 
+
+    @property
+    def measurements(self):
+        return self._measurements
+    
+    @measurements.setter
+    def measurements(self, measurements_collection):
+        self._measurements = measurements.universal.data.as_measurements_collection(measurements_collection)
+    
+    
+    @property
+    def parameters(self):
+        return self._parameters
+    
+    
+    @parameters.setter
+    def parameters(self, parameters):
+        parameters = np.asanyarray(parameters)
+        
+        model_parameters_len = self.model.model_options.parameters_len
+        if len(parameters) == model_parameters_len:
+            self.model.model_options.parameters = parameters
+        elif len(parameters) == model_parameters_len + 1:
+            self.model.model_options.parameters = parameters[:-1]
+            self.model.model_options.initial_concentration_options.concentrations = self.initial_base_concentrations * parameters[-1]
+        else:
+            raise ValueError('The parameters for the model {} must be a vector of length {} or {}, but its length is {}.'.format(self.model.model_options.model_name, model_parameters_len, model_parameters_len + 1, len(parameters)))
+        
+        self._parameters = parameters
+    
+    
+    @property
+    def parameters_include_initial_concentrations_factor(self):        
+        return len(self.parameters) == self.model.model_options.parameters_len + 1
+
+    
+    @property
+    def _cost_function_name(self):
+        return self.__class__.__name__
+    
+    
+    @property
+    def _measurements_name(self):
+        return str(self.measurements)
+        
 
     def __str__(self):
-        return self.kind
+        return '{}({})'.format(self._cost_function_name, self._measurements_name)
+
 
     @property
-    def kind(self):
-        return self.__class__.__name__
-
-    @property
-    def cache_dirname(self):
-        return os.path.join(COST_FUNCTION_DIRNAME, str(self.data_base), self.__class__.__name__)
+    def _cache_dirname(self):
+        return os.path.join(simulation.optimization.constants.COST_FUNCTION_DIRNAME, self._measurements_name, self._cost_function_name)
+    
+    
+    def _filename(self, filename):
+        return os.path.join(self._cache_dirname, filename)
 
 
     ## cost function values
 
-    def f_calculate(self, parameters):
-        raise NotImplementedError("Please implement this method")
+    def f_calculate(self):
+        raise NotImplementedError("Please implement this method.")
 
     def f(self, parameters):
-        return self.cache.get_value(parameters, COST_FUNCTION_F_FILENAME, self.f_calculate, derivative_used=False)
+        self.parameters = parameters
+        filename = self._filename(simulation.optimization.constants.COST_FUNCTION_F_FILENAME)
+        return self.cache.get_value(filename, self.f_calculate, derivative_used=False, save_also_txt=True)
 
 
-    def f_normalized_calculate(self, parameters):
-        f = self.f(parameters)
-        m = self.data_base.m
+    def f_available(self, parameters):
+        self.parameters = parameters
+        filename = self._filename(simulation.optimization.constants.COST_FUNCTION_F_FILENAME)
+        return self.cache.has_value(filename)
+    
+
+    def f_normalized_calculate(self):
+        f = self.f(self.parameters)
+        m = self.measurements.number_of_measurements
         f_normalized = f / m
         return f_normalized
 
     def f_normalized(self, parameters):
-        return self.cache.get_value(parameters, COST_FUNCTION_F_NORMALIZED_FILENAME, self.f_normalized_calculate, derivative_used=False)
+        self.parameters = parameters
+        filename = self._filename(simulation.optimization.constants.COST_FUNCTION_F_NORMALIZED_FILENAME)
+        return self.cache.get_value(filename, self.f_normalized_calculate, derivative_used=False, save_also_txt=True)
 
-    def f_available(self, parameters):
-        return self.cache.has_value(parameters, COST_FUNCTION_F_FILENAME)
 
-
-    @property
-    def df_filename(self):
-        return COST_FUNCTION_DF_FILENAME.format(step_size=self.data_base.model.derivative_options['step_size'])
-
-    def df_calculate(self, parameters):
-        raise NotImplementedError("Please implement this method")
+    def df_calculate(self, derivative_kind):
+        raise NotImplementedError("Please implement this method.")
 
     def df(self, parameters):
-        ## get cache value
-        df = self.cache.get_value(parameters, self.df_filename, self.df_calculate, derivative_used=True, save_also_txt=True)
+        self.parameters = parameters
         
-        ## if cached df has to many parameters, remove unwanted partial derivatives
-        if df.shape[-1] > len(parameters):
-            logger.debug('Cached df has more partial derivatives ({}) than needed ({}). Truncating df.'.format(df.shape[-1], len(parameters)))
-            slices = (slice(None),) * (df.ndim - 1) + (slice(len(parameters)),)
-            df = df[slices]        
-        ## if cached df has to few parameters, recalculate
-        elif df.shape[-1] < len(parameters):
-            logger.debug('Cached df has to few partial derivatives ({}) than needed ({}). Recalculating df.'.format(df.shape[-1], len(parameters)))
-            df = self.df_calculate(parameters)
-            self.cache.save_value(parameters, self.df_filename, df, derivative_used=True, save_also_txt=True)
+        ## get needed derivative kinds
+        derivative_kinds = ['model_parameters']
+        if self.parameters_include_initial_concentrations_factor:
+            derivative_kinds.append('total_concentration_factor')
+
+        filename_pattern = self._filename(simulation.optimization.constants.COST_FUNCTION_DF_FILENAME.format(step_size=self.model.model_options.derivative_options.step_size, derivative_kind='{derivative_kind}'))
+        
+        ## calculate and cache derivative for each kind
+        df = []
+        for derivative_kind in derivative_kinds:
+            filename = filename_pattern.format(derivative_kind=derivative_kind)
+            df_i = self.cache.get_value(filename, lambda: self.df_calculate(derivative_kind), derivative_used=True, save_also_txt=True)
+            df.append(df_i)
+        
+        ## concatenate to one df
+        df = np.concatenate(df, axis=-1)
         
         ## return
         assert df.shape[-1] == len(parameters)
         return df
 
+
     def df_available(self, parameters):
-        return self.cache.has_value(parameters, self.df_filename)
+        self.parameters = parameters
+        
+        ## get needed derivative kinds
+        derivative_kinds = ['model_parameters']
+        if self.parameters_include_initial_concentrations_factor:
+            derivative_kinds.append('total_concentration_factor')
+
+        filename_pattern = self._filename(simulation.optimization.constants.COST_FUNCTION_DF_FILENAME.format(step_size=self.model.model_options.derivative_options.step_size, derivative_kind='{derivative_kind}'))
+        
+        ## check cache derivative for each kind
+        return all(self.cache.has_value(filename_pattern.format(derivative_kind=derivative_kind)) for derivative_kind in derivative_kinds)
 
 
     ## model and data values
-
-    def model_f(self, parameters):
-        return self.data_base.f(parameters)
-
-    def model_df(self, parameters):
-        return self.data_base.df(parameters)
-
-    @property
+    
+    def model_f(self):
+        f = self.model.f_measurements(*self.measurements)
+        f = self.measurements.convert_measurements_dict_to_array(f)
+        assert len(f) == self.measurements.number_of_measurements
+        return f
+    
+    def model_df(self, derivative_kind):
+        df = self.model.df_measurements(*self.measurements, partial_derivative_kind=derivative_kind)
+        df = self.measurements.convert_measurements_dict_to_array(df)
+        assert len(df) == self.measurements.number_of_measurements
+        return df
+    
     def results(self):
-        return self.data_base.results
+        results = self.measurements.values
+        assert len(results) == self.measurements.number_of_measurements
+        return results
 
 
 
-class BaseWeighted(Base):
+## Normal distribution
 
-    @property
-    def variances(self):
-        return self.data_base.variances
+class OLS(Base):
 
-    @property
-    def inverse_variances(self):
-        return self.data_base.inverse_variances
+    def f_calculate(self):
+        F = self.model_f()
+        results = self.results()
 
-    @property
-    def standard_deviations(self):
-        return self.data_base.deviations
+        f = np.sum((F - results)**2)
 
-    @property
-    def inverse_standard_deviations(self):
-        return self.data_base.inverse_deviations
+        return f
 
 
+    def f_normalized_calculate(self):
+        f_normalized = super().f_normalized_calculate()
+        inverse_average_variance = 1 / ((self.measurements.variances).mean())
+        f_normalized = f_normalized * inverse_average_variance
+        return f_normalized
 
-class BaseGeneralized(BaseWeighted):
 
-    def __init__(self, *args, correlation_min_values=10, correlation_max_year_diff=float('inf'), **kargs):
-        from measurements.constants import CORRELATION_MIN_DIAG_VALUE_POSITIVE_DEFINITE_APPROXIMATION
-        self.min_diag_value = CORRELATION_MIN_DIAG_VALUE_POSITIVE_DEFINITE_APPROXIMATION
+    def df_calculate(self, derivative_kind):
+        F = self.model_f()
+        DF = self.model_df(derivative_kind)
+        results = self.results()
+
+        df_factors = F - results
+        df = 2 * np.sum(df_factors[:, np.newaxis] * DF, axis=0)
+
+        return df
+
+
+class WLS(Base):
+
+    def f_calculate(self):
+        F = self.model_f()
+        results = self.results()
+        inverse_variances = 1 / self.measurements.variances
+
+        f = np.sum((F - results)**2 * inverse_variances)
+
+        return f
+
+
+    def df_calculate(self, derivative_kind):
+        F = self.model_f()
+        DF = self.model_df(derivative_kind)
+        results = self.results()
+        inverse_variances = 1 / self.measurements.variances
+
+        df_factors = (F - results) * inverse_variances
+        df = 2 * np.sum(df_factors[:, np.newaxis] * DF, axis=0)
+
+        return df
+
+
+class GLS(Base):
+
+    def f_calculate(self):
+        F = self.model_f()
+        results = self.results()
+        inverse_deviations = 1 / self.measurements.standard_deviations
+        correlation_matrix_cholesky_decomposition = self.measurements.correlations_own_cholesky_decomposition
+        P = correlation_matrix_cholesky_decomposition['P']
+        L = correlation_matrix_cholesky_decomposition['L']
         
-        if 'OLD' in kargs['data_kind']:
-            self.min_diag_value = 10**-2
+        weighted_residual =  (F - results) * inverse_deviations
+        inv_L_mul_weighted_residual = util.math.sparse.solve.forward_substitution(L, P * weighted_residual)
         
-        ## save additional kargs
-        self.correlation_min_values = correlation_min_values
-        if correlation_max_year_diff is None or correlation_max_year_diff < 0:
-            correlation_max_year_diff = float('inf')
-        self.correlation_max_year_diff = correlation_max_year_diff
-
-        ## super init
-        super().__init__(*args, **kargs)
-
-        ## save additional kargs
-        self.kargs['correlation_min_values'] = correlation_min_values
-        self.kargs['correlation_max_year_diff'] = correlation_max_year_diff
+        f = np.sum(inv_L_mul_weighted_residual**2)
+        return f
 
 
-    def __str__(self):
-        return '{}.{}.{}'.format(self.__class__.__name__, self.correlation_min_values, self.correlation_max_year_diff)
+    def df_calculate(self, derivative_kind):
+        DF = self.model_df(derivative_kind)
+        inverse_deviations = 1 / self.measurements.standard_deviations
+        correlation_matrix_cholesky_decomposition = self.measurements.correlations_own_cholesky_decomposition
+        P = correlation_matrix_cholesky_decomposition['P']
+        L = correlation_matrix_cholesky_decomposition['L']
+
+        weighted_residual =  (F - results) * inverse_deviations
+        inv_L_mul_weighted_residual = util.math.sparse.solve.forward_substitution(L, P * weighted_residual)
+        
+        inv_C_mul_weighted_residual = util.math.sparse.solve.backward_substitution(L.T, inv_L_mul_weighted_residual)
+        inv_C_mul_weighted_residual = P.T * inv_C_mul_weighted_residual
+
+        df_factors = inv_C_mul_weighted_residual * inverse_deviations
+
+        df = 2 * np.sum(df_factors[:,np.newaxis] * DF, axis=0)
+        return df
 
 
-    @property
-    def cache_dirname(self):
-        return os.path.join(COST_FUNCTION_DIRNAME, str(self.data_base), self.__class__.__name__, 'min_values_{}'.format(self.correlation_min_values), 'max_year_diff_{}'.format(self.correlation_max_year_diff), 'min_diag_{:.0e}'.format(self.min_diag_value))
 
-
-    @property
-    def correlation_matrix(self):
-        return self.data_base.correlation_matrix(self.correlation_min_values, self.correlation_max_year_diff, positive_definite_approximation_min_diag_value=self.min_diag_value)
-
-    @property
-    def correlation_matrix_cholesky_decomposition(self):
-        return self.data_base.correlation_matrix_cholesky_decomposition(self.correlation_min_values, self.correlation_max_year_diff, positive_definite_approximation_min_diag_value=self.min_diag_value)
-
-
-    @property
-    def covariance_matrix(self):
-        C = self.correlation_matrix
-        s = self.standard_deviations
-        S = util.math.sparse.create.diag(s)
-        C = S * C * S
-        return C
-
-
+## Log normal distribution
 
 class BaseLog(Base):
 
@@ -243,259 +341,26 @@ class BaseLog(Base):
 
         super().__init__(*args, **kargs)
 
-    def model_f(self, parameters):
-        return np.maximum(super().model_f(parameters), self.min_value)
+    def model_f(self):
+        return np.maximum(super().model_f(), self.min_value)
 
-    def model_df(self, parameters):
-        min_mask = super().model_f(parameters) < self.min_value
-        df = super().model_df(parameters)
+    def model_df(self, derivative_kind):
+        min_mask = super().model_f() < self.min_value
+        df = super().model_df(derivative_kind)
         df[min_mask] = 0
         return df
 
-    @property
     def results(self):
-        return np.maximum(super().results, self.min_value)
+        return np.maximum(super().results(), self.min_value)
 
 
 
+class LWLS(BaseLog):
 
-## Normal distribution
-
-class OLS(Base):
-
-    def f_calculate(self, parameters):
-        F = self.model_f(parameters)
-        results = self.results
-
-        f = np.sum((F - results)**2)
-
-        return f
-
-
-    def f_normalized_calculate(self, parameters):
-        f_normalized = super().f_normalized_calculate(parameters)
-        f_normalized = f_normalized * self.data_base.inverse_average_variance
-        return f_normalized
-
-
-    def df_calculate(self, parameters):
-        F = self.model_f(parameters)
-        DF = self.model_df(parameters)
-        results = self.results
-
-        df_factors = F - results
-        df = 2 * np.sum(df_factors[:, np.newaxis] * DF, axis=0)
-
-        return df
-
-
-
-class WLS(BaseWeighted):
-
-    def f_calculate(self, parameters):
-        F = self.model_f(parameters)
-        results = self.results
-        inverse_variances = self.inverse_variances
-
-        f = np.sum((F - results)**2 * inverse_variances)
-
-        return f
-
-
-    def df_calculate(self, parameters):
-        F = self.model_f(parameters)
-        DF = self.model_df(parameters)
-        results = self.results
-        inverse_variances = self.inverse_variances
-
-        df_factors = (F - results) * inverse_variances
-        df = 2 * np.sum(df_factors[:, np.newaxis] * DF, axis=0)
-
-        return df
-
-
-
-class GLS(BaseGeneralized):
-
-    def inv_col_factor_mult_residuum_calculate(self, parameters):
-        F = self.model_f(parameters)
-        results = self.results
-        inverse_deviations = self.inverse_standard_deviations
-        weighted_residual =  (F - results) * inverse_deviations
-        
-        P, L = self.correlation_matrix_cholesky_decomposition
-
-        x = util.math.sparse.solve.forward_substitution(L, P * weighted_residual)
-        return x
-
-
-    def inv_col_factor_mult_residuum(self, parameters):
-        from simulation.optimization.constants import COST_FUNCTION_GLS_PROD_FILENAME
-        return self.cache.get_value(parameters, COST_FUNCTION_GLS_PROD_FILENAME, self.inv_col_factor_mult_residuum_calculate, derivative_used=False, save_also_txt=False)
-
-
-    def f_calculate(self, parameters):
-        inv_col_factor_mult_residuum = self.inv_col_factor_mult_residuum(parameters)
-        f = np.sum(inv_col_factor_mult_residuum**2)
-        return f
-
-
-    def df_calculate(self, parameters):
-        DF = self.model_df(parameters)
-        inverse_deviations = self.inverse_standard_deviations        
-        P, L = self.correlation_matrix_cholesky_decomposition
-        
-        inv_col_factor_mult_residuum = self.inv_col_factor_mult_residuum(parameters)
-        inv_cov_matrix_mult_residuum = util.math.sparse.solve.backward_substitution(L.T, inv_col_factor_mult_residuum)
-        inv_cov_matrix_mult_residuum = P.T * inv_cov_matrix_mult_residuum
-
-        df_factors = inv_cov_matrix_mult_residuum * inverse_deviations
-
-        df = 2 * np.sum(df_factors[:,np.newaxis] * DF, axis=0)
-        return df
-
-
-
-
-class GLS_P3(Base):
-
-    def __init__(self, *args, **kargs):
-        ## super init
-        if data_kind.upper() != 'WOD':
-            raise ValueError('Data_kind {} not supported. Must be "WOD".'.format(data_kind))
-        super().__init__(*args, **kargs)
-
-        ## setup correlation bounds and last correlations
-        self.converted_correlation_parameters_bounds = ((0, 0.99), (0, 0.99), (0, 0.75))
-
-        self.last_correlation_parameters = np.array([0.1, 0.1, 0.001])
-        self.singular_function_value = np.finfo(np.float64).max
-
-
-    def f_calculate_with_diff_and_cp(self, diff_projected, correlation_parameters):
-        ## check input
-        if not np.all(np.logical_and(correlation_parameters > -1, correlation_parameters < 1)):
-            raise ValueError('Each correlation parameter have to be in (-1, 1), but they are {}.'.format(correlation_parameters))
-
-        if len(correlation_parameters) == 2:
-            correlation_parameters = list(correlation_parameters) + [0]
-
-        ## ln det
-        try:
-            ln_det = self.data_base.ln_det_correlation_matrix(correlation_parameters)
-        except SingularMatrixError:
-            warnings.warn('Correlation matrix is singular for correlation parameters {}.'.format(correlation_parameters))
-            return self.singular_function_value
-
-        ## product value
-        product_value = self.data_base.projected_product_inverse_correlation_matrix_both_sides(diff_projected, correlation_parameters)
-
-        ## calculate function value
-        f = ln_det + product_value
-
-        return f
-
-
-    def f_calculate_with_diff(self, diff_projected):
-        def converted_cp_to_cp(converted_correlation_parameters):
-            correlation_parameters = np.copy(converted_correlation_parameters)
-            correlation_parameters[2] = (correlation_parameters[0] * correlation_parameters[1] * correlation_parameters[2])**(1/2)
-            return correlation_parameters
-
-        def cp_to_converted_cp(correlation_parameters):
-            converted_correlation_parameters = np.copy(correlation_parameters)
-            if 0 in correlation_parameters[:2]:
-                converted_correlation_parameters[2] = 0
-            else:
-                converted_correlation_parameters[2] = correlation_parameters[2]**2 / (correlation_parameters[0] * correlation_parameters[1])
-            return converted_correlation_parameters
-
-
-        ## optimize correlation parameters
-        f = lambda converted_correlation_parameters: self.f_calculate_with_diff_and_cp(diff_projected, converted_cp_to_cp(converted_correlation_parameters))
-        last_correlation_parameters = self.last_correlation_parameters
-
-        (converted_opt_correlation_parameters, opt_f) = util.math.optimize.with_scipy.minimize(f, cp_to_converted_cp(self.last_correlation_parameters), bounds=self.converted_correlation_parameters_bounds, global_method='basin_hopping', global_iterations=200, global_stepsize=0.05, global_stepsize_update_interval=20)
-
-        ## save correlation parameters
-        self.last_correlation_parameters = converted_cp_to_cp(converted_opt_correlation_parameters)
-
-        logger.debug('Returning optimal correlation parameters {} with value {}.'.format(self.last_correlation_parameters, opt_f))
-
-        return opt_f
-
-
-    def f_calculate(self, parameters):
-        ## calculate diff_projected
-        F = self.model_f(parameters)
-        results = self.results
-        inverse_deviations = self.inverse_standard_deviations
-        n = self.data_base.m_dop
-        diff = (results - F) * inverse_deviations
-        diff_projected = self.data_base.project(diff, n)
-
-        ## calculate f
-        f = self.f_calculate_with_diff(diff_projected)
-        self.cache.save_value(parameters, COST_FUNCTION_CORRELATION_PARAMETER_FILENAME, self.last_correlation_parameters)
-
-        return f
-
-
-    def f_normalized_calculate(self, parameters):
-        f = self.f(parameters)
-        m = self.data_base.m
-
-        f_normalized = f / m
-
-        return f_normalized
-
-
-    def df_calculate(self, parameters):
-        ## calculate diff_projected and diff_squared and its derivatives
-        F = self.model_f(parameters)
-        DF = self.model_df(parameters)
-        results = self.results
-        inverse_deviations = self.inverse_standard_deviations
-        n = self.data_base.m_dop
-
-        diff = (results - F) * inverse_deviations
-        diff_projected = self.data_base.project(diff, n)
-        diff_squared, diff_summed = diff_projected
-
-        d_diff = - DF * inverse_deviations[:, np.newaxis]
-        p_dim = len(parameters)
-        tracer_dim = 2
-        d_diff_summed = np.empty([tracer_dim, p_dim])
-        d_diff_squared = np.empty([tracer_dim, p_dim])
-        for j in range(p_dim):
-            d_diff_summed[0, j] = np.sum(d_diff[:n, j])
-            d_diff_summed[1, j] = np.sum(d_diff[n:, j])
-            d_diff_squared[0, j] = 2 * np.sum(diff[:n] * d_diff[:n, j])
-            d_diff_squared[1, j] = 2 * np.sum(diff[n:] * d_diff[n:, j])
-
-
-        ## calculate function values and its derivatives
-        f_p = self.f_calculate_with_diff(diff_projected)
-        d1_f_p = util.math.finite_differences.calculate(lambda diff_squared: self.f_calculate_with_diff([diff_squared, diff_summed]), diff_squared, f_x=f_p, bounds=((0, np.inf),)*2, accuracy_order=1)
-        d2_f_p = util.math.finite_differences.calculate(lambda diff_summed: self.f_calculate_with_diff([diff_squared, diff_summed]), diff_summed, f_x=f_p, bounds=None, accuracy_order=1)
-
-        ## compose derivative
-        d_f_p = np.matrix(d1_f_p) * np.matrix(d_diff_squared) + np.matrix(d2_f_p) * np.matrix(d_diff_summed)
-        d_f_p = np.array(d_f_p.flat)
-
-        return d_f_p
-
-
-
-## Log normal distribution
-
-
-class LWLS(BaseWeighted, BaseLog):
-
-    def f_calculate(self, parameters):
-        m = self.model_f(parameters)
-        y = self.results
-        v = self.variances
+    def f_calculate(self):
+        m = self.model_f()
+        y = self.results()
+        v = self.measurements.variances
 
         c = v / m**2 + 1
         a = np.log(m / np.sqrt(c))
@@ -508,11 +373,11 @@ class LWLS(BaseWeighted, BaseLog):
         return f
 
 
-    def df_calculate(self, parameters):
-        m = self.model_f(parameters)
-        dm = self.model_df(parameters)
-        y = self.results
-        v = self.variances
+    def df_calculate(self, derivative_kind):
+        m = self.model_f()
+        dm = self.model_df(derivative_kind)
+        y = self.results()
+        v = self.measurements.variances
 
         a = 2 * np.log(m) - 1/2 * np.log(m**2 + v)
         da = m * (2/m**2 - 1/(m**2 + v))
@@ -529,50 +394,20 @@ class LWLS(BaseWeighted, BaseLog):
 
 
 
-class LGLS(BaseGeneralized, BaseLog):
+class LGLS(BaseLog):
 
-    def distribution_matrix(self, parameters):
-        C = self.covariance_matrix
-        F = self.model_f(parameters)
+    def distribution_matrix(self):
+        D = util.math.sparse.create.diag(self.measurements.standard_deviations)
+        C = D * self.measurements.correlations() * D
+        F = self.model_f()
         F_MI = util.math.sparse.create.diag(1/F)
         C = F_MI * C * F_MI
         C.data = np.log(C.data + 1)
         return C
 
-    def distribution_matrix_cholmod_factor_calculate(self, parameters):
+    def distribution_matrix_cholmod_factor(self, parameters):
+        import util.math.sparse.decompose.with_cholmod
         C = self.distribution_matrix(parameters)
-        f = scikits.sparse.cholmod.cholesky(C)
+        f = util.math.sparse.decompose.with_cholmod.cholmod.cholesky(C)
         return f
 
-    def distribution_matrix_cholmod_factor(self, parameters):
-        return self.cache.memory_cache.get_value(parameters, 'distribution_matrix_cholmod_factor', self.distribution_matrix_cholmod_factor_calculate)
-
-
-
-
-
-## Family
-
-
-class Family(simulation.util.data_base.Family): 
-   
-    member_classes = {'WOA': [(OLS, [{}]), (WLS, [{}]), (LWLS, [{}])], 
-                      'WOD': [(OLS, [{}]), (WLS, [{}]), (LWLS, [{}]), (GLS, [{'correlation_min_values': correlation_min_values, 'correlation_max_year_diff': float('inf')} for correlation_min_values in (50, 45,)])],
-                      'WOD.1': [(OLS, [{}]), (WLS, [{}]), (LWLS, [{}]), (GLS, [{'correlation_min_values': correlation_min_values, 'correlation_max_year_diff': float('inf')} for correlation_min_values in (50, 45, 40, 35)])],
-                      'WOD.0': [(OLS, [{}]), (WLS, [{}]), (LWLS, [{}]), (GLS, [{'correlation_min_values': correlation_min_values, 'correlation_max_year_diff': float('inf')} for correlation_min_values in (50, 45, 40, 35, 30)])]
-                      } 
-
-    def f(self, parameters):
-        fun = lambda o: o.f(parameters)
-        value = self.get_function_value(fun)
-        return value
-
-    def f_normalized(self, parameters):
-        fun = lambda o: o.f_normalized(parameters)
-        value = self.get_function_value(fun)
-        return value
-
-    def df(self, parameters):
-        fun = lambda o: o.df(parameters)
-        value = self.get_function_value(fun)
-        return value

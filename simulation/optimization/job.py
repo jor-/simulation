@@ -2,9 +2,11 @@ import os
 
 import numpy as np
 
-import measurements.constants
 import simulation.constants
+import simulation.model.constants
 import simulation.optimization.constants
+
+import measurements.constants
 
 import util.batch.universal.system
 import util.io.fs
@@ -17,123 +19,89 @@ logger = util.logging.logger
 
 class CostFunctionJob(util.batch.universal.system.Job):
 
-    def __init__(self, output_dir, parameters, cf_kind, eval_f=True, eval_df=True, nodes_setup=None, **cf_kargs):
+    def __init__(self, output_dir, cf_kind, model_options, model_job_options=None, max_box_distance_to_water=float('inf'), min_measurements_correlations=float('inf'), eval_f=True, eval_df=True, job_options=None, nodes_setup=None):
         from simulation.optimization.constants import COST_FUNCTION_NODES_SETUP_JOB
         
         logger.debug('Initiating cost function job with cf_kind {}, eval_f {} and eval_df {}.'.format(cf_kind, eval_f, eval_df))
 
         super().__init__(output_dir)
         
-        ## prepare job name
-        data_kind = cf_kargs['data_kind']
-        try:
-            job_name = cf_kargs['job_setup']['name']
-        except (KeyError, TypeError):
-            job_name = '{}_{}'.format(data_kind, cf_kind)
-            if cf_kind == 'GLS':
-                job_name = job_name + '_{}_{}'.format(cf_kargs['correlation_min_values'], cf_kargs['correlation_max_year_diff'])
-
-        ## prepare job_setup
-        if 'job_setup' in cf_kargs:
-            job_setup = cf_kargs['job_setup']
-            del cf_kargs['job_setup']
-        else:
-            job_setup = None
-
         ## save CF options
         self.options['/cf/kind'] = cf_kind
-        self.options['/cf/parameters'] = parameters
-        for key, value in cf_kargs.items():
-            if value is not None:
-                self.options['/cf/{}'.format(key)] = value
+        self.options['/cf/model_options'] = repr(model_options)
+        self.options['/cf/model_job_options'] = repr(model_job_options)
+        self.options['/cf/max_box_distance_to_water'] = max_box_distance_to_water
+        self.options['/cf/min_measurements_correlations'] = min_measurements_correlations
+        
+        ## prepare job options
+        if job_options is None:
+            job_options = {}
+        
+        ## prepare job name
+        try:
+            job_name = job_options['name']
+        except KeyError:
+            job_name = cf_kind
+            if cf_kind == 'GLS':
+                job_name = job_name + '_{min_measurements_correlations}'.format(min_measurements_correlations=min_measurements_correlations)
+            if max_box_distance_to_water is not None and max_box_distance_to_water != float('inf'):
+                job_name = job_name + '_N{max_box_distance_to_water:d}'.format(max_box_distance_to_water=max_box_distance_to_water)
 
-        python_script_file = os.path.join(output_dir, 'run.py')
-        self.options['/cf/run_file'] = python_script_file
-
-        ## prepare job options and init job file
-        node_numbers = 1
-        cpu_numbers = 1
-
-        if data_kind == 'WOA':
-            memory_gb = 2
-        if 'WOD' in data_kind:
-            memory_gb = 24
-            if data_kind  == 'OLDWOD' and cf_kind == 'GLS':
-                if cf_kargs['correlation_min_values'] >= 35:
-                    memory_gb = 30
-                elif cf_kargs['correlation_min_values'] >= 30:
-                    memory_gb = 35
-                else:
-                    memory_gb = 45
-            if data_kind  == 'WOD' and cf_kind == 'GLS':
-                if cf_kargs['correlation_min_values'] >= 45:
-                    memory_gb = 30
-                elif cf_kargs['correlation_min_values'] >= 40:
-                    memory_gb = 35
-                elif cf_kargs['correlation_min_values'] >= 35:
-                    memory_gb = 40
-                else:
-                    memory_gb = 45
-            if data_kind  == 'WOD.1' and cf_kind == 'GLS':
-                if cf_kargs['correlation_min_values'] >= 45:
-                    memory_gb = 25
-                elif cf_kargs['correlation_min_values'] >= 40:
-                    memory_gb = 30
-                elif cf_kargs['correlation_min_values'] >= 35:
-                    memory_gb = 30
-                else:
-                    memory_gb = 35
-            if data_kind  == 'WOD.0' and cf_kind == 'GLS':
-                if cf_kargs['correlation_min_values'] >= 45:
-                    memory_gb = 25
-                elif cf_kargs['correlation_min_values'] >= 40:
-                    memory_gb = 25
-                elif cf_kargs['correlation_min_values'] >= 35:
-                    memory_gb = 25
-                else:
-                    memory_gb = 25
-        if nodes_setup is None:
+        ## prepare node setup
+        try:
+            nodes_setup = job_options['nodes_setup']
+        except KeyError:
             nodes_setup = COST_FUNCTION_NODES_SETUP_JOB.copy()
-        nodes_setup['memory'] = memory_gb
+            if eval_df:
+                nodes_setup['memory'] = nodes_setup['memory'] + 5
+            if cf_kind == 'GLS':
+                nodes_setup['memory'] = nodes_setup['memory'] + 20
+        
+        ## init job file
         queue = None
         super().init_job_file(job_name, nodes_setup, queue=queue)
-
-        ## convert inf to negative for script
-        if 'correlation_max_year_diff' in cf_kargs and cf_kargs['correlation_max_year_diff'] == float('inf'):
-            cf_kargs['correlation_max_year_diff'] = -1
-
+        
         ## write python script
-        commands = ['import util.logging']
-        commands += ['import numpy as np']
-        commands += ['with util.logging.Logger():']
-        commands += ['    import simulation.optimization.cost_function']
-        commands += ['    cf_kargs = {}'.format(cf_kargs)]
-        if job_setup is not None:
-            commands += ['    import util.batch.universal.system']
-            commands += ['    job_setup = {}']
-            for setup_name in ('spinup', 'derivative', 'trajectory'):
-                if setup_name in job_setup:
-                    nodes_setup = job_setup[setup_name]['nodes_setup']
-                    nodes_setup_str = 'util.batch.universal.system.{}'.format(nodes_setup)
-                    job_setup_str = "{'" + setup_name + "':{'nodes_setup':" + nodes_setup_str + "}}"
-                    commands += ["    job_setup.update({})".format(job_setup_str)]
-            commands += ["    cf_kargs.update({'job_setup':job_setup})"]
-        commands += ['    cf = simulation.optimization.cost_function.{}(**cf_kargs)'.format(cf_kind)]
+        commands = ['import numpy as np']
+        commands += ['import simulation.model.options']
+        commands += ['import simulation.optimization.cost_function']
+        commands += ['import measurements.all.pw.data']
+        commands += ['import util.batch.universal.system']
+        commands += ['import util.logging']
 
-        from simulation.model.constants import DATABASE_PARAMETERS_FORMAT_STRING
-        parameters_str = str(tuple(map(lambda f: DATABASE_PARAMETERS_FORMAT_STRING.format(f), parameters)))
-        parameters_str = parameters_str.replace("'", '')
+        if max_box_distance_to_water == float('inf'):
+            max_box_distance_to_water = None
+        if min_measurements_correlations == float('inf'):
+            min_measurements_correlations = None
+        
+        commands += ['with util.logging.Logger():']
+        commands += ['    measurements_collection = measurements.all.pw.data.all_measurements(max_box_distance_to_water={max_box_distance_to_water}, min_measurements_correlations={min_measurements_correlations})'.format(max_box_distance_to_water=max_box_distance_to_water, min_measurements_correlations=min_measurements_correlations)]
+        
+        if model_options is not None:
+            commands += ['    model_options = {model_options!r}'.format(model_options=model_options)]
+        else:
+            commands += ['    model_options = None']
+        
+        if model_job_options is not None:
+            commands += ['    job_options = {model_job_options!r}'.format(model_job_options=model_job_options)]
+        else:
+            commands += ['    job_options = None']
+        commands += ['    cf = simulation.optimization.cost_function.{cf_kind}(measurements_collection=measurements_collection, model_options=model_options, job_options=job_options)'.format(cf_kind=cf_kind)]
+        
+        parameters_str = ','.join(map(lambda f: simulation.model.constants.DATABASE_PARAMETERS_FORMAT_STRING.format(f), model_options.parameters))
         if eval_f:
-            commands += ['    cf.f({})'.format(parameters_str)]
+            commands += ['    cf.f(({}))'.format(parameters_str)]
         if eval_df:
-            commands += ['    cf.df({})'.format(parameters_str)]
+            commands += ['    cf.df(({}))'.format(parameters_str)]
+        commands += ['']
 
         script_str = os.linesep.join(commands)
         script_str = script_str.replace('array', 'np.array')
-        
-        f = open(python_script_file, mode='w')
-        f.write(script_str)
-        util.io.fs.flush_and_close(f)
+
+        python_script_file = os.path.join(output_dir, 'run.py')
+        with open(python_script_file, mode='w') as f:
+            f.write(script_str)
+            f.flush()
 
         ## prepare run command and write job file
         def export_env_command(env_name):
@@ -151,5 +119,5 @@ class CostFunctionJob(util.batch.universal.system.Job):
         python_command = util.batch.universal.system.BATCH_SYSTEM.commands['python']
         run_command = '{python_command} {python_script_file}'.format(python_command=python_command, python_script_file=python_script_file)
         
-        super().write_job_file(run_command, pre_run_command=export_env_command, modules=['intel'])
+        super().write_job_file(run_command, pre_run_command=export_env_command, modules=['intel16'])
 

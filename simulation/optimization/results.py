@@ -18,8 +18,8 @@ def p_bounds(cf_kind):
 def get_values(cf_kind, value_kind, dtype=np.float64):
     ## get files
     dir = os.path.join(PARAMETER_OPTIMIZATION_DIR, cf_kind, ITERATIONS_DIRNAME)
-    pattern = value_kind + '_[0-9]{3}.txt'
-    files = util.io.fs.get_files(dir, pattern)
+    pattern = '.*' + value_kind + '_[0-9]{3}.txt'
+    files = util.io.fs.get_files(dir, pattern, use_absolute_filenames=True)
 
     ## load indices and values
     indices = []
