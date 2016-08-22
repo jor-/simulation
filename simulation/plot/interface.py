@@ -2,7 +2,6 @@ import numpy as np
 import os
 import os.path
 
-import measurements.util.data
 import simulation.optimization.results
 import simulation.optimization.min_values
 import simulation.util.data_base
@@ -218,13 +217,13 @@ def optimization(path='/tmp', with_line_search_steps=True):
 
 
 def model_output(parameter_set_nr, kind='BOXES', path='/tmp', y_max=(None, None), average_in_time=False):
-    from simulation.model.constants import DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME, DATABASE_TIME_STEP_DIRNAME, DATABASE_PARAMETERS_SET_DIRNAME, DATABASE_PARAMETERS_FILENAME
+    from simulation.model.constants import DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME, DATABASE_TIME_STEP_DIRNAME, DATABASE_PARAMETERS_DIRNAME, DATABASE_PARAMETERS_FILENAME
     from simulation.util.constants import CACHE_DIRNAME, BOXES_F_FILENAME, WOD_F_FILENAME
 
     logger.debug('Plotting model output for parameter set {}'.format(parameter_set_nr))
 
     ## load parameters
-    parameter_set_dirname = DATABASE_PARAMETERS_SET_DIRNAME.format(parameter_set_nr)
+    parameter_set_dirname = DATABASE_PARAMETERS_DIRNAME.format(parameter_set_nr)
     p_file = os.path.join(DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME.format('dop_po4'), DATABASE_TIME_STEP_DIRNAME.format(1), parameter_set_dirname, DATABASE_PARAMETERS_FILENAME)
     p = np.loadtxt(p_file)
 
@@ -248,13 +247,13 @@ def model_output(parameter_set_nr, kind='BOXES', path='/tmp', y_max=(None, None)
 
 
 def relative_parameter_confidence(parameter_set_nr, kind='WOA_WLS', path='/tmp'):
-    from simulation.model.constants import DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME, DATABASE_TIME_STEP_DIRNAME, DATABASE_PARAMETERS_SET_DIRNAME, DATABASE_PARAMETERS_FILENAME
+    from simulation.model.constants import DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME, DATABASE_TIME_STEP_DIRNAME, DATABASE_PARAMETERS_DIRNAME, DATABASE_PARAMETERS_FILENAME
     from simulation.accuracy.constants import CACHE_DIRNAME, PARAMETER_CONFIDENCE_FILENAME
 
     logger.debug('Plotting parameter confidence for parameter set {}'.format(parameter_set_nr))
 
     ## load value
-    parameter_dirname = DATABASE_PARAMETERS_SET_DIRNAME.format(parameter_set_nr)
+    parameter_dirname = DATABASE_PARAMETERS_DIRNAME.format(parameter_set_nr)
     parameter_dir = os.path.join(DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME.format('dop_po4'), DATABASE_TIME_STEP_DIRNAME.format(1), parameter_dirname)
     parameter_value_file = os.path.join(parameter_dir, DATABASE_PARAMETERS_FILENAME)
     parameter_value = np.loadtxt(parameter_value_file)
@@ -271,13 +270,13 @@ def relative_parameter_confidence(parameter_set_nr, kind='WOA_WLS', path='/tmp')
 
 
 def model_confidence(parameter_set_nr, kind='WOA_WLS', path='/tmp', v_max=[None, None], time_dim_confidence=12, time_dim_df=12, average_in_time=False):
-    from simulation.model.constants import DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME, DATABASE_TIME_STEP_DIRNAME, DATABASE_PARAMETERS_SET_DIRNAME
+    from simulation.model.constants import DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME, DATABASE_TIME_STEP_DIRNAME, DATABASE_PARAMETERS_DIRNAME
     from simulation.accuracy.constants import CACHE_DIRNAME, MODEL_CONFIDENCE_FILENAME
 
     logger.debug('Plotting model confidence for parameter set {}'.format(parameter_set_nr))
 
     ## load value
-    parameter_set_dirname = DATABASE_PARAMETERS_SET_DIRNAME.format(parameter_set_nr)
+    parameter_set_dirname = DATABASE_PARAMETERS_DIRNAME.format(parameter_set_nr)
     f_file = os.path.join(DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME.format('dop_po4'), DATABASE_TIME_STEP_DIRNAME.format(1), parameter_set_dirname, CACHE_DIRNAME, kind, MODEL_CONFIDENCE_FILENAME.format(time_dim_confidence=time_dim_confidence, time_dim_df=time_dim_df))
     f = np.load(f_file)
     if average_in_time:
@@ -299,12 +298,12 @@ def model_confidence(parameter_set_nr, kind='WOA_WLS', path='/tmp', v_max=[None,
 
 
 def average_model_confidence_increase(parameter_set_nr, kind='WOA_WLS', path='/tmp', time_dim_df=12):
-    from simulation.model.constants import DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME, DATABASE_TIME_STEP_DIRNAME, DATABASE_PARAMETERS_SET_DIRNAME
+    from simulation.model.constants import DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME, DATABASE_TIME_STEP_DIRNAME, DATABASE_PARAMETERS_DIRNAME
     from simulation.accuracy.constants import CACHE_DIRNAME, AVERAGE_MODEL_CONFIDENCE_INCREASE_FILENAME
 
     logger.debug('Plotting average model confidence increase for parameter set {}'.format(parameter_set_nr))
 
-    parameter_set_dirname = DATABASE_PARAMETERS_SET_DIRNAME.format(parameter_set_nr)
+    parameter_set_dirname = DATABASE_PARAMETERS_DIRNAME.format(parameter_set_nr)
 
     f_file = os.path.join(DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME.format('dop_po4'), DATABASE_TIME_STEP_DIRNAME.format(1), parameter_set_dirname, CACHE_DIRNAME, kind, AVERAGE_MODEL_CONFIDENCE_INCREASE_FILENAME.format(time_dim_df))
     f = np.load(f_file)
@@ -325,13 +324,13 @@ def average_model_confidence_increase(parameter_set_nr, kind='WOA_WLS', path='/t
 
 
 def model_diff(parameter_set_nr, data_kind='WOA', path='/tmp', normalize_with_deviation=False, y_max=(None, None)):
-    from simulation.model.constants import DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME, DATABASE_TIME_STEP_DIRNAME, DATABASE_PARAMETERS_SET_DIRNAME, DATABASE_PARAMETERS_FILENAME
+    from simulation.model.constants import DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME, DATABASE_TIME_STEP_DIRNAME, DATABASE_PARAMETERS_DIRNAME, DATABASE_PARAMETERS_FILENAME
     from simulation.model.constants import (METOS_X_DIM as X_DIM, METOS_Y_DIM as Y_DIM, METOS_Z_LEFT as Z_VALUES_LEFT)
 
     logger.debug('Plotting model output for parameter set {}'.format(parameter_set_nr))
 
     ## load parameters
-    parameter_set_dirname = DATABASE_PARAMETERS_SET_DIRNAME.format(parameter_set_nr)
+    parameter_set_dirname = DATABASE_PARAMETERS_DIRNAME.format(parameter_set_nr)
     p_file = os.path.join(DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME.format('dop_po4'), DATABASE_TIME_STEP_DIRNAME.format(1), parameter_set_dirname, DATABASE_PARAMETERS_FILENAME)
     p = np.loadtxt(p_file)
 
