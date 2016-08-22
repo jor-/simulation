@@ -23,7 +23,7 @@ ERROR_IGNORE_LIST = ("librdmacm: Fatal: unable to get RDMA device list"+os.lines
 def check_db_entry_integrity_spinup(spinup_dir, is_spinup):
     
     
-    run_dirs = util.io.fs.get_dirs(spinup_dir)
+    run_dirs = util.io.fs.get_dirs(spinup_dir, use_absolute_filenames=True)
     run_dirs.sort()
     n = len(run_dirs)
 
@@ -36,8 +36,7 @@ def check_db_entry_integrity_spinup(spinup_dir, is_spinup):
             run_dir = run_dirs[run_dir_index]
 
             ## check if dirs in run dir exist
-            dirs = util.io.fs.get_dirs(run_dir)
-            if len(dirs) > 0:
+            if len(util.io.fs.get_dirs(run_dir)) > 0:
                 print('Directories found in {}.'.format(run_dir))
 
 
@@ -65,7 +64,7 @@ def check_db_entry_integrity_spinup(spinup_dir, is_spinup):
                     
                     ## check options
                     options_file = os.path.join(run_dir, 'job_options.hdf5')
-                    with util.options.Options(options_file, replace_environment_vars_at_set=False, replace_environment_vars_at_get=False) as options:
+                    with util.options.OptionsFile(options_file, replace_environment_vars_at_set=False, replace_environment_vars_at_get=False) as options:
                         ## check files and dirs
                         file_entry_prefix = '${{{}}}'.format(simulation.constants.SIMULATION_OUTPUT_DIR_ENV_NAME)
                         should_have_tracer_input = not is_spinup or run_dir_index > 0
@@ -223,7 +222,7 @@ def check_db_entry_integrity(model_name='dop_po4', time_step=1, parameter_set_di
     check_all_parameter_sets = parameter_set_dirs_to_check is None or (len(parameter_set_dirs_to_check) == 1 and parameter_set_dirs_to_check[0] is None)
     check_for_same_parameters = check_for_same_parameters and (check_all_parameter_sets or len(parameter_set_dirs_to_check) > 1)
     if check_all_parameter_sets or check_for_same_parameters:
-        parameter_set_dirs_all = util.io.fs.get_dirs(time_step_dir)
+        parameter_set_dirs_all = util.io.fs.get_dirs(time_step_dir, use_absolute_filenames=True)
     if check_all_parameter_sets:
         parameter_set_dirs_to_check = parameter_set_dirs_all
 
@@ -238,7 +237,7 @@ def check_db_entry_integrity(model_name='dop_po4', time_step=1, parameter_set_di
         ## check derivative dir
         for df_step_size in df_step_sizes:
             derivative_dir = os.path.join(parameter_set_dir, DATABASE_DERIVATIVE_DIRNAME.format(df_step_size))
-            partial_derivative_dirs = util.io.fs.get_dirs(derivative_dir)
+            partial_derivative_dirs = util.io.fs.get_dirs(derivative_dir, use_absolute_filenames=True)
             for partial_derivative_dir in partial_derivative_dirs:
                 check_db_entry_integrity_spinup(partial_derivative_dir, False)
 
@@ -276,7 +275,7 @@ def check_db_entry_integrity(model_name='dop_po4', time_step=1, parameter_set_di
                 print('Wod df file {} has wrong shape {}!'.format(df_wod_file, df_wod.shape))
 
         ## check value cache
-        value_cache_option_files = util.io.fs.filter_with_filename_pattern(parameter_set_dir, '*options.npy', exclude_dirs=True, use_absolute_filenames=True, recursive=True)
+        value_cache_option_files = util.io.fs.find_with_filename_pattern(parameter_set_dir, '*options.npy', exclude_dirs=True, use_absolute_filenames=True, recursive=True)
         for value_cache_option_file in value_cache_option_files:
             value_cache_option = np.load(value_cache_option_file)
             if not value_cache_option.ndim == 1:

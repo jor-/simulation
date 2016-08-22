@@ -8,377 +8,260 @@ import numpy as np
 import simulation.constants
 import simulation.model.data
 import simulation.model.job
+import simulation.model.options
 import simulation.model.constants
 
-import measurements.land_sea_mask.data
+import measurements.land_sea_mask.lsm
 import measurements.util.interpolate
+import measurements.universal.data
 
 import util.io.fs
 import util.index_database.array_and_txt_file_based
+import util.index_database.petsc_file_based
 import util.pattern
 import util.math.interpolate
+import util.math.finite_differences
 import util.batch.universal.system
+import util.options
+import util.cache
 
 import util.logging
 logger = util.logging.logger
 
 
 
-class Model():
-
-    def __init__(self, model_options=None, job_setup=None):
-        logger.debug('Model initiated with model_options {} and job setup {}.'.format(model_options, job_setup))
+class Model_Database:
+    
+    def __init__(self, model_options=None, job_options=None):
+        logger.debug('Model initiated with model_options {} and job setup {}.'.format(model_options, job_options))
         
-        ## init options
-        self._model_options = {}
-        if model_options is None:
-            model_options = {}
+        ## set model options
+        model_options = util.options.as_options(model_options, simulation.model.options.ModelOptions)
+        self.model_options = model_options
         
-        ## set model name
-        try:
-            name = model_options['model_name']
-        except KeyError:
-            name = simulation.model.constants.MODEL_NAMES[0]
-        else:
-            if not name in simulation.model.constants.MODEL_NAMES:
-                raise ValueError('Model name {} is unknown. Only the names {} are supported.'.format(name, simulation.model.constants.MODEL_NAMES))
-        self._model_options['model_name'] = name
+        self.start_from_closest_parameters = simulation.model.constants.MODEL_START_FROM_CLOSEST_PARAMETER_SET
+        self.model_spinup_max_years = simulation.model.constants.MODEL_SPINUP_MAX_YEARS
+        self._cached_interpolator = None
         
-        ## set total_concentration_factor_included_in_parameters
-        try:
-            total_concentration_factor_included_in_parameters = model_options['total_concentration_factor_included_in_parameters']
-        except KeyError:
-            total_concentration_factor_included_in_parameters = False
-        self._model_options['total_concentration_factor_included_in_parameters'] = total_concentration_factor_included_in_parameters
-        
-        ## set parameter bounds and typical values
-        self.parameters_lower_bound = simulation.model.constants.MODEL_PARAMETER_LOWER_BOUND[self.model_name]
-        self.parameters_upper_bound = simulation.model.constants.MODEL_PARAMETER_UPPER_BOUND[self.model_name]
-        self.parameters_typical_values = simulation.model.constants.MODEL_PARAMETER_TYPICAL[self.model_name]
+        self.model_lsm = simulation.model.constants.METOS_LSM
         
         
-        ## set spinup options
-        def set_default_options(current_options, default_options):            
-            if current_options is not None:
-                for key, value in default_options.items():
-                    try:
-                        current_options[key]
-                    except KeyError:
-                        current_options[key] = value
-                return current_options
-            else:
-                return default_options
-
-        try:
-            spinup_options = model_options['spinup_options']
-        except KeyError:
-            spinup_options = None
-        spinup_options = set_default_options(spinup_options, simulation.model.constants.MODEL_DEFAULT_SPINUP_OPTIONS)
-        if spinup_options['combination'] not in ['and', 'or']:
-            raise ValueError('Combination "{}" unknown.'.format(spinup_options['combination']))
-        self._model_options['spinup_options'] = spinup_options
-        logger.debug('Using spinup options {}.'.format(self.spinup_options))
-        
-        
-        ## set derivative options
-        try:
-            derivative_options = model_options['derivative_options']
-        except KeyError:
-            derivative_options = None
-        derivative_options = set_default_options(derivative_options, simulation.model.constants.MODEL_DEFAULT_DERIVATIVE_OPTIONS)
-        self._model_options['derivative_options'] = derivative_options
-        logger.debug('Using derivative options {}.'.format(self.derivative_options))
-        
-        
-        ## set time step
-        try:
-            time_step = model_options['time_step']
-        except KeyError:
-            time_step = 1
-        else:
-            if not time_step in simulation.model.constants.METOS_TIME_STEPS:
-                raise ValueError('Wrong time_step in model options. Time step has to be in {} .'.format(time_step, simulation.model.constants.METOS_TIME_STEPS))
-            assert simulation.model.constants.METOS_T_DIM % time_step == 0
-        self._model_options['time_step'] = time_step
-        
-        
-        ## set lsm
-        time_dim = int(simulation.model.constants.METOS_T_DIM / time_step)
-        self.lsm = measurements.land_sea_mask.data.LandSeaMaskTMM(t_dim=time_dim, t_centered=False)
-        
-        
-        ## set tolerance options
-        parameter_tolerance_options = {}
-        try:
-            model_options['parameter_tolerance_options']
-        except KeyError:
-            pass
-        else:
-            try:
-                relative = model_options['parameter_tolerance_options']['relative']
-            except KeyError:
-                pass
-            else:
-                if len(relative) not in [1, self.parameter_len]:
-                    raise ValueError('The relative tolerances must be a scalar or of equal length as the model parameters, but the relative tolerance is {} with length {} and the model parameters have length {}.'.format(relative, len(relative), self.parameter_len))
-                if len(relative) > 1 and not self.total_concentration_factor_included_in_parameters:
-                    relative = np.concatenate([relative, [0]])
-                parameter_tolerance_options['relative'] = relative
-            try:
-                absolute = model_options['parameter_tolerance_options']['absolute']
-            except KeyError:
-                pass
-            else:
-                if len(absolute) not in [1, self.parameter_len]:
-                    raise ValueError('The absolute tolerances must be a scalar or of equal length as the model parameters, but the absolute tolerance is {} with length {} and the model parameters have length {}.'.format(absolute, len(absolute), self.parameter_len))
-                if len(absolute) > 1 and not self.total_concentration_factor_included_in_parameters:
-                    absolute = np.concatenate([absolute, [10**-12]])
-                parameter_tolerance_options['absolute'] = absolute
-        self._model_options['parameter_tolerance_options'] = parameter_tolerance_options
-
-
         ## set job setup collection
         # convert job setup to job setup collection
-        if job_setup is None:
-            job_setup = {}
+        if job_options is None:
+            job_options = {}
 
-        job_setup_collection = {}
-        keys = list(job_setup.keys())
+        job_options_collection = {}
+        keys = list(job_options.keys())
         kinds = ['spinup', 'derivative', 'trajectory']
         if any(kind in keys for kind in kinds):
-            job_setup_collection = job_setup
+            job_options_collection = job_options
         else:
-            job_setup_collection['spinup'] = job_setup
+            job_options_collection['spinup'] = job_options
 
         # if not passed, use default job setups
         try:
-            job_setup_collection['spinup']
+            job_options_collection['spinup']
         except KeyError:
-            job_setup_collection['spinup'] = {}
+            job_options_collection['spinup'] = {}
         try:
-            job_setup_collection['derivative']
+            job_options_collection['spinup']['name']
         except KeyError:
-            job_setup_collection['derivative'] = job_setup_collection['spinup'].copy()
-            job_setup_collection['derivative']['nodes_setup'] = None
-        try:
-            job_setup_collection['trajectory']
-        except KeyError:
-            job_setup_collection['trajectory'] = job_setup_collection['derivative'].copy()
-            job_setup_collection['trajectory']['nodes_setup'] = None
-
-        # if no name passed, use default name
-        try:
-            default_name = job_setup['name']
-        except KeyError:
+            job_options_collection['spinup']['name'] = 'spinup'
             default_name = ''
-        for kind in kinds:
-            try:
-                job_setup_collection[kind]['name']
-            except KeyError:
-                job_setup_collection[kind]['name'] = default_name
-
-        self.job_setup_collection = job_setup_collection
-
-
-
-        ## empty interpolator cache
-        self._interpolator_cached = None
-        
-        ## database output dir
-        self.database_output_dir = simulation.model.constants.DATABASE_OUTPUT_DIR
-        
-        ## init parameter db
-        time_step_dir = self.time_step_dir()
-        os.makedirs(time_step_dir, exist_ok=True)
-        array_file = os.path.join(time_step_dir, simulation.model.constants.DATABASE_PARAMETERS_LOOKUP_ARRAY_FILENAME)
-        value_file = os.path.join(time_step_dir, simulation.model.constants.DATABASE_PARAMETERS_SET_DIRNAME, simulation.model.constants.DATABASE_PARAMETERS_FILENAME)
-        self._parameter_db = util.index_database.array_and_txt_file_based.Database(array_file, value_file, value_reliable_decimal_places=simulation.model.constants.DATABASE_PARAMETERS_RELIABLE_DECIMAL_PLACES, tolerance_options=self.parameter_tolerance_options)
-
-
-
-
-    ## options
-    
-    @property
-    def spinup_options(self):
-        try:
-            return self._model_options['spinup_options']
-        except KeyError:
-            return None
-    
-    @property
-    def derivative_options(self):
-        try:
-            return self._model_options['derivative_options']
-        except KeyError:
-            return None
-    
-    @property
-    def parameter_tolerance_options(self):
-        try:
-            return self._model_options['parameter_tolerance_options']
-        except KeyError:
-            return None
-    
-    @property
-    def time_step(self):
-        try:
-            return self._model_options['time_step']
-        except KeyError:
-            return None
-    
-    @property
-    def model_name(self):
-        try:
-            return self._model_options['model_name']
-        except KeyError:
-            return None
-    
-    
-    @property
-    def model_parameter_len(self):
-        return len(self.parameters_lower_bound)
-
-    @property
-    def parameter_len(self):
-        return self.model_parameter_len + self.total_concentration_factor_included_in_parameters
-    
-    @property
-    def total_concentration_factor_included_in_parameters(self):
-        try:
-            return self._model_options['total_concentration_factor_included_in_parameters']
-        except KeyError:
-            return None
-    
-    @property
-    def total_concentration_factor_included_in_database_entry(self):
-        return True
-
-
-    def job_setup(self, kind):
-        job_setup = self.job_setup_collection[kind]
-        job_setup = job_setup.copy()
-        try:
-            job_setup['nodes_setup']
-        except KeyError:
-            pass
         else:
-            if job_setup['nodes_setup'] is not None:
-                job_setup['nodes_setup'] = job_setup['nodes_setup'].copy()
-        return job_setup
+            default_name = job_options_collection['spinup']['name'] 
+            
+        try:
+            job_options_collection['derivative']
+        except KeyError:
+            job_options_collection['derivative'] = job_options_collection['spinup'].copy()
+            del job_options_collection['derivative']['name']
+        try:
+            job_options_collection['derivative']['name']
+        except KeyError:
+            job_options_collection['derivative']['name'] = 'derivative_' + default_name
+        try:
+            job_options_collection['trajectory']
+        except KeyError:
+            job_options_collection['trajectory'] = {}
+            job_options_collection['trajectory']['nodes_setup'] = util.batch.universal.system.NodeSetup(nodes_max=1, memory=simulation.model.constants.JOB_MEMORY_GB)
+        try:
+            job_options_collection['trajectory']['name']
+        except KeyError:
+            job_options_collection['trajectory']['name'] = 'trajectory' + default_name
 
-    
-    ## check model parameters
-
-    def check_parameters(self, parameters):
-        parameters = np.asanyarray(parameters)
-        
-        parameters_dict = self.metos3d_model_parameters_dict(parameters)
-        model_parameters = parameters_dict['model_parameters']
-
-        ## check total concentration
-        if self.total_concentration_factor_included_in_parameters:
-            total_concentration_factor = parameters_dict['total_concentration_factor']
-            if total_concentration_factor < 0:
-                raise ValueError('The total concentration factor has to be greater or equal 0, but it is {}.'.format(total_concentration_factor))
-        
-        ## check length
-        if len(model_parameters) != self.model_parameter_len:
-            raise ValueError('The model parameters {} are not allowed. The length of the model_parameters have to be {} but it is {}.'.format(parameters, self.model_parameter_len, len(model_parameters)))
-        
-        ## check bounds
-        if any(model_parameters < self.parameters_lower_bound):
-            indices = np.where(model_parameters < self.parameters_lower_bound)
-            raise ValueError('The model parameters {} are not allowed. The model_parameters with the indices {} are below their lower bound {}.'.format(model_parameters, indices, self.parameters_lower_bound[indices]))
-
-        if any(model_parameters > self.parameters_upper_bound):
-            indices = np.where(model_parameters > self.parameters_upper_bound)
-            raise ValueError('The model parameters {} are not allowed. The model_parameters with the indices {} are above their upper bound {}.'.format(model_parameters, indices, self.parameters_upper_bound[indices]))
-        
-        return parameters
+        self.job_options_collection = job_options_collection
     
     
-    def metos3d_model_parameters_dict(self, parameters):
-        if self.total_concentration_factor_included_in_parameters:
-            model_parameters = parameters[:-1]
-            total_concentration_factor = parameters[-1]
-        else:
-            model_parameters = parameters
-            total_concentration_factor = 1
-        return {'model_parameters': model_parameters, 'total_concentration_factor': total_concentration_factor}            
+    ## model dir
     
-    
-    def database_parameter_entry(self, parameters):
-        self.check_parameters(parameters)
-        if self.total_concentration_factor_included_in_parameters:
-            if self.total_concentration_factor_included_in_database_entry:
-                return np.asanyarray(parameters)
-            else:
-                return np.asanyarray(parameters)[:-1]
-        else:
-            if self.total_concentration_factor_included_in_database_entry:
-                return np.concatenate([parameters, [1,]])
-            else:
-                return np.asanyarray(parameters)
-    
-    
-    def database_parameter_entry_to_metos3d_model_parameters_dict(self, database_parameter_entry):
-        if self.total_concentration_factor_included_in_database_entry:
-            model_parameters = database_parameter_entry[:-1]
-            total_concentration_factor = database_parameter_entry[-1]
-        else:
-            model_parameters = database_parameter_entry
-            total_concentration_factor = 1
-        return {'model_parameters': model_parameters, 'total_concentration_factor': total_concentration_factor}   
-    
-    
-
-
-
-    ## access to dirs
-
+    @property
     def model_dir(self):
-        model_dirname = simulation.model.constants.DATABASE_MODEL_DIRNAME.format(self.model_name)
-        model_dir = os.path.join(self.database_output_dir, model_dirname)
-        logger.debug('Returning model directory {} for model {}.'.format(model_dir, self.model_name))
+        model_name = self.model_options.model_name
+        model_dirname = simulation.model.constants.DATABASE_MODEL_DIRNAME.format(model_name)
+        model_dir = os.path.join(simulation.model.constants.DATABASE_OUTPUT_DIR, model_dirname)
+        
+        logger.debug('Returning model directory {} for model {}.'.format(model_dir, model_name))
         return model_dir
     
+    
+    ## concentration dir
+    
+    @property
+    def initial_concentration_base_dir(self):
+        use_constant_concentrations = self.model_options.initial_concentration_options.use_constant_concentrations
+        
+        if use_constant_concentrations:
+            initial_concentration_base_dirname = simulation.model.constants.DATABASE_CONSTANT_CONCENTRATIONS_DIRNAME
+        else:
+            initial_concentration_base_dirname = simulation.model.constants.DATABASE_VECTOR_CONCENTRATIONS_DIRNAME
+            
+        initial_concentration_base_dir = os.path.join(self.model_dir, initial_concentration_base_dirname)
+        logger.debug('Returning initial concentration directory {} for use constant concentration {}.'.format(initial_concentration_base_dir, use_constant_concentrations))
+        return initial_concentration_base_dir
+    
+    
+    @property
+    def _constant_concentrations_db(self):
+        model_dir = self.model_dir
+        tolerance_options = self.model_options.initial_concentration_options.tolerance_options
 
+        value_file = os.path.join(model_dir, simulation.model.constants.DATABASE_CONSTANT_CONCENTRATIONS_DIRNAME, simulation.model.constants.DATABASE_CONCENTRATIONS_DIRNAME, simulation.model.constants.DATABASE_CONSTANT_CONCENTRATIONS_FILENAME)
+        array_file = os.path.join(model_dir, simulation.model.constants.DATABASE_CONSTANT_CONCENTRATIONS_DIRNAME, simulation.model.constants.DATABASE_CONSTANT_CONCENTRATIONS_LOOKUP_ARRAY_FILENAME)
+        
+        constant_concentrations_db = util.index_database.array_and_txt_file_based.Database(array_file, value_file, value_reliable_decimal_places=simulation.model.constants.DATABASE_CONSTANT_CONCENTRATIONS_RELIABLE_DECIMAL_PLACES, tolerance_options=tolerance_options)
+        return constant_concentrations_db
+    
+    
+    @property
+    def _vector_concentrations_db(self):
+        model_dir = self.model_dir
+        tracers = self.model_options.tracers
+        tolerance_options = self.model_options.initial_concentration_options.tolerance_options
+        
+        value_dir = os.path.join(model_dir, simulation.model.constants.DATABASE_VECTOR_CONCENTRATIONS_DIRNAME, simulation.model.constants.DATABASE_CONCENTRATIONS_DIRNAME)
+        concentration_filenames = [simulation.model.constants.DATABASE_VECTOR_CONCENTRATIONS_FILENAME.format(tracer=tracer) for tracer in tracers]
+        
+        vector_concentrations_db = util.index_database.petsc_file_based.Database(value_dir, concentration_filenames, value_reliable_decimal_places=simulation.model.constants.DATABASE_VECTOR_CONCENTRATIONS_RELIABLE_DECIMAL_PLACES, tolerance_options=tolerance_options)
+        return vector_concentrations_db
+
+    
+    @property
+    def initial_concentration_dir_index(self):
+        initial_concentration_options = self.model_options.initial_concentration_options
+        
+        ## search for directories with matching concentration
+        logger.debug('Searching concentration directory for concentration {} .'.format(initial_concentration_options))
+
+        concentrations = initial_concentration_options.concentrations
+        if initial_concentration_options.use_constant_concentrations:
+            concentration_db = self._constant_concentrations_db
+        else:
+            concentration_db = self._vector_concentrations_db
+        
+        index = concentration_db.get_or_add_index(concentrations)
+        assert index is not None
+        return index
+    
+    
+    def initial_concentration_dir_with_index(self, index):
+        if index is not None:
+            dir = os.path.join(self.initial_concentration_base_dir, simulation.model.constants.DATABASE_CONCENTRATIONS_DIRNAME.format(index))
+            logger.debug('Returning initial concentration directory {} for index {}.'.format(dir, index))
+            return dir
+        else:
+            return None
+    
+    
+    @property
+    def initial_concentration_dir(self):
+        index = self.initial_concentration_dir_index
+        concentration_set_dir = self.initial_concentration_dir_with_index(index)
+
+        logger.debug('Matching directory for concentrations found at {}.'.format(concentration_set_dir))
+        assert concentration_set_dir is not None
+        return concentration_set_dir
+    
+    
+    @property
+    def initial_concentration_files(self):
+        assert not self.model_options.initial_concentration_options.use_constant_concentrations
+        index = self.initial_concentration_dir_index
+        concentration_db = self._vector_concentrations_db
+        concentration_files = concentration_db.value_files(index)
+
+        logger.debug('Using concentration files {}.'.format(concentration_files))
+        assert concentration_files is not None
+        return concentration_files
+
+    
+    ## time step dir
+    
+    @property
     def time_step_dir(self):
-        time_step_dirname = simulation.model.constants.DATABASE_TIME_STEP_DIRNAME.format(self.time_step)
-        time_step_dir = os.path.join(self.model_dir(), time_step_dirname, '')
-        logger.debug('Returning time step directory {} for time step {}.'.format(time_step_dir, self.time_step))
+        time_step = self.model_options.time_step
+        initial_concentration_dir = self.initial_concentration_dir
+        time_step_dirname = simulation.model.constants.DATABASE_TIME_STEP_DIRNAME.format(time_step)
+        time_step_dir = os.path.join(initial_concentration_dir, time_step_dirname, '')
+        logger.debug('Returning time step directory {} for time step {}.'.format(time_step_dir, time_step))
         return time_step_dir
-
-
+    
+    
+    ## parameter set dir
+    
     def parameter_set_dir_with_index(self, index):
         if index is not None:
-            dir = os.path.join(self.time_step_dir(), simulation.model.constants.DATABASE_PARAMETERS_SET_DIRNAME.format(index))
+            dir = os.path.join(self.time_step_dir, simulation.model.constants.DATABASE_PARAMETERS_DIRNAME.format(index))
             logger.debug('Returning parameter set directory {} for index {}.'.format(dir, index))
             return dir
         else:
             return None
     
     
-    def closest_parameter_set_dir(self, parameters, no_spinup_okay=True):
-        logger.debug('Searching for directory for parameters as close as possible to {} with no_spinup_okay {}.'.format(parameters, no_spinup_okay))
-        database_parameter_entry = self.database_parameter_entry(parameters)
+    @property
+    def _parameter_db(self):
+        time_step_dir = self.time_step_dir
+        parameter_tolerance_options = self.model_options.parameter_tolerance_options
         
-        if no_spinup_okay:            
-            ## get closest index
-            closest_index = self._parameter_db.closest_index(database_parameter_entry)
+        array_file = os.path.join(time_step_dir, simulation.model.constants.DATABASE_PARAMETERS_LOOKUP_ARRAY_FILENAME)
+        value_file = os.path.join(time_step_dir, simulation.model.constants.DATABASE_PARAMETERS_DIRNAME, simulation.model.constants.DATABASE_PARAMETERS_FILENAME)
+        
+        parameter_db = util.index_database.array_and_txt_file_based.Database(array_file, value_file, value_reliable_decimal_places=simulation.model.constants.DATABASE_PARAMETERS_RELIABLE_DECIMAL_PLACES, tolerance_options=parameter_tolerance_options)
+        return parameter_db
+
+
+    @property
+    def parameter_set_dir(self):
+        ## search for directories with matching parameters
+        parameters = self.model_options.parameters
+        logger.debug('Searching parameter directory for parameters {}.'.format(parameters))
+        
+        index = self._parameter_db.get_or_add_index(parameters)
+        parameter_set_dir = self.parameter_set_dir_with_index(index)
+        
+        ## return
+        logger.debug('Matching directory for parameters found at {}.'.format(parameter_set_dir))
+        assert parameter_set_dir is not None
+        return parameter_set_dir
+    
+    
+    @property
+    def closest_parameter_set_dir(self):
+        parameters = self.model_options.parameters
+        logger.debug('Searching for directory for parameters as close as possible to {}.'.format(parameters))
+        
+        ## get closest indices
+        closest_indices = self._parameter_db.closest_indices(parameters)
+        
+        ## check if run dirs exist
+        i = 0
+        while i < len(closest_indices) and self.last_run_dir(self.spinup_dir_with_index[i]) is None:
+            i = i +1
+        if i < len(closest_indices):
+            closest_index = closest_indices[i]
         else:
-            ## get closest indices
-            closest_indices = self._parameter_db.closest_indices(database_parameter_entry)
-            
-            ## check if run dirs exist
-            i = 0
-            while i < len(closest_indices) and self.last_run_dir(self.spinup_dir_with_index[i]) is None:
-                i = i +1
-            if i < len(closest_indices):
-                closest_index = closest_indices[i]
-            else:
-                closest_index = None
+            closest_index = None
         
         ## get parameter set dir and return 
         closest_parameter_set_dir = self.parameter_set_dir_with_index(closest_index)
@@ -386,21 +269,7 @@ class Model():
         return closest_parameter_set_dir
 
 
-    def parameter_set_dir(self, parameters, create=True):
-        ## search for directories with matching parameters
-        logger.debug('Searching parameter directory for parameters {} with create {}.'.format(parameters, create))
-        database_parameter_entry = self.database_parameter_entry(parameters)
-        
-        index = self._parameter_db.index(database_parameter_entry)
-        if index is None and create:
-            index = self._parameter_db.add_value(database_parameter_entry)
-        parameter_set_dir = self.parameter_set_dir_with_index(index)
-        
-        ## return
-        logger.debug('Matching directory for parameters found at {}.'.format(parameter_set_dir))
-        assert parameter_set_dir is not None or not create
-        return parameter_set_dir
-
+    ## spinup dir
 
     def spinup_dir_with_index(self, index):
         if index is not None:
@@ -410,31 +279,36 @@ class Model():
         else:
             return None
 
-
-    def spinup_dir(self, parameters_or_parameter_set_dir, create=True):
-        ## get parameter set dir
-        if isinstance(parameters_or_parameter_set_dir, str):
-            parameter_set_dir = parameters_or_parameter_set_dir
-        else:
-            parameters = np.asanyarray(parameters_or_parameter_set_dir)
-            parameter_set_dir = self.parameter_set_dir(parameters, create=create)
-        
-        ## return
-        spinup_dir = os.path.join(parameter_set_dir, simulation.model.constants.DATABASE_SPINUP_DIRNAME)
-        logger.debug('Returning spinup directory {} for parameter set dir {}.'.format(spinup_dir, parameter_set_dir))
+    
+    @property
+    def spinup_dir(self):
+        spinup_dir = os.path.join(self.parameter_set_dir, simulation.model.constants.DATABASE_SPINUP_DIRNAME)
+        logger.debug('Returning spinup directory {}.'.format(spinup_dir))
         return spinup_dir
     
-
-    ## access to run dirs
+    
+    @property
+    def closest_spinup_dir(self):
+        spinup_dir = os.path.join(self.closest_parameter_set_dir, simulation.model.constants.DATABASE_SPINUP_DIRNAME)
+        logger.debug('Returning closest spinup directory {}.'.format(spinup_dir))
+        return spinup_dir
+    
+    
+    ## run dirs
+    
+    @property
+    def run_dir(self):
+        spinup_options = self.model_options.spinup_options
+        run_dir = self.matching_run_dir(spinup_options)
+        return run_dir
+    
 
     def run_dirs(self, search_path):
-        from .constants import DATABASE_RUN_DIRNAME
-        
-        DATABASE_RUN_DIRNAME_REGULAR_EXPRESSION = util.pattern.convert_format_string_in_regular_expression(DATABASE_RUN_DIRNAME)
+        DATABASE_RUN_DIRNAME_REGULAR_EXPRESSION = util.pattern.convert_format_string_in_regular_expression(simulation.model.constants.DATABASE_RUN_DIRNAME)
         try:
-            run_dirs = util.io.fs.filter_with_regular_expression(search_path, DATABASE_RUN_DIRNAME_REGULAR_EXPRESSION, exclude_files=True, use_absolute_filenames=False, recursive=False)
-        except (OSError, IOError) as exception:
-            warnings.warn('It could not been searched in the search path "' + search_path + '": ' + str(exception))
+            run_dirs = util.io.fs.find_with_regular_expression(search_path, DATABASE_RUN_DIRNAME_REGULAR_EXPRESSION, exclude_files=True, use_absolute_filenames=False, recursive=False)
+        except OSError as exception:
+            logger.warn('It could not been searched in the search path "{}": {}'.format(search_path, exception))
             run_dirs = []
 
         return run_dirs
@@ -460,12 +334,10 @@ class Model():
 
 
     def previous_run_dir(self, run_dir):
-        from .constants import DATABASE_RUN_DIRNAME
-
         (spinup_dir, run_dirname) = os.path.split(run_dir)
         run_index = util.pattern.get_int_in_string(run_dirname)
         if run_index > 0:
-            previous_run_dirname = DATABASE_RUN_DIRNAME.format(run_index - 1)
+            previous_run_dirname = simulation.model.constants.DATABASE_RUN_DIRNAME.format(run_index - 1)
             previous_run_dir = os.path.join(spinup_dir, previous_run_dirname)
         else:
             previous_run_dir = None
@@ -487,17 +359,12 @@ class Model():
         return run_dir
     
     
-    
-    
-    def matching_run_dir(self, parameters_or_parameter_set_dir, spinup_options, start_from_closest_parameters=False):
-        from .constants import DATABASE_SPINUP_DIRNAME, DATABASE_PARAMETERS_FILENAME, MODEL_SPINUP_MAX_YEARS
+    def matching_run_dir(self, spinup_options):
+        spinup_options = util.options.as_options(spinup_options, simulation.model.options.SpinupOptions)
         
         ## get spinup dir
-        spinup_dir = self.spinup_dir(parameters_or_parameter_set_dir)
+        spinup_dir = self.spinup_dir
         logger.debug('Searching for matching spinup run with options {} in {}.'.format(spinup_options, spinup_dir))
-        
-        ## get parameter set dir
-        parameter_set_dir = os.path.dirname(spinup_dir)
 
         ## get last run dir
         last_run_dir = self.last_run_dir(spinup_dir)
@@ -511,35 +378,23 @@ class Model():
         else:
             logger.debug('No matching spinup run found.')
 
-            ## get parameters
-            parameter_file = os.path.join(parameter_set_dir, DATABASE_PARAMETERS_FILENAME)
-            parameters = np.loadtxt(parameter_file)
-
             ## no previous run exists and starting from closest parameters get last run from closest parameters
-            if last_run_dir is None and start_from_closest_parameters:
-                closest_parameter_set_dir = self.closest_parameter_set_dir(parameters, no_spinup_okay=False)
-                closest_spinup_dir = os.path.join(closest_parameter_set_dir, DATABASE_SPINUP_DIRNAME)
+            if last_run_dir is None and self.start_from_closest_parameters:
+                closest_spinup_dir = self.closest_spinup_dir
                 last_run_dir = self.last_run_dir(closest_spinup_dir)
 
             ## finish last run
             if last_run_dir is not None:
-                self.wait_until_run_job_finished(last_run_dir)
+                self.wait_until_run_finished(last_run_dir)
 
             ## make new run
-            years = spinup_options['years']
-            tolerance = spinup_options['tolerance']
-            combination = spinup_options['combination']
-
+            years = spinup_options.years
+            tolerance = spinup_options.tolerance
+            combination = spinup_options.combination
+            
             if combination == 'or':
                 ## create new run
                 run_dir = self.make_new_run_dir(spinup_dir)
-                
-                ## get metos3d model parameters
-                if last_run_dir is None:
-                    total_concentration_factor = parameters[-1]
-                else:
-                    total_concentration_factor = 1
-                model_parameters = parameters[:-1]
                 
                 ## calculate last years
                 if last_run_dir is not None:
@@ -549,65 +404,73 @@ class Model():
                     last_years = 0
                 
                 ## start new run
-                self.start_run(model_parameters, run_dir, years-last_years, tolerance=tolerance, job_setup=self.job_setup('spinup'), total_concentration_factor=total_concentration_factor, tracer_input_dir=last_run_dir, wait_until_finished=True)
+                parameters = self.model_options.parameters
+                years = years - last_years
+                
+                initial_concentration_options = self.model_options.initial_concentration_options
+                
+                if initial_concentration_options.use_constant_concentrations:
+                    assert last_run_dir is None
+                    constant_concentrations = initial_concentration_options.concentrations
+                    self.start_run(parameters, run_dir, years, tolerance=tolerance, job_options=self.job_options('spinup'), initial_constant_concentrations=constant_concentrations, wait_until_finished=True)
+                else:
+                    concentration_files = self.initial_concentration_files
+                    self.start_run(parameters, run_dir, years, tolerance=tolerance, job_options=self.job_options('spinup'), tracer_input_files=concentration_files, wait_until_finished=True)
                 
             elif combination == 'and':
-                run_dir = self.matching_run_dir(parameter_set_dir, {'years':years, 'tolerance':0, 'combination':'or'}, start_from_closest_parameters)
-                run_dir = self.matching_run_dir(parameter_set_dir, {'years':MODEL_SPINUP_MAX_YEARS, 'tolerance':tolerance, 'combination':'or'}, start_from_closest_parameters)
+                spinup_options = simulation.model.options.SpinupOptions({'years':years, 'tolerance':0, 'combination':'or'})
+                run_dir = self.matching_run_dir(spinup_options)
+                spinup_options = simulation.model.options.SpinupOptions({'years':self.model_spinup_max_years, 'tolerance':tolerance, 'combination':'or'})
+                run_dir = self.matching_run_dir(spinup_options)
 
             logger.debug('Spinup run directory created at {}.'.format(run_dir))
 
         return run_dir
     
+    
+    def start_run(self, model_parameters, output_path, years, tolerance=0, job_options=None, write_trajectory=False, initial_constant_concentrations=None, tracer_input_files=None, total_concentration_factor=1, make_read_only=True, wait_until_finished=True):
         
-
-
-
-    ## run job
-
-    def start_run(self, model_parameters, output_path, years, tolerance=0, job_setup=None, write_trajectory=False, total_concentration_factor=1, tracer_input_dir=None, make_read_only=True, wait_until_finished=True):
-        logger.debug('Running job with years {}, tolerance {}, total_concentration_factor {} and tracer_input_dir {}.'.format(years, tolerance, total_concentration_factor, tracer_input_dir))
+        model_name = self.model_options.model_name
+        time_step = self.model_options.time_step
 
         ## execute job
         output_path_with_env = output_path.replace(simulation.constants.SIMULATION_OUTPUT_DIR, '${{{}}}'.format(simulation.constants.SIMULATION_OUTPUT_DIR_ENV_NAME))
         with simulation.model.job.Metos3D_Job(output_path_with_env) as job:
-            job.write_job_file(self.model_name, model_parameters, years=years, tolerance=tolerance, time_step=self.time_step, total_concentration_factor=total_concentration_factor, write_trajectory=write_trajectory, tracer_input_dir=tracer_input_dir, job_setup=job_setup)
+            job.write_job_file(model_name, model_parameters, years=years, tolerance=tolerance, time_step=time_step, initial_constant_concentrations=initial_constant_concentrations, tracer_input_files=tracer_input_files, total_concentration_factor=total_concentration_factor, write_trajectory=write_trajectory, job_options=job_options)
             job.start()
             job.make_read_only_input(make_read_only)
 
         ## wait to finish
         if wait_until_finished:
-            self.wait_until_run_job_finished(output_path, make_read_only=make_read_only)
+            self.wait_until_run_finished(output_path, make_read_only=make_read_only)
         else:
             logger.debug('Not waiting for job to finish.')
 
 
-    def wait_until_run_job_finished(self, run_dir, make_read_only=True):
+    ##  access run properties
+    
+    def wait_until_run_finished(self, run_dir, make_read_only=True):
         with simulation.model.job.Metos3D_Job(run_dir, force_load=True) as job:
             job.make_read_only_input(make_read_only)
             job.wait_until_finished()
             job.make_read_only_output(make_read_only)
-
-
-
-
-    ##  access run properties
     
-    def is_run_matching_options(self, run_dir, spinup_options=None):
-        from .constants import MODEL_SPINUP_MAX_YEARS
+    def is_run_matching_options(self, run_dir, spinup_options):
+        model_spinup_max_years = self.model_spinup_max_years
+        spinup_options = util.options.as_options(spinup_options, simulation.model.options.SpinupOptions)
 
-        years = spinup_options['years']
-        tolerance = spinup_options['tolerance']
-        combination = spinup_options['combination']
+        years = spinup_options.years
+        tolerance = spinup_options.tolerance
+        combination = spinup_options.combination
 
         if run_dir is not None:
             run_years = self.get_total_years(run_dir)
             run_tolerance = self.get_real_tolerance(run_dir)
 
             if combination == 'and':
-                is_matching = (run_years >= years and run_tolerance <= tolerance) or run_years >= MODEL_SPINUP_MAX_YEARS
+                is_matching = (run_years >= years and run_tolerance <= tolerance) or run_years >= model_spinup_max_years
                 if is_matching and run_tolerance > tolerance:
-                    warnings.warn('The run {} does not match the desired tolerance {}, but the max spinup years {} are reached.'.format(run_dir, tolerance, MODEL_SPINUP_MAX_YEARS))
+                    warnings.warn('The run {} does not match the desired tolerance {}, but the max spinup years {} are reached.'.format(run_dir, tolerance, model_spinup_max_years))
             elif combination == 'or':
                 is_matching = (run_years >= years or run_tolerance <= tolerance)
             else:
@@ -621,123 +484,72 @@ class Model():
             is_matching = False
             logger.debug('Run in {} is not matching spinup options {}. No run available.'.format(run_dir, spinup_options))
 
-
         return is_matching
 
 
     def get_total_years(self, run_dir):
         total_years = 0
-
         while run_dir is not None:
             with simulation.model.job.Metos3D_Job(run_dir, force_load=True) as job:
                 years = job.last_year
             total_years += years
             run_dir = self.previous_run_dir(run_dir)
-
         return total_years
-
 
 
     def get_real_tolerance(self, run_dir):
         with simulation.model.job.Metos3D_Job(run_dir, force_load=True) as job:
             tolerance = job.last_tolerance
-
         return tolerance
-
 
 
     def get_time_step(self, run_dir):
         with simulation.model.job.Metos3D_Job(run_dir, force_load=True) as job:
             time_step = job.time_step
-
         return time_step
+    
+    
+    ## job options
+
+    def job_options(self, kind):
+        job_options = self.job_options_collection[kind]
+        job_options = job_options.copy()
+        try:
+            job_options['nodes_setup']
+        except KeyError:
+            pass
+        else:
+            if job_options['nodes_setup'] is not None:
+                job_options['nodes_setup'] = job_options['nodes_setup'].copy()
+        return job_options
+    
 
 
 
-
+class Model_With_F(Model_Database):
+    
+    def check_tracers(self, tracers):        
+        if tracers is not None:
+            tracers = tuple(tracers)
+            for tracer in tracers:
+                if tracer not in self.model_options.tracers:
+                    raise ValueError('Tracer {} is not supported for model {}.'.format(tracer, self.model_options.model_name))
+        else:
+            tracers = self.model_options.tracers
+        return tracers
+        
 
     ## access to model values (auxiliary)
 
-    def _get_trajectory(self, load_trajectory_function, run_dir, model_parameters):
-        from .constants import METOS_TRACER_DIM
-        from util.constants import TMP_DIR
-
-        assert callable(load_trajectory_function)
-
-        trajectory_values = ()
-
-        ## create trajectory
-        if TMP_DIR is not None:
-            tmp_dir = TMP_DIR
-            os.makedirs(tmp_dir, exist_ok=True)
-        else:
-            tmp_dir = run_dir
-
-        ## write trajectory
-        trajectory_dir = tempfile.mkdtemp(dir=tmp_dir, prefix='trajectory_tmp_')
-        self.start_run(model_parameters, trajectory_dir, years=1, tolerance=0, job_setup=self.job_setup('trajectory'), tracer_input_dir=run_dir, write_trajectory=True, make_read_only=False)
-
-        ## read trajectory
-        trajectory_output_dir = os.path.join(trajectory_dir, 'trajectory')
-        for tracer_index in range(METOS_TRACER_DIM):
-            tracer_trajectory_values = load_trajectory_function(trajectory_output_dir, tracer_index)
-            trajectory_values += (tracer_trajectory_values,)
-
-        ## remove trajectory
-        util.io.fs.remove_recursively(trajectory_dir, not_exist_okay=True, exclude_dir=False)
-
-        ## return
-        assert len(trajectory_values) == METOS_TRACER_DIM
-        return trajectory_values
-
-
-    def _get_load_trajectory_function_for_all(self, time_dim_desired):
-        load_trajectory_function = lambda trajectory_path, tracer_index : simulation.model.data.load_trajectories_to_map(trajectory_path, tracer_index, time_dim_desired=time_dim_desired)
-        return load_trajectory_function
-
-
-    def _get_load_trajectory_function_for_points(self, points):
-        from .constants import MODEL_INTERPOLATOR_NUMBER_OF_LINEAR_INTERPOLATOR
-
-        ## convert to map indices
-        interpolation_points = []
-        for tracer_points in points:
-            tracer_interpolation_points = np.array(tracer_points, copy=True)
-            tracer_interpolation_points = self.lsm.coordinates_to_map_indices(tracer_interpolation_points)
-            assert tracer_interpolation_points.ndim == 2 and tracer_interpolation_points.shape[1] == 4
-            
-            if MODEL_INTERPOLATOR_NUMBER_OF_LINEAR_INTERPOLATOR > 0:
-                for value_min, index in ([np.where(self.lsm.lsm > 0)[1].min(), 2], [0, 3]):
-                    for k in range(len(tracer_interpolation_points)):
-                        if tracer_interpolation_points[k, index] < value_min:
-                            tracer_interpolation_points[k, index] = value_min
-                for value_max, index in ([np.where(self.lsm.lsm > 0)[1].max(), 2], [self.lsm.z_dim - 1, 3]):
-                    for k in range(len(tracer_interpolation_points)):
-                        if tracer_interpolation_points[k, index] > value_max:
-                            tracer_interpolation_points[k, index] = value_max
-            
-            interpolation_points.append(tracer_interpolation_points)
-
-        ## load function
-        def load_trajectory_function(trajectory_path, tracer_index):
-            tracer_trajectory = simulation.model.data.load_trajectories_to_map_index_array(trajectory_path, tracer_index=tracer_index)
-            interpolated_values_for_tracer = self._interpolate(tracer_trajectory, interpolation_points[tracer_index])
-            return interpolated_values_for_tracer
-            
-
-        return load_trajectory_function
-
-
-
     def _interpolate(self, data, interpolation_points, use_cache=False):
-        from .constants import MODEL_INTERPOLATOR_FILE, MODEL_INTERPOLATOR_AMOUNT_OF_WRAP_AROUND, MODEL_INTERPOLATOR_NUMBER_OF_LINEAR_INTERPOLATOR, MODEL_INTERPOLATOR_TOTAL_OVERLAPPING_OF_LINEAR_INTERPOLATOR, METOS_DIM
+        from .constants import MODEL_INTERPOLATOR_FILE, MODEL_INTERPOLATOR_AMOUNT_OF_WRAP_AROUND, MODEL_INTERPOLATOR_NUMBER_OF_LINEAR_INTERPOLATOR, MODEL_INTERPOLATOR_SINGLE_OVERLAPPING_AMOUNT_OF_LINEAR_INTERPOLATOR, METOS_DIM
 
         data_points = data[:,:-1]
         data_values = data[:,-1]
         interpolator_file = MODEL_INTERPOLATOR_FILE
 
         ## try to get cached interpolator
-        interpolator = self._interpolator_cached
+        interpolator = self._cached_interpolator
         if interpolator is not None:
             interpolator.data_values = data_values
             logger.debug('Returning cached interpolator.')
@@ -749,10 +561,10 @@ class Model():
                 logger.debug('Returning interpolator loaded from {}.'.format(interpolator_file))
             ## if no interpolator exists, create new interpolator
             else:
-                interpolator = util.math.interpolate.Periodic_Interpolator(data_points=data_points, data_values=data_values, point_range_size=METOS_DIM, scaling_values=(METOS_DIM[1]/METOS_DIM[0], None, None, None), wrap_around_amount=MODEL_INTERPOLATOR_AMOUNT_OF_WRAP_AROUND, number_of_linear_interpolators=MODEL_INTERPOLATOR_NUMBER_OF_LINEAR_INTERPOLATOR, total_overlapping_linear_interpolators=MODEL_INTERPOLATOR_TOTAL_OVERLAPPING_OF_LINEAR_INTERPOLATOR)
+                interpolator = util.math.interpolate.Periodic_Interpolator(data_points=data_points, data_values=data_values, point_range_size=METOS_DIM, scaling_values=(METOS_DIM[1]/METOS_DIM[0], None, None, None), wrap_around_amount=MODEL_INTERPOLATOR_AMOUNT_OF_WRAP_AROUND, number_of_linear_interpolators=MODEL_INTERPOLATOR_NUMBER_OF_LINEAR_INTERPOLATOR, single_overlapping_amount_linear_interpolators=MODEL_INTERPOLATOR_SINGLE_OVERLAPPING_AMOUNT_OF_LINEAR_INTERPOLATOR)
                 logger.debug('Returning new created interpolator.')
 
-            self._interpolator_cached = interpolator
+            self._cached_interpolator = interpolator
 
         ## interpolate
         interpolated_values = interpolator.interpolate(interpolation_points)
@@ -763,265 +575,502 @@ class Model():
 
         ## return interpolated values
         assert not np.any(np.isnan(interpolated_values))
-#         assert np.all(interpolator.data_points == data_points)
-#         assert np.all(interpolator.data_values == data_values)
-
         return interpolated_values
+    
+    
+    def _trajectory_with_load_function(self, trajectory_load_function, run_dir, model_parameters, tracers=None):
+        TMP_DIR = simulation.model.constants.DATABASE_TMP_DIR
 
+        assert callable(trajectory_load_function)
+        tracers = self.check_tracers(tracers)
 
-
-    def _f(self, load_trajectory_function, parameters, spinup_options=None):
-        from .constants import MODEL_START_FROM_CLOSEST_PARAMETER_SET
+        trajectory_values = {}
         
-        matching_run_dir = self.matching_run_dir(parameters, spinup_options, start_from_closest_parameters=MODEL_START_FROM_CLOSEST_PARAMETER_SET)
-        model_parameters = self.metos3d_model_parameters_dict(parameters)['model_parameters']
-        f = self._get_trajectory(load_trajectory_function, matching_run_dir, model_parameters)
+        ## create and read trajectory
+        if len(tracers) > 0:
+            
+            ## create trajectory
+            if TMP_DIR is not None:
+                tmp_dir = TMP_DIR
+                os.makedirs(tmp_dir, exist_ok=True)
+            else:
+                tmp_dir = run_dir
+    
+            ## write trajectory
+            trajectory_dir = tempfile.mkdtemp(dir=tmp_dir, prefix='trajectory_tmp_')
+    
+            tracer_input_filenames = ['{}_output.petsc'.format(tracer) for tracer in self.model_options.tracers]
+            tracer_input_files = [os.path.join(run_dir, tracer_input_file) for tracer_input_file in tracer_input_filenames]
+            self.start_run(model_parameters, trajectory_dir, years=1, tolerance=0, job_options=self.job_options('trajectory'), tracer_input_files=tracer_input_files, write_trajectory=True, make_read_only=False)
+    
+            ## read trajectory        
+            trajectory_output_dir = os.path.join(trajectory_dir, 'trajectory')
+            for tracer in tracers:
+                trajectory_values_tracer = trajectory_load_function(trajectory_output_dir, tracer=tracer)
+                trajectory_values[tracer] = trajectory_values_tracer
+    
+            ## remove trajectory
+            util.io.fs.remove_recursively(trajectory_dir, not_exist_okay=True, exclude_dir=False)
 
-        assert f is not None
+        ## return
+        assert len(trajectory_values) == len(tracers)
+        return trajectory_values
+
+
+    def _trajectory_load_function_for_all(self, time_dim):
+        trajectory_load_function = lambda trajectory_path, tracer: simulation.model.data.load_trajectories_to_map(trajectory_path, tracer, time_dim_desired=time_dim)
+        return trajectory_load_function
+    
+
+    def _trajectory_load_function_for_points(self, points):
+        from .constants import MODEL_INTERPOLATOR_NUMBER_OF_LINEAR_INTERPOLATOR
+
+        ## convert points to map indices
+        interpolation_points_dict = {}
+            
+        ## preprare interpolation points for each tracer
+        for tracer, points_for_tracer in points.items():
+            logger.debug('Calculating model output for tracer {} at {} points.'.format(tracer, len(points_for_tracer)))
+            
+            ## check tracer and points
+            if tracer not in self.model_options.tracers:
+                raise ValueError('Tracer {} is not supported for model {}.'.format(tracer, self.model_options.model_name))
+            points_for_tracer = np.asanyarray(points_for_tracer)
+
+            ## convert interpolation points to map indices
+            if len(points_for_tracer) > 0:            
+                interpolation_points_for_tracer = self.model_lsm.coordinates_to_map_indices(points_for_tracer, discard_year=True, int_indices=False)
+                assert interpolation_points_for_tracer.ndim == 2 and interpolation_points_for_tracer.shape[1] == 4
+                
+                if MODEL_INTERPOLATOR_NUMBER_OF_LINEAR_INTERPOLATOR > 0:
+                    for value_min, index in ([np.where(self.model_lsm.lsm > 0)[1].min(), 2], [0, 3]):
+                        for k in range(len(interpolation_points_for_tracer)):
+                            if interpolation_points_for_tracer[k, index] < value_min:
+                                interpolation_points_for_tracer[k, index] = value_min
+                    for value_max, index in ([np.where(self.model_lsm.lsm > 0)[1].max(), 2], [self.model_lsm.z_dim - 1, 3]):
+                        for k in range(len(interpolation_points_for_tracer)):
+                            if interpolation_points_for_tracer[k, index] > value_max:
+                                interpolation_points_for_tracer[k, index] = value_max
+                
+                interpolation_points_dict[tracer] = interpolation_points_for_tracer
+                
+
+        ## interpolate trajectory function
+        def interpolate_trajectory(trajectory_path, tracer):
+            
+            ## check if points for tracer are available
+            try:
+                interpolation_points_for_tracer = interpolation_points_dict[tracer]
+            except KeyError:
+                return np.empty([0,1])
+            
+            ## interpolate if points for tracer are available
+            else:
+                tracer_trajectory = simulation.model.data.load_trajectories_to_map_index_array(trajectory_path, tracers=tracer)
+                interpolated_values_for_tracer = self._interpolate(tracer_trajectory, interpolation_points_for_tracer)
+                return interpolated_values_for_tracer
+        
+        return interpolate_trajectory
+    
+
+    def _merge_data_sets(self, tracer_dict, concatenate_axis=0):
+        tracer_merged_dict = {}
+        tracer_split_dict = {}
+        
+        for tracer, tracer_value in tracer_dict.items():
+            ## check if contains data set dict
+            try:
+                tracer_value.items
+            ## use value, if no data set dict
+            except AttributeError:
+                tracer_value = np.asanyarray(tracer_value)
+            ## merge all data set values to one array, else
+            else:
+                start_index = 0
+                data_set_split_dict = {}
+                data_set_values_list = []
+                
+                for data_set_name, data_set_value in tracer_value.items():
+                    data_set_value = np.asanyarray(data_set_value)
+                    data_set_values_list.append(data_set_value)
+                    end_index = start_index + len(data_set_value)
+                    data_set_split_slice = (slice(None),)*concatenate_axis + (slice(start_index, end_index),)
+                    data_set_split_dict[data_set_name] = data_set_split_slice
+                    start_index = end_index
+                
+                tracer_split_dict[tracer] = data_set_split_dict
+                tracer_value = np.concatenate(data_set_values_list, axis=concatenate_axis)
+                assert len(tracer_value) == end_index
+            
+            tracer_merged_dict[tracer] = tracer_value
+        
+        logger.debug('Merged data sets with tracer_split_dict {}.'.format(tracer_split_dict))
+        return tracer_merged_dict, tracer_split_dict
+
+
+    def _split_data_sets(self, tracer_dict, tracer_split_dict):
+        tracer_splitted_dict = {}
+        
+        for tracer, tracer_value in tracer_dict.items():
+            ## check if value was splitted
+            try:
+                data_set_split_dict = tracer_split_dict[tracer]
+            ## use value, if not
+            except KeyError:
+                tracer_splitted_dict[tracer] = tracer_value
+            ## split in data set values else
+            else:
+                data_set_dict = {}
+                for data_set_name, data_set_split_slice in data_set_split_dict.items():
+                    data_set_dict[data_set_name] = tracer_value[data_set_split_slice]
+                assert sum(map(len, data_set_dict.values())) == len(tracer_value)
+                tracer_splitted_dict[tracer] = data_set_dict
+        
+        logger.debug('Splitted data sets with tracer_split_dict {}.'.format(tracer_split_dict))
+        return tracer_splitted_dict
+
+
+    def _f(self, trajectory_load_function, tracers=None):
+        tracers = self.check_tracers(tracers)
+        matching_run_dir = self.run_dir
+        model_parameters = self.model_options.parameters
+        f = self._trajectory_with_load_function(trajectory_load_function, matching_run_dir, model_parameters, tracers=tracers)
+
+        assert f is not None        
+        assert len(f) == len(tracers)
+        return f
+    
+    
+    ## access to model values
+
+    def f_all(self, time_dim, tracers=None):
+        
+        logger.debug('Calculating all f values for tracers {} with time dimension {}.'.format(tracers, time_dim))
+        f = self._f(self._trajectory_load_function_for_all(time_dim), tracers=tracers)
+        
         return f
 
 
-
-    def _df(self, load_trajectory_function, parameters, spinup_options=None, partial_derivatives_mask=None):
-        from .constants import DATABASE_DERIVATIVE_DIRNAME, DATABASE_PARTIAL_DERIVATIVE_DIRNAME, METOS_TRACER_DIM, MODEL_START_FROM_CLOSEST_PARAMETER_SET
-
-        MODEL_DERIVATIVE_SPINUP_YEARS = self.derivative_options['years']
-        MODEL_DERIVATIVE_STEP_SIZE = self.derivative_options['step_size']
-        MODEL_DERIVATIVE_ACCURACY_ORDER = self.derivative_options['accuracy_order']
-
-        parameters = np.asanyarray(parameters)
+    def f_points(self, points):
+        logger.debug('Calculating f values at points for tracers {}.'.format(tuple(points.keys())))
         
-        ## prepare partial_derivatives_mask
-        if partial_derivatives_mask is None:
-            partial_derivatives_mask = np.ones(len(parameters), dtype=np.bool)
+        tracers = points.keys()
+        points, split_dict = self._merge_data_sets(points)
+        f = self._f(self._trajectory_load_function_for_points(points), tracers=tracers)
+        f = self._split_data_sets(f, split_dict)
+        
+        return f
+    
+
+    def f_measurements(self, *measurements_list):
+        logger.debug('Calculating f values for measurements {}.'.format(tuple(map(str, measurements_list))))
+        measurements_collection = measurements.universal.data.MeasurementsCollection(*measurements_list)
+        points_dict = measurements_collection.points_dict
+        return self.f_points(points_dict)
+        
+        
+
+
+
+class Model_With_F_And_DF(Model_With_F):
+
+    
+    @property
+    def derivative_dir(self):
+        step_size = self.model_options.derivative_options.step_size
+        derivative_dir = os.path.join(self.parameter_set_dir, simulation.model.constants.DATABASE_DERIVATIVE_DIRNAME.format(step_size=step_size))
+        logger.debug('Returning derivative directory {}.'.format(derivative_dir))
+        return spinup_dir
+    
+
+    def _df(self, trajectory_load_function, partial_derivative_kind, tracers=None):
+
+        ## apply partial_derivative_kind
+
+        if partial_derivative_kind == 'model_parameters':
+            def convert_partial_derivative_parameters_to_start_run_parameters(partial_derivative_parameters):
+                assert len(partial_derivative_parameters) == self.model_options.parameters_len
+                return {'model_parameters': partial_derivative_parameters, 'total_concentration_factor': 1}
+        
+            partial_derivative_parameters_bounds = self.model_options.parameters_bounds
+            partial_derivative_parameters_typical_values =  self.model_options.derivative_options.parameters_typical_values
+            partial_derivative_parameters_undisturbed = self.model_options.parameters
+                
+        elif partial_derivative_kind == 'total_concentration_factor':
+            def convert_partial_derivative_parameters_to_start_run_parameters(partial_derivative_parameters):
+                assert len(partial_derivative_parameters) == 1
+                return {'model_parameters': self.model_options.parameters, 'total_concentration_factor': partial_derivative_parameters[0]}
+        
+            partial_derivative_parameters_bounds = np.array([[0,np.inf]])
+            partial_derivative_parameters_typical_values =  np.array([1])
+            partial_derivative_parameters_undisturbed = np.array([1])
+        
         else:
-            if len(partial_derivatives_mask) != len(parameters):
-                raise ValueError('Partial derivatives mask must have same length as the parameters, but its length is {} and the length of the parameters is {}.'.format(len(partial_derivatives_mask), len(parameters)))
-            partial_derivatives_mask = np.asanyarray(partial_derivatives_mask, dtype=np.bool)
-        if not self.total_concentration_factor_included_in_parameters:
-            partial_derivatives_mask = np.concatenate([partial_derivatives_mask, [False,]])
-        
-        logger.debug('Calculating df values for parameters {} using partial_derivatives_mask {}.'.format(parameters, partial_derivatives_mask))
+            raise ValueError('Partial derivative kind {} is not supported.'.format(partial_derivative_kind))
         
         
-        ## chose h factors
-        if MODEL_DERIVATIVE_ACCURACY_ORDER == 1:
-            h_factors = (1,)
-        elif MODEL_DERIVATIVE_ACCURACY_ORDER == 2:
-            h_factors = (1, -1)
-        else:
-            raise ValueError('Accuracy order {} not supported.'.format(MODEL_DERIVATIVE_ACCURACY_ORDER))
+        ## get needed model options
+        MODEL_DERIVATIVE_SPINUP_YEARS = self.model_options.derivative_options.years
+        MODEL_DERIVATIVE_STEP_SIZE = self.model_options.derivative_options.step_size
+        MODEL_DERIVATIVE_ACCURACY_ORDER = self.model_options.derivative_options.accuracy_order
+        spinup_options = self.model_options.spinup_options
 
-        ## search directories
-        parameter_set_dir = self.parameter_set_dir(parameters, create=True)
-        derivative_dir = os.path.join(parameter_set_dir, DATABASE_DERIVATIVE_DIRNAME.format(MODEL_DERIVATIVE_STEP_SIZE))
-
-        ## get spinup run
-        years = spinup_options['years']
-        tolerance = spinup_options['tolerance']
-        combination = spinup_options['combination']
-        spinup_options_derivative_base = {'years':years - MODEL_DERIVATIVE_SPINUP_YEARS, 'tolerance':tolerance, 'combination':combination}
-        spinup_matching_run_dir = self.matching_run_dir(parameter_set_dir, spinup_options_derivative_base, start_from_closest_parameters=MODEL_START_FROM_CLOSEST_PARAMETER_SET)
+        
+        ## get direavtive dir and spinup run dir
+        derivative_dir = self.derivative_dir
+        spinup_matching_run_dir = self.matching_run_dir(spinup_options)
         spinup_matching_run_years = self.get_total_years(spinup_matching_run_dir)
+
 
         ## get f if accuracy_order is 1
         if MODEL_DERIVATIVE_ACCURACY_ORDER == 1:
-            spinup_previous_run_dir = self.previous_run_dir(spinup_matching_run_dir)
-            spinup_previous_run_years = self.get_total_years(spinup_previous_run_dir)
-            if spinup_previous_run_years == spinup_matching_run_years - MODEL_DERIVATIVE_SPINUP_YEARS:
-                spinup_matching_run_dir = spinup_previous_run_dir
-                spinup_matching_run_years = spinup_previous_run_years
+            spinup_options_f = {'years':spinup_matching_run_years + MODEL_DERIVATIVE_SPINUP_YEARS, 'tolerance':0, 'combination':'or'}
+            spinup_options_f = simulation.model.options.SpinupOptions(spinup_options_f)
+            self.model_options.spinup_options = spinup_options_f
+            f_parameters = self._f(trajectory_load_function)
+            self.model_options.spinup_options = spinup_options
+        else:
+            f_parameters = None
+        
+        
+        ## define evaluation functions for finite differences
 
-            f = self._f(load_trajectory_function, parameters, {'years':spinup_matching_run_years + MODEL_DERIVATIVE_SPINUP_YEARS, 'tolerance':0, 'combination':'or'})
+        job_options = self.job_options('derivative')
+        partial_derivative_run_dirs = {}
+        
+        def start_partial_derivative_run(partial_derivative_parameters):
+            parameter_index = np.where(partial_derivative_parameters != partial_derivative_parameters_undisturbed)[0]
+            assert len(parameter_index) == 1
+            parameter_index = parameter_index[0]
+            h = partial_derivative_parameters[parameter_index] - partial_derivative_parameters_undisturbed[parameter_index]
+            h_factor = int(np.sign(h))
+    
+            ## get run dir
+            partial_derivative_dirname = simulation.model.constants.DATABASE_PARTIAL_DERIVATIVE_DIRNAME.format(kind=partial_derivative_kind, index=parameter_index, h_factor=h_factor)
+            partial_derivative_dir = os.path.join(derivative_dir, partial_derivative_dirname)
+            partial_derivative_run_dir = self.last_run_dir(partial_derivative_dir)
+            logger.debug('Checking partial derivative runs in {}.'.format(partial_derivative_dir))
             
-        ## init values
-        database_parameter_entry = self.database_parameter_entry(parameters)
-        database_parameter_entry[-1] = 1
-        parameters_len = len(database_parameter_entry)
-        parameters_lower_bound = np.concatenate([self.parameters_lower_bound, [0,]])
-        parameters_upper_bound = np.concatenate([self.parameters_upper_bound, [float('inf'),]])
-        parameters_typical_values =  np.concatenate([self.parameters_typical_values, [1,]])
+            ## get corresponding spinup run dir
+            if partial_derivative_run_dir is not None:
+                try:
+                    with simulation.model.job.Metos3D_Job(partial_derivative_run_dir, force_load=True) as job:
+                        partial_derivative_spinup_run_tracer_input_files = job.model_tracer_input_files
+                    partial_derivative_spinup_run_dir = [os.path.dirname(partial_derivative_spinup_run_tracer_input_file) for partial_derivative_spinup_run_tracer_input_file in partial_derivative_spinup_run_tracer_input_files]
+                    assert all([partial_derivative_spinup_run_dir[0] == a for a in partial_derivative_spinup_run_dir[1:]])
+                    partial_derivative_spinup_run_dir = partial_derivative_spinup_run_dir[0]
 
-        h_factors_len = len(h_factors)
-        h = np.empty((parameters_len, h_factors_len))
-        
-        parameters_for_derivative = np.empty((parameters_len, h_factors_len, parameters_len))
+                except OSError:
+                    partial_derivative_spinup_run_dir = None
 
-        job_setup = self.job_setup('derivative')
-        partial_derivative_run_dirs = np.empty([parameters_len, h_factors_len], dtype=object)
-
-        ## start partial derivative runs
-        for parameter_index in range(parameters_len):
-            if partial_derivatives_mask[parameter_index]:
+            ## make new run if run not matching
+            if not self.is_run_matching_options(partial_derivative_run_dir, {'years':MODEL_DERIVATIVE_SPINUP_YEARS, 'tolerance':0, 'combination':'or'}) or not self.is_run_matching_options(partial_derivative_spinup_run_dir, spinup_options):   
                 
-                h_i = parameters_typical_values[parameter_index] * MODEL_DERIVATIVE_STEP_SIZE
-    
-                for h_factor_index in range(h_factors_len):
-    
-                    ## prepare parameters for derivative
-                    parameters_for_derivative[parameter_index, h_factor_index] = np.copy(database_parameter_entry)
-                    h[parameter_index, h_factor_index] = h_factors[h_factor_index] * h_i
-                    parameters_for_derivative[parameter_index, h_factor_index, parameter_index] += h[parameter_index, h_factor_index]
-    
-                    ## consider bounds
-                    violates_lower_bound = parameters_for_derivative[parameter_index, h_factor_index, parameter_index] < parameters_lower_bound[parameter_index]
-                    violates_upper_bound = parameters_for_derivative[parameter_index, h_factor_index, parameter_index] > parameters_upper_bound[parameter_index]
-    
-                    if MODEL_DERIVATIVE_ACCURACY_ORDER == 1:
-                        if violates_lower_bound or violates_upper_bound:
-                            h[parameter_index, h_factor_index] *= -1
-                            parameters_for_derivative[parameter_index, h_factor_index, parameter_index] = parameters[parameter_index] + h[parameter_index, h_factor_index]
-                    else:
-                        if violates_lower_bound:
-                            parameters_for_derivative[parameter_index, h_factor_index, parameter_index] = parameters_lower_bound[parameter_index]
-                        elif violates_upper_bound:
-                            parameters_for_derivative[parameter_index, h_factor_index, parameter_index] = parameters_upper_bound[parameter_index]
-    
-                    ## calculate h   (improvement of accuracy of h)
-                    h[parameter_index, h_factor_index] = parameters_for_derivative[parameter_index, h_factor_index, parameter_index] - parameters[parameter_index]
-    
-                    logger.debug('Calculating finite differences approximation for parameter index {} with h value {}.'.format(parameter_index, h[parameter_index, h_factor_index]))
-    
-                    ## get run dir
-                    h_factor = int(np.sign(h[parameter_index, h_factor_index]))
-                    partial_derivative_dirname = DATABASE_PARTIAL_DERIVATIVE_DIRNAME.format(parameter_index, h_factor)
-                    partial_derivative_dir = os.path.join(derivative_dir, partial_derivative_dirname)
-                    try:
-                        partial_derivative_run_dir = self.last_run_dir(partial_derivative_dir)
-                    except OSError:
-                        partial_derivative_run_dir = None
-                    
-                    ## get corresponding spinup run dir
-                    if partial_derivative_run_dir is not None:
-                        try:
-                            with simulation.model.job.Metos3D_Job(partial_derivative_run_dir, force_load=True) as job:
-                                partial_derivative_spinup_run_dir = job.tracer_input_dir
-                        except OSError:
-                            partial_derivative_spinup_run_dir = None
-    
-                    ## make new run if run not matching
-                    if not self.is_run_matching_options(partial_derivative_run_dir, {'years':MODEL_DERIVATIVE_SPINUP_YEARS, 'tolerance':0, 'combination':'or'}) or not self.is_run_matching_options(partial_derivative_spinup_run_dir, spinup_options_derivative_base):   
-                        
-                        ## remove old run
-                        if partial_derivative_run_dir is not None:
-                            logger.debug('Old partial derivative spinup run {} is not matching desired option. It is removed.'.format(partial_derivative_run_dir))
-                            util.io.fs.remove_recursively(partial_derivative_run_dir, not_exist_okay=True, exclude_dir=False)
-                        
-                        ## create new run dir
-                        partial_derivative_run_dir = self.make_new_run_dir(partial_derivative_dir)   
-                        
-                        ## if no job setup available, get best job setup
-                        if job_setup['nodes_setup'] is None:
-                            job_setup['nodes_setup'] = util.batch.universal.system.NodeSetup()
-    
-                        ## start job
-                        metos3d_model_parameters_dict = self.database_parameter_entry_to_metos3d_model_parameters_dict(parameters_for_derivative[parameter_index, h_factor_index])
-                        model_parameters = metos3d_model_parameters_dict['model_parameters']
-                        del metos3d_model_parameters_dict['model_parameters']
-                        spinup_matching_run_dir_with_env = spinup_matching_run_dir.replace(simulation.constants.SIMULATION_OUTPUT_DIR, '${{{}}}'.format(simulation.constants.SIMULATION_OUTPUT_DIR_ENV_NAME))
-                        self.start_run(model_parameters, partial_derivative_run_dir, MODEL_DERIVATIVE_SPINUP_YEARS, tolerance=0, **metos3d_model_parameters_dict, job_setup=job_setup, tracer_input_dir=spinup_matching_run_dir_with_env, wait_until_finished=False)
-                        
-                    partial_derivative_run_dirs[parameter_index, h_factor_index] = partial_derivative_run_dir
-
-
-        ## make trajectories and calculate df
-        df = [None] * METOS_TRACER_DIM
-
-        for parameter_index in range(parameters_len):
-            if partial_derivatives_mask[parameter_index]:
+                ## remove old run
+                if partial_derivative_run_dir is not None:
+                    logger.debug('Old partial derivative run {} is not matching desired option. It is removed.'.format(partial_derivative_run_dir))
+                    util.io.fs.remove_recursively(partial_derivative_run_dir, not_exist_okay=True, exclude_dir=False)
                 
-                ## include result for each h factor
-                for h_factor_index in range(h_factors_len):
-                    ## wait partial derivative run to finish
-                    partial_derivative_run_dir = partial_derivative_run_dirs[parameter_index, h_factor_index]
-                    self.wait_until_run_job_finished(partial_derivative_run_dir)
-    
-                    ## get trajectory
-                    model_parameters = self.database_parameter_entry_to_metos3d_model_parameters_dict(parameters_for_derivative[parameter_index, h_factor_index])['model_parameters']
-                    trajectory = self._get_trajectory(load_trajectory_function, partial_derivative_run_dir, model_parameters)
+                ## create new run dir
+                partial_derivative_run_dir = self.make_new_run_dir(partial_derivative_dir)   
+                
+                ## if no job setup available, get best job setup
+                if job_options['nodes_setup'] is None:
+                    job_options['nodes_setup'] = util.batch.universal.system.NodeSetup(memory=simulation.model.constants.JOB_MEMORY_GB)
                     
-                    ## add to df
-                    for tracer_index in range(METOS_TRACER_DIM):
-                        if df[tracer_index] is None:
-                            df[tracer_index] = np.zeros((parameters_len,) + trajectory[tracer_index].shape)
-                        df[tracer_index][parameter_index] += (-1)**h_factor_index * trajectory[tracer_index]
-    
-                ## calculate df
-                for tracer_index in range(METOS_TRACER_DIM):
-                    if MODEL_DERIVATIVE_ACCURACY_ORDER == 1:
-                        df[tracer_index][parameter_index] -= f[tracer_index]
-                        df[tracer_index][parameter_index] /= h[parameter_index]
-                    else:
-                        df[tracer_index][parameter_index] /= np.sum(np.abs(h[parameter_index]))
-        
-        ## apply partial_derivatives_mask
-        for tracer_index in range(METOS_TRACER_DIM):
-            df[tracer_index] = df[tracer_index][partial_derivatives_mask]
-            assert len(df[tracer_index]) == partial_derivatives_mask.sum()
+                ## get tracer input files
+                spinup_matching_run_dir_with_env = spinup_matching_run_dir.replace(simulation.constants.SIMULATION_OUTPUT_DIR, '${{{}}}'.format(simulation.constants.SIMULATION_OUTPUT_DIR_ENV_NAME))
+                tracer_input_filenames = ['{}_output.petsc'.format(tracer) for tracer in self.model_options.tracers]
+                tracer_input_files = [os.path.join(spinup_matching_run_dir_with_env, tracer_input_filename) for tracer_input_filename in tracer_input_filenames]
 
-        assert len(df) == METOS_TRACER_DIM
+                ## start job
+                start_run_parameters_dict = convert_partial_derivative_parameters_to_start_run_parameters(partial_derivative_parameters)
+                partial_derivative_model_parameters = start_run_parameters_dict['model_parameters']
+                total_concentration_factor = start_run_parameters_dict['total_concentration_factor']
+                self.start_run(partial_derivative_model_parameters, partial_derivative_run_dir, MODEL_DERIVATIVE_SPINUP_YEARS, tolerance=0, job_options=job_options, tracer_input_files=tracer_input_files, wait_until_finished=False, total_concentration_factor=total_concentration_factor)
+                
+            partial_derivative_run_dirs[tuple(partial_derivative_parameters)] = partial_derivative_run_dir
+            
+            return 0
+            
+
+        tracers = self.check_tracers(tracers)
+        tracer_start_stop_indices = [0]
+        
+        def get_partial_derivative_run_value(partial_derivative_parameters):
+            ## wait partial derivative run to finish
+            partial_derivative_run_dir = partial_derivative_run_dirs[tuple(partial_derivative_parameters)]
+            self.wait_until_run_finished(partial_derivative_run_dir)
+
+            ## get trajectory
+            partial_derivative_model_parameters = convert_partial_derivative_parameters_to_start_run_parameters(partial_derivative_parameters)['model_parameters']
+            trajectory_dict = self._trajectory_with_load_function(trajectory_load_function, partial_derivative_run_dir, partial_derivative_model_parameters)
+            trajectory_list = [trajectory_dict[tracer] for tracer in tracers]
+            
+            ## store length of each tracer
+            if len(tracer_start_stop_indices) == 1:
+                start_index = 0
+                for trajectory in trajectory_list:
+                    stop_index = start_index + len(trajectory)
+                    tracer_start_stop_indices.append(stop_index)
+                    start_index = stop_index
+            
+            ## concatenate and return
+            trajectory = np.concatenate(trajectory_list)
+            
+            return trajectory
+
+        
+        ## calculate deviation
+        for function in (start_partial_derivative_run, get_partial_derivative_run_value):
+            df_concatenated = util.math.finite_differences.calculate(function, partial_derivative_parameters_undisturbed, f_x=f_parameters, typical_x=partial_derivative_parameters_typical_values, bounds=partial_derivative_parameters_bounds, accuracy_order=MODEL_DERIVATIVE_ACCURACY_ORDER, eps=MODEL_DERIVATIVE_STEP_SIZE, use_always_typical_x=True)
+        df_concatenated = np.moveaxis(df_concatenated, 0, -1)
+        
+        ## unpack concatenation
+        logger.debug('Unpacking derivative with shape {} for tracers with tracer_start_stop_indices {}.'.format(df_concatenated.shape, tracer_start_stop_indices))
+        assert len(tracer_start_stop_indices) == len(tracers) + 1
+        assert max(tracer_start_stop_indices) == len(df_concatenated)
+        
+        df = {}
+        for tracer_index in range(len(tracers)):
+            df_tracer = df_concatenated[tracer_start_stop_indices[tracer_index] : tracer_start_stop_indices[tracer_index+1]]
+            tracer = tracers[tracer_index]
+            df[tracer] = df_tracer
+        
+        ## return
+        assert len(df) == len(tracers)
         return df
 
 
     ## access to model values
 
-    def f_boxes(self, parameters, time_dim_desired):
-        logger.debug('Calculating all f values for parameters {} with time dimension {}.'.format(parameters, time_dim_desired))
+    def df_all(self, time_dim, tracers=None, partial_derivative_kind='model_parameters'):
+        tracers = self.check_tracers(tracers)
         
-        ## check input
-        self.check_parameters(parameters)
+        logger.debug('Calculating all df values for tracers {} with time dimension {} and partial_derivative_kind {}.'.format(tracers, time_dim, partial_derivative_kind))
         
-        ## calculate f
-        f = self._f(self._get_load_trajectory_function_for_all(time_dim_desired), parameters, self.spinup_options)
-        
-        assert len(f) == 2
-        return f
+        df = self._df(self._trajectory_load_function_for_all(time_dim=time_dim), partial_derivative_kind=partial_derivative_kind, tracers=tracers)
+        return df
 
 
-    def f_points(self, parameters, points):
-        logger.debug('Calculating f values for parameters {} at {} points.'.format(parameters, tuple(map(len, points))))
+    def df_points(self, points, partial_derivative_kind='model_parameters'):
+        logger.debug('Calculating df values at points {} and partial_derivative_kind {}.'.format(tuple(map(len, points)), partial_derivative_kind))
         
-        ## check input
-        if len(points) != 2:
-            raise ValueError('Points have to be a sequence of 2 point arrays. But its length is {}.'.format(len(points)))
-        self.check_parameters(parameters)
+        tracers = points.keys()
+        points, split_dict = self._merge_data_sets(points)
+        df = self._df(self._trajectory_load_function_for_points(points), partial_derivative_kind=partial_derivative_kind, tracers=tracers)
+        df = self._split_data_sets(df, split_dict)
         
-        ## calculate f
-        f = self._f(self._get_load_trajectory_function_for_points(points), parameters, self.spinup_options)
-
-        assert len(f) == 2
-        assert (not np.any(np.isnan(f[0]))) and (not np.any(np.isnan(f[1])))
-        return f
+        return df
     
 
-    def df_boxes(self, parameters, time_dim_desired, partial_derivatives_mask=None):
-        logger.debug('Calculating all df values for parameters {} with time dimension {}.'.format(parameters, time_dim_desired))
+    def df_measurements(self, *measurements_list, partial_derivative_kind='model_parameters'):
+        logger.debug('Calculating df values for measurements {} and partial_derivative_kind {}.'.format(tuple(map(str, measurements_list)), partial_derivative_kind))
         
-        ## check input
-        self.check_parameters(parameters)
+        measurements_collection = measurements.universal.data.MeasurementsCollection(*measurements_list)
+        points_dict = measurements_collection.points_dict
         
-        ## calculate df
-        df = self._df(self._get_load_trajectory_function_for_all(time_dim_desired=time_dim_desired), parameters, self.spinup_options, partial_derivatives_mask=partial_derivatives_mask)
-        
-        assert len(df) == 2
-        # assert df.shape[-1] == len(parameters)
-        return df
+        return self.df_points(points_dict, partial_derivative_kind=partial_derivative_kind)
 
 
-    def df_points(self, parameters, points, partial_derivatives_mask=None):
-        logger.debug('Calculating df values for parameters {} at {} points.'.format(parameters, tuple(map(len, points))))
-        
-        ## check input
-        if len(points) != 2:
-            raise ValueError('Points have to be a sequence of 2 point arrays. But its length is {}.'.format(len(points)))
-        self.check_parameters(parameters)
-        
-        ## calculate df
-        df = self._df(self._get_load_trajectory_function_for_points(points), parameters, self.spinup_options, partial_derivatives_mask=partial_derivatives_mask)
-        
-        assert len(df) == 2
-        # assert df.shape[-1] == len(parameters)
-        assert (not np.any(np.isnan(df[0]))) and (not np.any(np.isnan(df[1])))
-        return df
 
+
+## Cached versions
+
+
+class Model_Database_MemoryCached(Model_Database):
+    
+    @property
+    @util.cache.memory_based.decorator(dependency='model_options.model_name')
+    def model_dir(self):
+        return super().model_dir
+    
+    @property
+    @util.cache.memory_based.decorator(dependency=('model_dir', 'model_options.initial_concentration_options.use_constant_concentrations'))
+    def initial_concentration_base_dir(self):
+        return super().initial_concentration_base_dir
+    
+    @property
+    @util.cache.memory_based.decorator(dependency=('model_dir', 'model_options.initial_concentration_options.tolerance_options.relative',  'model_options.initial_concentration_options.tolerance_options.absolute'))
+    def _constant_concentrations_db(self):
+        return super()._constant_concentrations_db
+    
+    @property
+    @util.cache.memory_based.decorator(dependency=('model_dir', 'model_options.tracers', 'model_options.initial_concentration_options.tolerance_options.relative',  'model_options.initial_concentration_options.tolerance_options.absolute'))
+    def _vector_concentrations_db(self):
+        return super()._vector_concentrations_db
+
+    @property
+    @util.cache.memory_based.decorator(dependency=('model_dir', 'model_options.tracers', 'model_options.initial_concentration_options.concentrations', 'model_options.initial_concentration_options.tolerance_options.relative',  'model_options.initial_concentration_options.tolerance_options.absolute'))
+    def initial_concentration_dir_index(self):
+        return super().initial_concentration_dir_index
+    
+    @property
+    @util.cache.memory_based.decorator(dependency=('initial_concentration_base_dir', 'initial_concentration_dir_index'))
+    def initial_concentration_dir(self):
+        return super().initial_concentration_dir
+    
+    @property
+    @util.cache.memory_based.decorator(dependency=('initial_concentration_dir_index', 'model_dir', 'model_options.tracers'))
+    def initial_concentration_files(self):
+        return super().initial_concentration_files
+    
+    @property
+    @util.cache.memory_based.decorator(dependency=('initial_concentration_dir', 'model_options.time_step'))
+    def time_step_dir(self):
+        return super().time_step_dir
+    
+    @property
+    @util.cache.memory_based.decorator(dependency=('time_step_dir', 'model_options.parameter_tolerance_options.relative', 'model_options.parameter_tolerance_options.absolute'))
+    def _parameter_db(self):
+        return super()._parameter_db
+    
+    @property
+    @util.cache.memory_based.decorator(dependency=('time_step_dir', 'model_options.parameters', 'model_options.parameter_tolerance_options.relative', 'model_options.parameter_tolerance_options.absolute'))
+    def parameter_set_dir(self):
+        return super().parameter_set_dir
+    
+    @property
+    @util.cache.memory_based.decorator(dependency=('time_step_dir', 'model_options.parameters', 'model_options.parameter_tolerance_options.relative', 'model_options.parameter_tolerance_options.absolute'))
+    def closest_parameter_set_dir(self):
+        return super().closest_parameter_set_dir
+    
+    @property
+    @util.cache.memory_based.decorator(dependency='parameter_set_dir')
+    def spinup_dir(self):
+        return super().spinup_dir
+    
+    @property
+    @util.cache.memory_based.decorator(dependency='closest_parameter_set_dir')
+    def closest_spinup_dir(self):
+        return super().closest_spinup_dir
+    
+    @property
+    @util.cache.memory_based.decorator(dependency=('spinup_dir', 'model_options.spinup_options.years', 'model_options.spinup_options.tolerance', 'model_options.spinup_options.combination'))
+    def run_dir(self):
+        return super().run_dir
+
+
+
+
+class Model_With_F_MemoryCached(Model_Database_MemoryCached, Model_With_F):
+    pass
+
+
+
+
+class Model_With_F_And_DF_MemoryCached(Model_With_F_MemoryCached, Model_With_F_And_DF):
+
+    @property
+    @util.cache.memory_based.decorator(dependency=('parameter_set_dir', 'model_options.derivative_options.step_size'))
+    def derivative_dir(self):
+        step_size = self.model_options.derivative_options.step_size
+        derivative_dir = os.path.join(self.parameter_set_dir, simulation.model.constants.DATABASE_DERIVATIVE_DIRNAME.format(step_size=step_size))
+        logger.debug('Returning derivative directory {}.'.format(derivative_dir))
+        return derivative_dir
+
+
+
+
+Model = Model_With_F_And_DF_MemoryCached
 
