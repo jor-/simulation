@@ -786,6 +786,10 @@ class Model_With_F_And_DF(Model_With_F):
     def _df(self, trajectory_load_function, partial_derivative_kind, tracers=None):
         ## check tracers
         tracers = self.check_tracers(tracers)
+        
+        ## return empty array if no tracer wanted
+        if len(tracers) == 0:
+            return {}
 
         ## apply partial_derivative_kind
         if partial_derivative_kind == 'model_parameters':
@@ -808,10 +812,6 @@ class Model_With_F_And_DF(Model_With_F):
         
         else:
             raise ValueError('Partial derivative kind {} is not supported.'.format(partial_derivative_kind))
-        
-        ## return empty array if no tracer wanted
-        if len(tracers) == 0:
-            return np.empty([len(partial_derivative_parameters_bounds), 0])
         
         ## get needed model options
         MODEL_DERIVATIVE_SPINUP_YEARS = self.model_options.derivative_options.years
