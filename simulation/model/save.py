@@ -77,7 +77,7 @@ def save(model_name, time_step=1, spinup_years=10000, spinup_tolerance=0, spinup
                 model.df_measurements(*measurements.all.pw.data.all_measurements())
 
 
-def save_all(concentration_indices=None time_steps=None, parameter_set_indices=None):
+def save_all(concentration_indices=None, time_steps=None, parameter_set_indices=None):
     if time_steps is None:
         time_steps = simulation.model.constants.METOS_TIME_STEPS
     use_fix_parameter_sets = parameter_set_indices is not None
