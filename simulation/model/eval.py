@@ -17,7 +17,6 @@ import util.cache.memory_based
 import util.logging
 
 import measurements.land_sea_mask.lsm
-import measurements.util.interpolate
 import measurements.universal.data
 
 import simulation.constants
