@@ -69,8 +69,8 @@ def save(model_name='dop_po4', time_step=1, parameter_sets=range(9999), data_kin
                         if (eval_f and not cf.f_available(p)) or (eval_df and not cf.df_available(p)):
                             from util.constants import TMP_DIR
                             output_dir = tempfile.TemporaryDirectory(dir=TMP_DIR, prefix='save_value_cost_function_tmp_').name
-                            cf_kargs = cf.kargs
-                            cf_kargs['job_setup'] = {'name': '{}:{}'.format(cf, parameter_set_number)}
+                            cf_kargs = {'measurements_collection': cf.measurements, 'model_options': cf.model.model_options}
+                            cf_kargs['job_options'] = {'name': '{}:{}'.format(cf, parameter_set_number)}
                             nodes_setup = util.batch.universal.system.NodeSetup(memory=50, node_kind=node_kind, nodes=1, cpus=1, total_cpus_max=1, walltime=1)
                             with simulation.optimization.job.CostFunctionJob(output_dir, p, cf.kind, eval_f=eval_f, eval_df=eval_df, nodes_setup=nodes_setup, **cf_kargs) as cf_job:
                                 cf_job.start()
