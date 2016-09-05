@@ -4,6 +4,7 @@ import numpy as np
 
 import simulation.constants
 import simulation.model.constants
+import simulation.model.options
 import simulation.optimization.constants
 
 import measurements.constants
@@ -23,6 +24,8 @@ class CostFunctionJob(util.batch.universal.system.Job):
         from simulation.optimization.constants import COST_FUNCTION_NODES_SETUP_JOB
         
         logger.debug('Initiating cost function job with cf_kind {}, eval_f {} and eval_df {}.'.format(cf_kind, eval_f, eval_df))
+        
+        model_options = simulation.model.options.as_model_options(model_options)
 
         super().__init__(output_dir)
         
@@ -75,12 +78,8 @@ class CostFunctionJob(util.batch.universal.system.Job):
             min_measurements_correlations = None
         
         commands += ['with util.logging.Logger():']
-        commands += ['    measurements_collection = measurements.all.pw.data.all_measurements(max_box_distance_to_water={max_box_distance_to_water}, min_measurements_correlations={min_measurements_correlations})'.format(max_box_distance_to_water=max_box_distance_to_water, min_measurements_correlations=min_measurements_correlations)]
-        
-        if model_options is not None:
-            commands += ['    model_options = {model_options!r}'.format(model_options=model_options)]
-        else:
-            commands += ['    model_options = None']
+        commands += ['    model_options = {model_options!r}'.format(model_options=model_options)]
+        commands += ['    measurements_collection = measurements.all.pw.data.all_measurements(max_box_distance_to_water={max_box_distance_to_water}, min_measurements_correlations={min_measurements_correlations}, tracers=model_options.tracers)'.format(max_box_distance_to_water=max_box_distance_to_water, min_measurements_correlations=min_measurements_correlations)]
         
         if model_job_options is not None:
             commands += ['    job_options = {model_job_options!r}'.format(model_job_options=model_job_options)]
