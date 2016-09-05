@@ -408,10 +408,10 @@ class Model_Database:
                 if initial_concentration_options.use_constant_concentrations:
                     assert last_run_dir is None
                     constant_concentrations = initial_concentration_options.concentrations
-                    self.start_run(parameters, run_dir, years, tolerance=tolerance, job_options=self.job_options('spinup'), initial_constant_concentrations=constant_concentrations, wait_until_finished=True)
+                    self.start_run(parameters, run_dir, years, tolerance=tolerance, job_options=self.job_options_for_kind('spinup'), initial_constant_concentrations=constant_concentrations, wait_until_finished=True)
                 else:
                     concentration_files = self.initial_concentration_files
-                    self.start_run(parameters, run_dir, years, tolerance=tolerance, job_options=self.job_options('spinup'), tracer_input_files=concentration_files, wait_until_finished=True)
+                    self.start_run(parameters, run_dir, years, tolerance=tolerance, job_options=self.job_options_for_kind('spinup'), tracer_input_files=concentration_files, wait_until_finished=True)
                 
             elif combination == 'and':
                 spinup_options = simulation.model.options.SpinupOptions({'years':years, 'tolerance':0, 'combination':'or'})
@@ -507,7 +507,7 @@ class Model_Database:
     
     ## job options
 
-    def job_options(self, kind):
+    def job_options_for_kind(self, kind):
         job_options = self.job_options[kind]
         job_options = job_options.copy()
         try:
@@ -597,7 +597,7 @@ class Model_With_F(Model_Database):
     
             tracer_input_filenames = ['{}_output.petsc'.format(tracer) for tracer in self.model_options.tracers]
             tracer_input_files = [os.path.join(run_dir, tracer_input_file) for tracer_input_file in tracer_input_filenames]
-            self.start_run(model_parameters, trajectory_dir, years=1, tolerance=0, job_options=self.job_options('trajectory'), tracer_input_files=tracer_input_files, write_trajectory=True, make_read_only=False)
+            self.start_run(model_parameters, trajectory_dir, years=1, tolerance=0, job_options=self.job_options_for_kind('trajectory'), tracer_input_files=tracer_input_files, write_trajectory=True, make_read_only=False)
     
             ## read trajectory        
             trajectory_output_dir = os.path.join(trajectory_dir, 'trajectory')
@@ -835,7 +835,7 @@ class Model_With_F_And_DF(Model_With_F):
         
         ## define evaluation functions for finite differences
 
-        job_options = self.job_options('derivative')
+        job_options = self.job_options_for_kind('derivative')
         partial_derivative_run_dirs = {}
         
         def start_partial_derivative_run(partial_derivative_parameters):
