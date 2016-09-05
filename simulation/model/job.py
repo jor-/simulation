@@ -333,7 +333,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
         opt['/metos3d/debuglevel'] = 1
         opt['/metos3d/output_filenames'] = ['{}_output.petsc'.format(tracer) for tracer in opt['/model/tracer']]
         
-        ## tracer_input_files or initial_constant_concentrations
+        ## tracer_input_files
         if tracer_input_files is not None:
             opt['/model/tracer_input_files'] = tracer_input_files
             
@@ -352,11 +352,15 @@ class Metos3D_Job(util.batch.universal.system.Job):
                     tracer_input = tracer_input * total_concentration_factor
                     util.petsc.universal.save_numpy_array_to_petsc_vec(tracer_input_result_file, tracer_input)
 
+        ## initial_constant_concentrations
         else:
             if initial_constant_concentrations is None:
                 initial_constant_concentrations = simulation.model.constants.MODEL_DEFAULT_INITIAL_CONCENTRATION[model_name]
             initial_constant_concentrations = initial_constant_concentrations * total_concentration_factor
             opt['/model/initial_constant_concentrations'] = initial_constant_concentrations
+            
+            initial_constant_concentrations_string = ','.join(map(str, initial_constant_concentrations))
+            opt['/metos3d/initial_constant_concentrations_string'] = initial_constant_concentrations_string
         
         ## model parameter
         model_parameters = np.asarray(model_parameters, dtype=np.float64)
@@ -364,7 +368,8 @@ class Metos3D_Job(util.batch.universal.system.Job):
         
         model_parameters_string = ','.join(map(lambda f: simulation.model.constants.DATABASE_PARAMETERS_FORMAT_STRING.format(f), model_parameters))
         opt['/metos3d/parameters_string'] = model_parameters_string
-
+        
+        ## initial concentrations
 
         ## write metos3d option file
         f = open(opt['/metos3d/option_file'], mode='w')
@@ -387,7 +392,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
             f.write('-Metos3DTracerInputDirectory            {} \n'.format(opt['/metos3d/tracer_input_dir']))
             f.write('-Metos3DTracerInitFile                  {} \n'.format(','.join(map(str, opt['/metos3d/input_filenames']))))
         except KeyError:
-            f.write('-Metos3DTracerInitValue                 {},{} \n'.format(*opt['/model/initial_constant_concentrations']))
+            f.write('-Metos3DTracerInitValue                 {} \n'.format(opt['/metos3d/initial_constant_concentrations_string']))
 
         f.write('-Metos3DTracerOutputDirectory           {} \n'.format(opt['/metos3d/tracer_output_dir']))
         f.write('-Metos3DTracerOutputFile                {} \n\n'.format(','.join(map(str, opt['/metos3d/output_filenames']))))
