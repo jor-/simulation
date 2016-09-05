@@ -50,47 +50,44 @@ class Model_Database:
         if job_options is None:
             job_options = {}
 
-        job_options_collection = {}
         keys = list(job_options.keys())
         kinds = ['spinup', 'derivative', 'trajectory']
-        if any(kind in keys for kind in kinds):
-            job_options_collection = job_options
-        else:
-            job_options_collection['spinup'] = job_options
+        if not any(kind in keys for kind in kinds):
+            job_options = {'spinup': job_options}
 
         # if not passed, use default job setups
         try:
-            job_options_collection['spinup']
+            job_options['spinup']
         except KeyError:
-            job_options_collection['spinup'] = {}
+            job_options['spinup'] = {}
         try:
-            job_options_collection['spinup']['name']
+            job_options['spinup']['name']
         except KeyError:
-            job_options_collection['spinup']['name'] = 'spinup'
+            job_options['spinup']['name'] = 'spinup'
             default_name = ''
         else:
-            default_name = job_options_collection['spinup']['name'] 
+            default_name = job_options['spinup']['name'] 
             
         try:
-            job_options_collection['derivative']
+            job_options['derivative']
         except KeyError:
-            job_options_collection['derivative'] = job_options_collection['spinup'].copy()
-            del job_options_collection['derivative']['name']
+            job_options['derivative'] = job_options['spinup'].copy()
+            del job_options['derivative']['name']
         try:
-            job_options_collection['derivative']['name']
+            job_options['derivative']['name']
         except KeyError:
-            job_options_collection['derivative']['name'] = 'derivative_' + default_name
+            job_options['derivative']['name'] = 'derivative_' + default_name
         try:
-            job_options_collection['trajectory']
+            job_options['trajectory']
         except KeyError:
-            job_options_collection['trajectory'] = {}
-            job_options_collection['trajectory']['nodes_setup'] = util.batch.universal.system.NodeSetup(nodes_max=1, memory=simulation.model.constants.JOB_MEMORY_GB)
+            job_options['trajectory'] = {}
+            job_options['trajectory']['nodes_setup'] = util.batch.universal.system.NodeSetup(nodes_max=1, memory=simulation.model.constants.JOB_MEMORY_GB)
         try:
-            job_options_collection['trajectory']['name']
+            job_options['trajectory']['name']
         except KeyError:
-            job_options_collection['trajectory']['name'] = 'trajectory' + default_name
+            job_options['trajectory']['name'] = 'trajectory' + default_name
 
-        self.job_options_collection = job_options_collection
+        self.job_options = job_options
     
     
     ## model dir
@@ -511,7 +508,7 @@ class Model_Database:
     ## job options
 
     def job_options(self, kind):
-        job_options = self.job_options_collection[kind]
+        job_options = self.job_options[kind]
         job_options = job_options.copy()
         try:
             job_options['nodes_setup']
