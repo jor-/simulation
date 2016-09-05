@@ -441,3 +441,9 @@ class InitialConcentrationOptions(util.options.Options):
         else:
             return len(concentrations[0])
 
+
+
+def as_model_options(model_options):
+    if not isinstance(model_options, ModelOptions):
+        model_options = ModelOptions(model_options)
+    return model_options
