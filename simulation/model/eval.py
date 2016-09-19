@@ -980,72 +980,72 @@ class Model_With_F_And_DF(Model_With_F):
 class Model_Database_MemoryCached(Model_Database):
     
     @property
-    @util.cache.memory_based.decorator(dependency='model_options.model_name')
+    @util.cache.memory_based.decorator(dependency='self.model_options.model_name')
     def model_dir(self):
         return super().model_dir
     
     @property
-    @util.cache.memory_based.decorator(dependency=('model_dir', 'model_options.initial_concentration_options.use_constant_concentrations'))
+    @util.cache.memory_based.decorator(dependency=('self.model_dir', 'self.model_options.initial_concentration_options.use_constant_concentrations'))
     def initial_concentration_base_dir(self):
         return super().initial_concentration_base_dir
     
     @property
-    @util.cache.memory_based.decorator(dependency=('model_dir', 'model_options.initial_concentration_options.tolerance_options.relative',  'model_options.initial_concentration_options.tolerance_options.absolute'))
+    @util.cache.memory_based.decorator(dependency=('self.model_dir', 'self.model_options.initial_concentration_options.tolerance_options.relative',  'self.model_options.initial_concentration_options.tolerance_options.absolute'))
     def _constant_concentrations_db(self):
         return super()._constant_concentrations_db
     
     @property
-    @util.cache.memory_based.decorator(dependency=('model_dir', 'model_options.tracers', 'model_options.initial_concentration_options.tolerance_options.relative',  'model_options.initial_concentration_options.tolerance_options.absolute'))
+    @util.cache.memory_based.decorator(dependency=('self.model_dir', 'self.model_options.tracers', 'self.model_options.initial_concentration_options.tolerance_options.relative',  'self.model_options.initial_concentration_options.tolerance_options.absolute'))
     def _vector_concentrations_db(self):
         return super()._vector_concentrations_db
 
     @property
-    @util.cache.memory_based.decorator(dependency=('model_dir', 'model_options.tracers', 'model_options.initial_concentration_options.concentrations', 'model_options.initial_concentration_options.tolerance_options.relative',  'model_options.initial_concentration_options.tolerance_options.absolute'))
+    @util.cache.memory_based.decorator(dependency=('self.model_dir', 'self.model_options.tracers', 'self.model_options.initial_concentration_options.concentrations', 'self.model_options.initial_concentration_options.tolerance_options.relative',  'self.model_options.initial_concentration_options.tolerance_options.absolute'))
     def initial_concentration_dir_index(self):
         return super().initial_concentration_dir_index
     
     @property
-    @util.cache.memory_based.decorator(dependency=('initial_concentration_base_dir', 'initial_concentration_dir_index'))
+    @util.cache.memory_based.decorator(dependency=('self.initial_concentration_base_dir', 'self.initial_concentration_dir_index'))
     def initial_concentration_dir(self):
         return super().initial_concentration_dir
     
     @property
-    @util.cache.memory_based.decorator(dependency=('initial_concentration_dir_index', 'model_dir', 'model_options.tracers'))
+    @util.cache.memory_based.decorator(dependency=('self.initial_concentration_dir_index', 'self.model_dir', 'self.model_options.tracers'))
     def initial_concentration_files(self):
         return super().initial_concentration_files
     
     @property
-    @util.cache.memory_based.decorator(dependency=('initial_concentration_dir', 'model_options.time_step'))
+    @util.cache.memory_based.decorator(dependency=('self.initial_concentration_dir', 'self.model_options.time_step'))
     def time_step_dir(self):
         return super().time_step_dir
     
     @property
-    @util.cache.memory_based.decorator(dependency=('time_step_dir', 'model_options.parameter_tolerance_options.relative', 'model_options.parameter_tolerance_options.absolute'))
+    @util.cache.memory_based.decorator(dependency=('self.time_step_dir', 'self.model_options.parameter_tolerance_options.relative', 'self.model_options.parameter_tolerance_options.absolute'))
     def _parameter_db(self):
         return super()._parameter_db
     
     @property
-    @util.cache.memory_based.decorator(dependency=('time_step_dir', 'model_options.parameters', 'model_options.parameter_tolerance_options.relative', 'model_options.parameter_tolerance_options.absolute'))
+    @util.cache.memory_based.decorator(dependency=('self.time_step_dir', 'self.model_options.parameters', 'self.model_options.parameter_tolerance_options.relative', 'self.model_options.parameter_tolerance_options.absolute'))
     def parameter_set_dir(self):
         return super().parameter_set_dir
     
     @property
-    @util.cache.memory_based.decorator(dependency=('time_step_dir', 'model_options.parameters', 'model_options.parameter_tolerance_options.relative', 'model_options.parameter_tolerance_options.absolute'))
+    @util.cache.memory_based.decorator(dependency=('self.time_step_dir', 'self.model_options.parameters', 'self.model_options.parameter_tolerance_options.relative', 'self.model_options.parameter_tolerance_options.absolute'))
     def closest_parameter_set_dir(self):
         return super().closest_parameter_set_dir
     
     @property
-    @util.cache.memory_based.decorator(dependency='parameter_set_dir')
+    @util.cache.memory_based.decorator(dependency='self.parameter_set_dir')
     def spinup_dir(self):
         return super().spinup_dir
     
     @property
-    @util.cache.memory_based.decorator(dependency='closest_parameter_set_dir')
+    @util.cache.memory_based.decorator(dependency='self.closest_parameter_set_dir')
     def closest_spinup_dir(self):
         return super().closest_spinup_dir
     
     @property
-    @util.cache.memory_based.decorator(dependency=('spinup_dir', 'model_options.spinup_options.years', 'model_options.spinup_options.tolerance', 'model_options.spinup_options.combination'))
+    @util.cache.memory_based.decorator(dependency=('self.spinup_dir', 'self.model_options.spinup_options.years', 'self.model_options.spinup_options.tolerance', 'self.model_options.spinup_options.combination'))
     def run_dir(self):
         return super().run_dir
 
@@ -1061,7 +1061,7 @@ class Model_With_F_MemoryCached(Model_Database_MemoryCached, Model_With_F):
 class Model_With_F_And_DF_MemoryCached(Model_With_F_MemoryCached, Model_With_F_And_DF):
 
     @property
-    @util.cache.memory_based.decorator(dependency=('parameter_set_dir', 'model_options.derivative_options.step_size'))
+    @util.cache.memory_based.decorator(dependency=('self.parameter_set_dir', 'self.model_options.derivative_options.step_size'))
     def derivative_dir(self):
         step_size = self.model_options.derivative_options.step_size
         derivative_dir = os.path.join(self.parameter_set_dir, simulation.model.constants.DATABASE_DERIVATIVE_DIRNAME.format(step_size=step_size))
