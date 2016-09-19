@@ -76,7 +76,7 @@ class Model_Database:
         try:
             job_options['derivative']['name']
         except KeyError:
-            job_options['derivative']['name'] = 'derivative_' + default_name
+            job_options['derivative']['name'] = 'derivative' + default_name
         try:
             job_options['trajectory']
         except KeyError:
