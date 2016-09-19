@@ -47,6 +47,7 @@ class CostFunctionJob(util.batch.universal.system.Job):
             job_name = cf_kind
             if cf_kind == 'GLS':
                 job_name = job_name + '_{min_measurements_correlations}'.format(min_measurements_correlations=min_measurements_correlations)
+            job_name = job_name + '_' + model_options.model_name
             if max_box_distance_to_water is not None and max_box_distance_to_water != float('inf'):
                 job_name = job_name + '_N{max_box_distance_to_water:d}'.format(max_box_distance_to_water=max_box_distance_to_water)
 
