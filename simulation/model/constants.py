@@ -91,13 +91,13 @@ assert len(MODEL_DEFAULT_INITIAL_CONCENTRATION['NPZD-DOP']) == len(MODEL_TRACER[
 MODEL_PARAMETER_BOUNDS = {}
 
 MODEL_PARAMETER_BOUNDS['MITgcm-PO4-DOP'] = np.array([
-[0, METOS_T_DIM],       # KDOPRemin                                   = u(1)/360.d0
-[0, np.inf],            # alpha(1-OLx:sNx+OLx,1-OLy:sNy+OLy,nSx,nSy)  = u(2)/360.d0
-[0, 1],                 # DOPfraction                                 = u(3)
-[10**(-8), np.inf],     # KPO4                                        = u(4)
-[10**(-8), np.inf],     # lit0                                        = u(5)
-[0, np.inf],            # k0                                          = u(6)
-[0, np.inf]             # KRemin                                      = u(7)
+[0, METOS_T_DIM],       # lambdaDOPprime  = u(1)/360.d0   ! DOP reminalization rate   [1/y]
+[0, np.inf],            # muP             = u(2)          ! maximum groth rate P      [1/d]
+[0, 1],                 # sigmaDOP        = u(3)          ! fraction of DOP           [1]
+[10**(-8), np.inf],     # KN              = u(4)          ! N half saturation         [mmolP/m^3]
+[10**(-8), np.inf],     # KI              = u(5)          ! I half saturation         [W/m^2]
+[0, np.inf],            # kw              = u(6)          ! attenuation of water      [1/m]
+[0, np.inf]             # b               = u(7)          ! power law coefficient     [1]
 ])
 assert MODEL_PARAMETER_BOUNDS['MITgcm-PO4-DOP'].shape == (7, 2)
 
