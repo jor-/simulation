@@ -40,6 +40,8 @@ logger = util.logging.logger
 class Base():
 
     def __init__(self, measurements_collection, model_options=None, job_options=None):
+        ## set measurements
+        self.measurements = measurements.universal.data.as_measurements_collection(measurements_collection)
         
         ## prepare job options
         if job_options is None:
@@ -77,10 +79,9 @@ class Base():
             except KeyError:
                 job_options['trajectory']['nodes_setup'] = simulation.optimization.constants.COST_FUNCTION_NODES_SETUP_TRAJECTORY.copy()
 
-        ## set measurements, model and cache
-        self.measurements = measurements.universal.data.as_measurements_collection(measurements_collection)
-        self.initial_base_concentrations = np.asanyarray(model_options.initial_concentration_options.concentrations)
+        ## set model, initial_base_concentrations and cache
         self.model = simulation.model.cache.Model(model_options=model_options, job_options=job_options)
+        self.initial_base_concentrations = np.asanyarray(self.model.model_options.initial_concentration_options.concentrations)
         self.cache = self.model._cache
 
 
