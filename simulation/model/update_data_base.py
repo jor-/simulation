@@ -8,7 +8,7 @@ import util.io.fs
 
 
 def update_db():
-    BASE_DIR = '/sfs/fs3/work-sh1/sunip229/database/model_dop_po4/time_step_0001'
+    BASE_DIR = '$SIMULATION_OUTPUT_DIR/model_dop_po4/time_step_0001'
     DB_FILE = os.path.join(BASE_DIR, 'database.npy')
     db_array = np.load(DB_FILE)
     PARAMETER_SET_DIR = os.path.join(BASE_DIR, 'parameter_set_{:0>5d}')

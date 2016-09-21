@@ -15,53 +15,6 @@ logger = util.logging.logger
 
 ## general update functions for job options
 
-# def update_job_options(update_function):
-#     from simulation.model.constants import MODEL_NAMES, DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME, DATABASE_SPINUP_DIRNAME
-# 
-#     for model_name in MODEL_NAMES:
-#         model_dirname = DATABASE_MODEL_DIRNAME.format(model_name)
-#         model_dir = os.path.join(DATABASE_OUTPUT_DIR, model_dirname)
-#         
-#         for time_step_dir in util.io.fs.get_dirs(model_dir, use_absolute_filenames=True):
-#             parameter_set_dirs = util.io.fs.get_dirs(time_step_dir, use_absolute_filenames=True)
-#             logger.debug('{} parameter set dirs found in {}.'.format(len(parameter_set_dirs), time_step_dir))
-#     
-#             for parameter_set_dir in parameter_set_dirs:
-#                 spinup_dir = os.path.join(parameter_set_dir, DATABASE_SPINUP_DIRNAME)
-#                 update_job_options_in_run_dirs(spinup_dir, update_function)
-#     
-#                 derivative_dir = os.path.join(parameter_set_dir, 'derivative')
-#                 
-#                 for step_size_dir in util.io.fs.get_dirs(derivative_dir, use_absolute_filenames=True):
-#                     for partial_derivative_dir in util.io.fs.get_dirs(step_size_dir, use_absolute_filenames=True):
-#                         update_job_options_in_run_dirs(partial_derivative_dir, update_function)
-#     
-# 
-# 
-# def update_job_options_in_run_dirs(run_dir_path, update_function):
-#     from simulation.model.constants import DATABASE_RUN_DIRNAME
-# 
-#     runs_len = len(util.io.fs.get_dirs(run_dir_path, use_absolute_filenames=True))
-# 
-#     for run in range(runs_len):
-#         run_dirname = DATABASE_RUN_DIRNAME.format(run)
-#         run_dir = os.path.join(run_dir_path, run_dirname)
-# 
-#         if os.path.exists(run_dir):
-#             update_job_options_in_job_options_dir(run_dir, update_function)
-# 
-# 
-# def update_job_options_in_job_options_dir(job_options_dir, update_function):
-#     logger.debug('Updating job options in {}.'.format(job_options_dir))
-# 
-#     job_file = os.path.join(job_options_dir, '*/job_options.hdf5')
-# 
-#     util.io.fs.make_writable(job_file)
-#     update_function(job_options_dir)
-#     util.io.fs.make_read_only(job_file)
-
-
-
 def update_job_options(update_function, model_names=None):
     if model_names is None:
         database_dir = simulation.model.constants.DATABASE_OUTPUT_DIR
@@ -83,26 +36,12 @@ def update_job_options(update_function, model_names=None):
         util.io.fs.make_writable(job_file)
         update_function(job_file)
         util.io.fs.make_read_only(job_file)
-        
 
-    
 
 
 ## specific update functions for job options
 
-# def update_output_dir():
-#     def update_function(job_options_dir):
-#         with simulation.model.job.Metos3D_Job(job_options_dir, force_load=True) as job:
-#             job.update_output_dir(job_options_dir)
-# 
-#     update_job_options(update_function)
-
-
-
 def update_output_dir(model_names=None):
-    # def update_function(job_options_dir):
-    #     job_file = os.path.join(job_options_dir, 'job_options.hdf5')
-    #     with util.options.OptionsFile(job_file, mode='r') as options:
     def update_function(job_file):
         with util.options.OptionsFile(job_file) as options:
             old_output_path = options['/metos3d/output_dir']
@@ -121,38 +60,7 @@ def update_output_dir(model_names=None):
 
 
 
-    #     old_output_path = opt['/metos3d/output_dir']
-    #
-    #       if old_output_path.endswith('/'):
-    #         old_output_path = old_output_path[:-1]
-    #     if new_output_path.endswith('/'):
-    #         new_output_path = new_output_path[:-1]
-    #
-    #       opt.replace_all_str_options(old_output_path, new_output_path)   
-
-
-def add_finished_file():
-    # def update_function(job_options_dir):
-    #     job_file = os.path.join(job_options_dir, 'job_options.hdf5')
-    #     with util.options.OptionsFile(job_file, mode='r') as options:
-    def update_function(job_file):
-        with util.options.OptionsFile(job_file) as options:
-            try:
-                options['/job/finished_file']
-                print('Finished file option already there in job option file {}.'.format(job_file))
-            except KeyError:
-                finished_file = os.path.join(job_options_dir, 'finished.txt')
-                options['/job/finished_file'] = finished_file
-                print('Finished file option added to job option file {}.'.format(job_file))
-
-    update_job_options(update_function)
-
-
-
 def update_str_options(old_str, new_str):
-    # def update_function(job_options_dir):
-    #     job_file = os.path.join(job_options_dir, 'job_options.hdf5')
-    #     with util.options.OptionsFile(job_file) as options:
     def update_function(job_file):
         with util.options.OptionsFile(job_file) as options:
             options.replace_all_str_options(old_str, new_str)
@@ -160,10 +68,6 @@ def update_str_options(old_str, new_str):
 
 
 def update_new_option_entries(model_names=None):
-    # def update_function(job_options_dir):
-        # job_file = os.path.join(job_options_dir, 'job_options.hdf5')
-        # 
-        # with util.options.OptionsFile(job_file) as options:
     def update_function(job_file):
         with util.options.OptionsFile(job_file) as options:
             
@@ -399,34 +303,67 @@ def update_new_option_entries(model_names=None):
             # except KeyError:
             #     options['/job/unfinished_file'] = os.path.join(job_options_dir, 'unfinished.txt')
             #     print('/job/unfinished_file added to job option file {}.'.format(job_file))
+            # 
+            # try:
+            #     options['/metos3d/tolerance']
+            # except KeyError:
+            #     pass
+            # else:
+            #     options['/model/spinup/tolerance'] = options['/metos3d/tolerance']
+            #     del options['/metos3d/tolerance']
+            #     print('/metos3d/tolerance renamed to /model/spinup/tolerance in job option file {}.'.format(job_file))            
+            # 
+            # try:
+            #     options['/metos3d/years']
+            # except KeyError:
+            #     pass
+            # else:
+            #     options['/model/spinup/years'] = options['/metos3d/years']
+            #     del options['/metos3d/years']
+            #     print('/metos3d/years renamed to /model/spinup/years in job option file {}.'.format(job_file))
             
             try:
-                options['/metos3d/tolerance']
-            except KeyError:
-                pass
-            else:
-                options['/model/spinup/tolerance'] = options['/metos3d/tolerance']
-                del options['/metos3d/tolerance']
-                print('/metos3d/tolerance renamed to /model/spinup/tolerance in job option file {}.'.format(job_file))            
-            
-            try:
-                options['/metos3d/years']
-            except KeyError:
-                pass
-            else:
-                options['/model/spinup/years'] = options['/metos3d/years']
-                del options['/metos3d/years']
-                print('/metos3d/years renamed to /model/spinup/years in job option file {}.'.format(job_file))
+                try:
+                    options['/model/tracer_input_files']
+                except KeyError:
+                    pass
+                else:
+                    files = options['/model/tracer_input_files']
+                    output_dir = options['/metos3d/output_dir']
+                    
+                    def remove_to_parameter_set(value):
+                        while not os.path.basename(value).startswith('parameter_set'):
+                            assert len(value) > 0
+                            value = os.path.dirname(value)
+                        return value
+                    
+                    parameter_set_base_dir_correct = remove_to_parameter_set(output_dir)
+                
+                    def replace(file):
+                        file = file.replace('dop_input.petsc', 'dop_output.petsc')
+                        file = file.replace('po4_input.petsc', 'po4_output.petsc')
+                    
+                        parameter_set_base_dir_wrong = remove_to_parameter_set(file)
+                        assert os.path.basename(parameter_set_base_dir_correct) == os.path.basename(parameter_set_base_dir_wrong)
+                        file = parameter_set_base_dir_correct + file[len(parameter_set_base_dir_wrong):]
+                        return file
+                    
+                    new_files = tuple(map(replace, files))
+                    assert all(map(os.path.exists, map(os.path.expandvars, new_files)))
+                    logger.info('/model/tracer_input_files: {} replaced by {}.'.format(files, new_files))
+                    
+                    options['/model/tracer_input_files'] = new_files
+                except AssertionError:
+                    logger.error('Could not update /model/tracer_input_files: {}.'.format(files))
+                    
             
             
 
     update_job_options(update_function, model_names=model_names)
 
 
+
 def update_run_dirs_in_job_options():
-    # def update_function(job_options_dir):
-    #     job_file = os.path.join(job_options_dir, 'job_options.hdf5')
-    #     with util.options.OptionsFile(job_file) as options:
     def update_function(job_file):
         with util.options.OptionsFile(job_file) as options:
             for i in range(9):
@@ -434,6 +371,7 @@ def update_run_dirs_in_job_options():
                 new_str = 'run_{:0>5d}/'.format(i)
                 options.replace_all_str_options(old_str, new_str)
     update_job_options(update_function)
+
 
 
 def update_tracer_input_files_in_job_options():
@@ -463,6 +401,7 @@ def update_tracer_input_files_in_job_options():
     update_job_options(update_function)
 
 
+
 ## general update functions for parameter files
 
 def update_parameter_files(update_function):
@@ -484,16 +423,6 @@ def update_parameter_files(update_function):
                 p = update_function(p)
                 np.savetxt(parameter_file, p)
                 util.io.fs.make_read_only(parameter_file)
-
-
-# def update_parameter_files_add_total_concentration_factors():
-#     def update_function(p):
-#         assert len(p) in [7, 8]
-#         if len(p) == 7:
-#             p = np.concatenate([p, [1]])
-#         assert len(p) == 8
-#         return p
-#     update_parameter_files(update_function)
 
 
 
