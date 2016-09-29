@@ -55,17 +55,12 @@ def update_function_output_dir(job_file):
             logger.info('Changing output path from {} to {}.'.format(old_output_dir, new_output_dir))
             options.replace_all_str_options(old_output_dir, new_output_dir) 
 
-# def update_output_dir(model_names=None):
-#     update_job_options(update_function_output_dir, model_names=model_names)
-
 
 
 def update_function_str_options(job_file):
     with util.options.OptionsFile(job_file) as options:
         options.replace_all_str_options(old_str, new_str)
 
-# def update_str_options(old_str, new_str):
-#     update_job_options(updateupdate_function_str_options_function)
 
 
 def update_function_option_entries(job_file):
@@ -323,65 +318,60 @@ def update_function_option_entries(job_file):
         #     logger.info('/metos3d/years renamed to /model/spinup/years in job option file {}.'.format(job_file))
         
         try:
-            try:
-                options['/model/tracer_input_files']
-            except KeyError:
-                pass
-            else:
-                files = options['/model/tracer_input_files']
-                output_dir = options['/metos3d/output_dir']
-                
-                ## replace
-                def remove_to_parameter_set(value):
-                    while not os.path.basename(value).startswith('parameter_set'):
-                        assert len(value) > 0
-                        value = os.path.dirname(value)
-                    return value
-                
-                parameter_set_base_dir_correct = remove_to_parameter_set(output_dir)
+            options['/model/tracer_input_files']
+        except KeyError:
+            pass
+        else:
+            files = options['/model/tracer_input_files']
+            output_dir = options['/metos3d/output_dir']
             
-                def replace_tracer_input_file(file):
-                    file = file.replace('dop_input.petsc', 'dop_output.petsc')
-                    file = file.replace('po4_input.petsc', 'po4_output.petsc')
-                
-                    parameter_set_base_dir_wrong = remove_to_parameter_set(file)
-                    file = parameter_set_base_dir_correct + file[len(parameter_set_base_dir_wrong):]
-                    return file
-                
-                new_files = tuple(map(replace_tracer_input_file, files))
-                
-                if any(['derivative' in new_file for new_file in new_files]):
-                    spinup_dir = os.path.join(parameter_set_base_dir_correct, 'spinup')
-                    run_dirs = os.listdir(path=os.path.expandvars(spinup_dir))
-                    assert len(run_dirs) == 1
-                    new_files = tuple(os.path.join(spinup_dir, run_dirs[0], tracer_input_filename) for tracer_input_filename in options['/metos3d/output_filenames'])
-                
-                assert len(new_files) == 2
-                
-                ## correct order
-                if 'po4' in new_files[1]:
-                    new_files = new_files[::-1]
-                
-                ## check if exist
-                new_files_expanded = tuple(map(os.path.expandvars, new_files))
-                assert all(map(os.path.exists, new_files_expanded))
-                
-                ## check if same
-                metos_tracer_input_files = (os.path.join(output_dir, tracer_input_filename) for tracer_input_filename in options['/metos3d/input_filenames'])
-                metos_tracer_input_files_expanded = tuple(map(os.path.expandvars, metos_tracer_input_files))
-                # assert all((all(util.petsc.universal.load_petsc_vec_to_numpy_array(a) == util.petsc.universal.load_petsc_vec_to_numpy_array(b)) for a, b in zip(new_files_expanded, metos_tracer_input_files_expanded)))
-                assert all((np.allclose(util.petsc.universal.load_petsc_vec_to_numpy_array(a), util.petsc.universal.load_petsc_vec_to_numpy_array(b)) for a, b in zip(new_files_expanded, metos_tracer_input_files_expanded)))
-                
-                ## set
-                if any(options['/model/tracer_input_files'] != new_files):
-                    logger.info('/model/tracer_input_files: {} replaced by {}.'.format(files, new_files))
-                    options['/model/tracer_input_files'] = new_files
+            ## replace
+            def remove_to_parameter_set(value):
+                while not os.path.basename(value).startswith('parameter_set'):
+                    assert len(value) > 0
+                    value = os.path.dirname(value)
+                return value
+            
+            parameter_set_base_dir_correct = remove_to_parameter_set(output_dir)
+        
+            def replace_tracer_input_file(file):
+                file = file.replace('dop_input.petsc', 'dop_output.petsc')
+                file = file.replace('po4_input.petsc', 'po4_output.petsc')
+            
+                parameter_set_base_dir_wrong = remove_to_parameter_set(file)
+                file = parameter_set_base_dir_correct + file[len(parameter_set_base_dir_wrong):]
+                return file
+            
+            new_files = tuple(map(replace_tracer_input_file, files))
+            
+            if any(['derivative' in new_file for new_file in new_files]):
+                spinup_dir = os.path.join(parameter_set_base_dir_correct, 'spinup')
+                run_dirs = os.listdir(path=os.path.expandvars(spinup_dir))
+                assert len(run_dirs) == 1
+                new_files = tuple(os.path.join(spinup_dir, run_dirs[0], tracer_input_filename) for tracer_input_filename in options['/metos3d/output_filenames'])
+            
+            assert len(new_files) == 2
+            
+            ## correct order
+            if 'po4' in new_files[1]:
+                new_files = new_files[::-1]
+            
+            ## check if exist
+            new_files_expanded = tuple(map(os.path.expandvars, new_files))
+            assert all(map(os.path.exists, new_files_expanded))
+            
+            ## check if same
+            metos_tracer_input_files = (os.path.join(output_dir, tracer_input_filename) for tracer_input_filename in options['/metos3d/input_filenames'])
+            metos_tracer_input_files_expanded = tuple(map(os.path.expandvars, metos_tracer_input_files))
+            assert all((np.allclose(util.petsc.universal.load_petsc_vec_to_numpy_array(a), util.petsc.universal.load_petsc_vec_to_numpy_array(b)) for a, b in zip(new_files_expanded, metos_tracer_input_files_expanded)))
+            
+            ## set
+            if any(options['/model/tracer_input_files'] != new_files):
+                logger.info('/model/tracer_input_files: {} replaced by {}.'.format(files, new_files))
+                options['/model/tracer_input_files'] = new_files
         except AssertionError:
             logger.error('Could not update /model/tracer_input_files: {}.'.format(files))
 
-
-# def update_option_entries(model_names=None):
-#     update_job_options(update_function_option_entries, model_names=model_names)
 
 
 
