@@ -17,6 +17,7 @@ import util.index_database.general
 #TODO check read only for finished jobs
 #TODO check cache option files available
 #TODO at multiple runs check if right successor
+#TODO check right df step size
 
 ERROR_IGNORE_LIST = ("librdmacm: Fatal: unable to get RDMA device list"+os.linesep, "librdmacm: Warning: couldn't read ABI version."+os.linesep, "librdmacm: Warning: assuming: 4"+os.linesep, 'cpuinfo: error while loading shared libraries: libgcc_s.so.1: cannot open shared object file: No such file or directory'+os.linesep)
 
