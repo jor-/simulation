@@ -10,6 +10,14 @@ readme_file = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'README.r
 with open(readme_file, mode='r', encoding='utf-8') as f:
     long_description = f.read()
 
+# Version string
+def version():
+    import setuptools_scm
+    def empty_local_scheme(version):
+        return ""
+    return {'local_scheme': empty_local_scheme}
+
+
 setuptools.setup(
     # Name
     name='simulation',
@@ -29,7 +37,7 @@ setuptools.setup(
     author_email='jor@informatik.uni-kiel.de',
 
     # Version
-    use_scm_version=True,
+    use_scm_version=version,
 
     # License
     # license='MIT',
