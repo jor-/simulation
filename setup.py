@@ -73,7 +73,7 @@ setuptools.setup(
         'Topic :: Software Development :: Libraries :: Python Modules',
 
         # Licence (should match "license" above)
-        'License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)'
+        'License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)',
 
         # Supported Python versions
         'Programming Language :: Python :: 3',
