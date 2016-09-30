@@ -1,3 +1,19 @@
+# simulation: a collection of functions to handel simulations using Metos3D
+# Copyright (C) 2011-2016  Joscha Reimer jor@informatik.uni-kiel.de
+# 
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 """A setuptools based setup module.
 https://packaging.python.org/en/latest/distributing.html
 """
@@ -20,31 +36,31 @@ def version():
 
 setuptools.setup(
     # Name
-    name='simulation',
+    name = 'simulation',
     
     # Desctiption
-    description='simulation functions',
-    long_description=long_description,
+    description = 'simulation functions',
+    long_description = long_description,
     
     # Keywords
-    keywords='simulation functions',
+    keywords = 'simulation functions',
 
     # Homepage
-    url='https://github.com/jor-/measurements',
+    url = 'https://github.com/jor-/measurements',
 
     # Author
-    author='Joscha Reimer',
-    author_email='jor@informatik.uni-kiel.de',
+    author = 'Joscha Reimer',
+    author_email = 'jor@informatik.uni-kiel.de',
 
     # Version
-    use_scm_version=version,
+    use_scm_version = version,
 
     # License
-    # license='MIT',
+    license = 'GPLv3+',
 
     # Classifiers
     # https://pypi.python.org/pypi?%3Aaction=list_classifiers
-    classifiers=[
+    classifiers = [
         # Development Status
         #   3 - Alpha
         #   4 - Beta
@@ -57,33 +73,28 @@ setuptools.setup(
         'Topic :: Software Development :: Libraries :: Python Modules',
 
         # Licence (should match "license" above)
-        #'License :: OSI Approved :: MIT License',
+        'License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)'
 
         # Supported Python versions
         'Programming Language :: Python :: 3',
-        #'Programming Language :: Python :: 3.5',scikits
     ],
 
-
     # Packages to install
-    packages=setuptools.find_packages(),
+    packages = setuptools.find_packages(),
 
     # Dependencies
-    setup_requires=[
+    setup_requires = [
         'setuptools>=0.8',
         'pip>=1.4',
         'setuptools_scm',
     ],
-    install_requires=[
+    install_requires = [
         'numpy',
         'utillib[cache,options,interpolate,cholmod]',
         'measurements',
     ],
-    extras_require={
+    extras_require = {
         'asymptotic' : ['scipy'],
         'sorted_measurements_dict': ['measurements[sorted_measurements_dict]'],
     },
-    dependency_links = [
-        'git+https://github.com/jor-/util.git#egg=utillib-0.1.dev90+n72d8d0a',
-    ]
 )
