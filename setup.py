@@ -59,12 +59,8 @@ setuptools.setup(
     license = 'GPLv3+',
 
     # Classifiers
-    # https://pypi.python.org/pypi?%3Aaction=list_classifiers
     classifiers = [
         # Development Status
-        #   3 - Alpha
-        #   4 - Beta
-        #   5 - Production/Stable
         'Development Status :: 3 - Alpha',
 
         # Intended Audience, Topic
