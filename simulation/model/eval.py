@@ -519,6 +519,37 @@ class Model_Database:
             if job_options['nodes_setup'] is not None:
                 job_options['nodes_setup'] = job_options['nodes_setup'].copy()
         return job_options
+    
+    
+    ## iterator
+    def iterator(self, model_names=None):
+        if model_names is None:
+            model_names = simulation.model.constants.MODEL_NAMES
+        time_steps = simulation.model.constants.METOS_TIME_STEPS
+        old_model_options = self.model_options.copy()
+        model_options = self.model_options
+        model_options.spinup_options = {'years':1, 'tolerance':0.0, 'combination':'or'}
+        
+        for model_name in model_names:
+            model_options.model_name = model_name
+            model_dir = self.model_dir
+            if os.path.exists(model_dir):
+                concentration_dbs = []
+                if os.path.exists(os.path.join(model_dir, simulation.model.constants.DATABASE_CONSTANT_CONCENTRATIONS_DIRNAME)):
+                    concentration_dbs.append(self._constant_concentrations_db)
+                if os.path.exists(os.path.join(model_dir, simulation.model.constants.DATABASE_VECTOR_CONCENTRATIONS_DIRNAME)):
+                    concentration_dbs.append(self._vector_concentrations_db)
+                for concentrations_db in concentration_dbs:
+                    for concentration in concentrations_db.all_values():
+                        model_options.initial_concentration_options.concentrations = concentration
+                        for time_step in time_steps:
+                            model_options.time_step = time_step
+                            if os.path.exists(self.time_step_dir):
+                                for parameters in self._parameter_db.all_values():
+                                    model_options.parameters = parameters
+                                    yield model_options
+        
+        self.model_options = old_model_options
 
 
 class Model_With_F(Model_Database):
