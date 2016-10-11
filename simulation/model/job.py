@@ -110,7 +110,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
         except KeyError:
             tracer_input_files = []
         else:
-            tracer_input_files = [os.path.join(tracer_input_dir, tracer_input_filename) for tracer_input_filename in self.options['/metos3d/input_filenames']]
+            tracer_input_files = [os.path.join(tracer_input_dir, tracer_input_filename) for tracer_input_filename in self.options['/metos3d/tracer_input_filenames']]
         return tracer_input_files
     
     
@@ -128,7 +128,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
     @property
     def tracer_output_files(self):
         tracer_output_dir = self.tracer_output_dir
-        tracer_output_files = [os.path.join(tracer_output_dir, tracer_output_filename) for tracer_output_filename in self.options['/metos3d/output_filenames']]
+        tracer_output_files = [os.path.join(tracer_output_dir, tracer_output_filename) for tracer_output_filename in self.options['/metos3d/tracer_output_filenames']]
         return tracer_output_files
     
     
@@ -327,18 +327,18 @@ class Metos3D_Job(util.batch.universal.system.Job):
         opt['/metos3d/output_dir'] = output_dir_not_expanded
         opt['/metos3d/option_file'] = os.path.join(output_dir_not_expanded, 'metos3d_options.txt')
         opt['/metos3d/debuglevel'] = 1
-        opt['/metos3d/output_filenames'] = ['{}_output.petsc'.format(tracer) for tracer in opt['/model/tracer']]
+        opt['/metos3d/tracer_output_filenames'] = ['{}_output.petsc'.format(tracer) for tracer in opt['/model/tracer']]
         
         ## tracer_input_files
         if tracer_input_files is not None:
             opt['/model/tracer_input_files'] = tracer_input_files
             
             opt['/metos3d/tracer_input_dir'] = output_dir_not_expanded
-            opt['/metos3d/input_filenames'] = ['{}_input.petsc'.format(tracer) for tracer in opt['/model/tracer']]
+            opt['/metos3d/tracer_input_filenames'] = ['{}_input.petsc'.format(tracer) for tracer in opt['/model/tracer']]
             
             for i in range(len(opt['/model/tracer'])):
                 tracer_input_base_file = os.path.expanduser(os.path.expandvars(tracer_input_files[i]))
-                tracer_input_result_file = os.path.join(output_dir, opt['/metos3d/input_filenames'][i])
+                tracer_input_result_file = os.path.join(output_dir, opt['/metos3d/tracer_input_filenames'][i])
             
                 if total_concentration_factor == 1:
                     tracer_input_base_file = os.path.relpath(tracer_input_base_file, start=output_dir)
@@ -386,12 +386,12 @@ class Metos3D_Job(util.batch.universal.system.Job):
 
         try:
             f.write('-Metos3DTracerInputDirectory            {} \n'.format(opt['/metos3d/tracer_input_dir']))
-            f.write('-Metos3DTracerInitFile                  {} \n'.format(','.join(map(str, opt['/metos3d/input_filenames']))))
+            f.write('-Metos3DTracerInitFile                  {} \n'.format(','.join(map(str, opt['/metos3d/tracer_input_filenames']))))
         except KeyError:
             f.write('-Metos3DTracerInitValue                 {} \n'.format(opt['/metos3d/initial_constant_concentrations_string']))
 
         f.write('-Metos3DTracerOutputDirectory           {} \n'.format(opt['/metos3d/tracer_output_dir']))
-        f.write('-Metos3DTracerOutputFile                {} \n\n'.format(','.join(map(str, opt['/metos3d/output_filenames']))))
+        f.write('-Metos3DTracerOutputFile                {} \n\n'.format(','.join(map(str, opt['/metos3d/tracer_output_filenames']))))
 
         f.write('# bgc parameter \n')
         f.write('-Metos3DParameterCount                  {:d} \n'.format(len(opt['/model/parameters'])))
