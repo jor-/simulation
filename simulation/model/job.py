@@ -16,18 +16,25 @@ logger = util.logging.logger
 
 class Metos3D_Job(util.batch.universal.system.Job):
 
-
+    ## run options
+    
     @property
     def last_spinup_line(self):
         self.wait_until_finished()
 
         # 9.704s 0010 Spinup Function norm 2.919666257647e+00
         # 9.704s 0010 Spinup Function norm 2.919666257647e+00 7.012035082243e+06
+        
+        search_str = 'Spinup Function norm'
         last_spinup_line = None
-        with open(self.output_file) as f:
-            for line in f.readlines():
-                if 'Spinup Function norm' in line:
-                    last_spinup_line = line
+        output = self.output
+        for line in output.splitlines():
+            if search_str in line:
+                last_spinup_line = line
+        
+        if last_spinup_line is None:
+            error_message = 'In job output is no "{}" line.'.format(search_str)
+            raise util.batch.universal.system.JobError(self, error_message, include_ouput=True)
 
         return last_spinup_line
 
@@ -75,6 +82,8 @@ class Metos3D_Job(util.batch.universal.system.Job):
         return time_step
 
 
+    ## files
+    
     @property
     def metos3d_option_file(self):
         return self.options['/metos3d/option_file']
@@ -147,6 +156,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
                 util.io.fs.make_read_only(file)
 
 
+    ## exit code and is finished
 
     @property
     def exit_code(self):
@@ -193,24 +203,10 @@ class Metos3D_Job(util.batch.universal.system.Job):
             if self.output != job_output:
                 return False
             else:
-                raise util.batch.universal.system.JobError(self.id, self.output_dir, 'The job output file is not completely written!', job_output)
-    
-    
-
-    # def update_output_dir(self, new_output_path):
-    #     opt = self.options
-    #     old_output_path = opt['/metos3d/output_dir']
-    #
-    #       if old_output_path.endswith('/'):
-    #         old_output_path = old_output_path[:-1]
-    #     if new_output_path.endswith('/'):
-    #         new_output_path = new_output_path[:-1]
-    #
-    #       opt.replace_all_str_options(old_output_path, new_output_path)    
-    
+                raise util.batch.universal.system.JobError(self, 'The job output file is not completely written!', job_output)
 
 
-
+    ## write job file
 
     def write_job_file(self, model_name, model_parameters, years, tolerance=None, time_step=1, initial_constant_concentrations=None, tracer_input_files=None, total_concentration_factor=1, write_trajectory=False, job_options=None):
 
@@ -449,7 +445,6 @@ class Metos3D_Job(util.batch.universal.system.Job):
 
         ## write job file
         run_command = '{} {} \n'.format(opt['/metos3d/sim_file'], opt['/metos3d/option_file'])
-        # super().write_job_file(run_command, modules=['intel', 'intelmpi', 'petsc'])
         super().write_job_file(run_command, modules=['intel16', 'intelmpi16'])
 
         logger.debug('Job initialised.')
