@@ -38,6 +38,7 @@ class Model_Database:
         model_options = util.options.as_options(model_options, simulation.model.options.ModelOptions)
         self.model_options = model_options
         
+        self.database_output_dir = simulation.model.constants.DATABASE_OUTPUT_DIR
         self.start_from_closest_parameters = simulation.model.constants.MODEL_START_FROM_CLOSEST_PARAMETER_SET
         self.model_spinup_max_years = simulation.model.constants.MODEL_SPINUP_MAX_YEARS
         self._cached_interpolator = None
@@ -96,7 +97,7 @@ class Model_Database:
     def model_dir(self):
         model_name = self.model_options.model_name
         model_dirname = simulation.model.constants.DATABASE_MODEL_DIRNAME.format(model_name)
-        model_dir = os.path.join(simulation.model.constants.DATABASE_OUTPUT_DIR, model_dirname)
+        model_dir = os.path.join(self.database_output_dir, model_dirname)
         
         logger.debug('Returning model directory {} for model {}.'.format(model_dir, model_name))
         return model_dir
@@ -518,8 +519,6 @@ class Model_Database:
             if job_options['nodes_setup'] is not None:
                 job_options['nodes_setup'] = job_options['nodes_setup'].copy()
         return job_options
-    
-
 
 
 class Model_With_F(Model_Database):
@@ -980,7 +979,7 @@ class Model_With_F_And_DF(Model_With_F):
 class Model_Database_MemoryCached(Model_Database):
     
     @property
-    @util.cache.memory_based.decorator(dependency='self.model_options.model_name')
+    @util.cache.memory_based.decorator(dependency=('self.database_output_dir', 'self.model_options.model_name'))
     def model_dir(self):
         return super().model_dir
     
@@ -1072,4 +1071,3 @@ class Model_With_F_And_DF_MemoryCached(Model_With_F_MemoryCached, Model_With_F_A
 
 
 Model = Model_With_F_And_DF_MemoryCached
-
