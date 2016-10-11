@@ -551,6 +551,49 @@ class Model_Database:
         
         self.model_options = old_model_options
 
+    ## integrity
+    def check_integrity(self, model_names=None):
+        logger.debug('Checking database integrity.')
+        
+        ## check concentrations and parameters database
+        if model_names is None:
+            model_names = simulation.model.constants.MODEL_NAMES
+        
+        time_steps = simulation.model.constants.METOS_TIME_STEPS
+        
+        old_model_options = self.model_options
+        model_options = simulation.model.options.ModelOptions()
+        self.model_options = model_options
+        
+        try:
+            for model_name in model_names:
+                model_options.model_name = model_name
+                model_dir = self.model_dir
+                if os.path.exists(model_dir):
+                    if os.path.exists(os.path.join(model_dir, simulation.model.constants.DATABASE_CONSTANT_CONCENTRATIONS_DIRNAME)):
+                        concentrations_db = self._constant_concentrations_db
+                        concentrations_db.check_integrity()
+                        for concentration in concentrations_db.all_values():
+                            model_options.initial_concentration_options.concentrations = concentration
+                            for time_step in time_steps:
+                                model_options.time_step = time_step
+                                if os.path.exists(self.time_step_dir):
+                                    parameter_db = self._parameter_db
+                                    parameter_db.check_integrity()
+        except util.index_database.general.DatabaseError as e:
+            logger.error(e)
+            raise
+        finally:
+            self.model_options = old_model_options
+        
+        ## check that last run dir exists
+        for model_option in self.iterator(model_names=model_names):
+            spinup_dir = self.spinup_dir
+            last_run_dir = self.last_run_dir(spinup_dir)
+            if last_run_dir is None:
+                raise DatabaseError('It is no run dir in {}!'.format(spinup_dir))
+
+
 
 class Model_With_F(Model_Database):
     
@@ -1102,3 +1145,13 @@ class Model_With_F_And_DF_MemoryCached(Model_With_F_MemoryCached, Model_With_F_A
 
 
 Model = Model_With_F_And_DF_MemoryCached
+
+
+
+
+class DatabaseError(Exception):
+    def __init__(self, database, message):
+        self.database = database
+        message = 'Error at database {}: {}'.format(self.database_output_dir, message)
+        super().__init__(message)
+
