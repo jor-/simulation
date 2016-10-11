@@ -448,3 +448,94 @@ class Metos3D_Job(util.batch.universal.system.Job):
         super().write_job_file(run_command, modules=['intel16', 'intelmpi16'])
 
         logger.debug('Job initialised.')
+
+    
+    
+    ## check integrity
+
+    def check_integrity(self, should_be_started=False, should_be_readonly=False):
+        ## super check
+        super().check_integrity(should_be_started=should_be_started, should_be_readonly=should_be_readonly)
+        
+        ## check output
+        if self.is_started():
+            self.time_step
+        
+        if self.is_finished():
+            self.last_year
+            self.last_tolerance
+        
+        ## check functions
+        options = self.options
+        
+        def option_exists(option):
+            try:
+                options[option]
+            except KeyError:
+                return False
+            else:
+                return True
+        
+        def check_if_option_exists(option, should_exists=True):
+            exists = option_exists(option)
+            if not exists and should_exists:
+                raise util.batch.universal.system.JobMissingOptionError(self, option)
+            if exists and not should_exists:
+                raise util.batch.universal.system.JobError(self, 'Job option {} should not exist!'.format(option))
+
+        def check_if_file_exists(file, should_exists=True, should_be_in_output_dir=True):
+            if should_be_in_output_dir and not file.startswith(self.output_dir):
+                raise util.batch.universal.system.JobError(self, 'The file {} should start with {}.'.format(file, self.output_dir))
+            exists =  os.path.exists(file)
+            if should_exists and not exists:
+                raise util.batch.universal.system.JobError(self, 'File {} does not exist.'.format(file))
+            if not should_exists and exists:
+                raise util.batch.universal.system.JobError(self, 'File {} should not exist.'.format(file))
+    
+        def check_if_file_option_exists(option, should_exists=True, check_file_exists=True, should_be_in_output_dir=True):
+            check_if_option_exists(option, should_exists=should_exists)
+            try:
+                file = options[option]
+            except KeyError:
+                pass
+            else:
+                check_if_file_exists(file, should_exists=should_exists, should_be_in_output_dir=should_be_in_output_dir)
+        
+        ## options should always exist
+        for option in ['/model/name', '/model/tracer', '/model/time_step', '/model/time_steps_per_year', '/model/time_step_multiplier', '/model/spinup/years', '/model/parameters', '/metos3d/parameters_string', '/metos3d/debuglevel', '/metos3d/write_trajectory', '/metos3d/tracer_output_filenames']:
+            check_if_option_exists(option)
+        
+        # for option in ['/metos3d/data_dir', '/metos3d/sim_file']:
+        #     check_if_file_option_exists(option, should_be_in_output_dir=False)
+        
+        for option in ['/metos3d/tracer_output_dir', '/metos3d/output_dir', '/metos3d/option_file']:
+            check_if_file_option_exists(option)
+    
+        
+        ## tracer input files
+        tracer_input_options = ['/model/tracer_input_files', '/metos3d/tracer_input_dir', '/metos3d/tracer_input_filenames']
+        tracer_input_options_exist = tuple(map(option_exists, tracer_input_options))
+        
+        if not all(tracer_input_options_exist) and not all(map(lambda t: not t, tracer_input_options_exist)):
+            raise util.batch.universal.system.JobError(self, 'Some of the options {} exist and some of them not!'.format(tracer_input_options))
+        
+        tracer_input_use = all(tracer_input_options_exist)
+        if tracer_input_use:
+            tuple(map(lambda file: check_if_file_exists(file), options['/model/tracer_input_files']))
+            tuple(map(lambda file: check_if_file_exists(file), [os.path.join(options['/metos3d/tracer_input_dir'], filename) for filename in options['/metos3d/tracer_input_filenames']]))
+        
+        ## concentrations
+        check_if_option_exists('/model/initial_constant_concentrations', should_exists=not tracer_input_use)
+        check_if_option_exists('/metos3d/initial_constant_concentrations_string', should_exists=not tracer_input_use)
+        
+        ## tracer dirs
+        if options['/metos3d/output_dir'] != options['/metos3d/tracer_output_dir']:
+            raise util.batch.universal.system.JobError(self, 'Metos3D output dir {} and tracer output dir in job file in {} are not the same.'.format(options['/metos3d/output_dir'], options['/metos3d/tracer_output_dir']))
+        
+        if tracer_input_use:
+            if options['/metos3d/tracer_input_dir'] != options['/metos3d/tracer_output_dir']:
+                raise util.batch.universal.system.JobError(self, 'Metos3D tracer input dir {} and tracer output dir in job file in {} are not the same.'.format(options['/metos3d/tracer_input_dir'], options['/metos3d/tracer_output_dir']))
+        
+        ## tracer output files
+        tracer_output_files = tuple(map(lambda filename: os.path.join(options['/metos3d/tracer_output_dir'], filename), options['/metos3d/tracer_output_filenames']))
+        tuple(map(lambda file: check_if_file_exists(file, should_exists=not self.is_running()), tracer_output_files))
