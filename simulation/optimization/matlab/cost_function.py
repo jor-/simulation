@@ -157,14 +157,14 @@ if __name__ == "__main__":
         
         ## init cost function
         cf = cf_class(measurements_collection=measurements, model_options=model_options, job_options=prepare_job_options())
+        cf.parameters = parameters
 
         ## if necessary start calculation job
         eval_function_value = args.eval_function_value
         eval_grad_value = args.eval_grad_value
-        if (eval_function_value and not cf.f_available(parameters)) or (eval_grad_value and not cf.df_available(parameters)):
+        if (eval_function_value and not cf.f_available()) or (eval_grad_value and not cf.df_available()):
             
             ## start spinup job
-            cf.parameters = parameters
             cf.model.run_dir
 
             ## start cf calculation job 
@@ -173,7 +173,7 @@ if __name__ == "__main__":
             output_dir = tempfile.mkdtemp(dir=output_dir, prefix='cost_function_tmp_')
             util.io.fs.add_group_permissions(output_dir)
             
-            with simulation.optimization.job.CostFunctionJob(output_dir, cf_kind, model_options, job_options=prepare_job_options(), max_box_distance_to_water=max_box_distance_to_water, min_measurements_correlations=min_measurements_correlations, eval_f=eval_function_value, eval_df=eval_grad_value, nodes_setup=None) as cf_job:
+            with simulation.optimization.job.CostFunctionJob(output_dir, cf_kind, model_options, job_options=prepare_job_options(), max_box_distance_to_water=max_box_distance_to_water, min_measurements_correlations=min_measurements_correlations, eval_f=eval_function_value, eval_df=eval_grad_value) as cf_job:
                 cf_job.start()
                 cf_job.wait_until_finished()
             try:
@@ -183,7 +183,7 @@ if __name__ == "__main__":
 
         ## save cost function values
         if eval_function_value:
-            util.io.matlab.save(f_file, cf.f(parameters), value_name='f', oned_as='column')
+            util.io.matlab.save(f_file, cf.f(), value_name='f', oned_as='column')
         if eval_grad_value:
-            util.io.matlab.save(df_file, cf.df(parameters), value_name='df', oned_as='column')
+            util.io.matlab.save(df_file, cf.df(), value_name='df', oned_as='column')
 

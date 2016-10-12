@@ -17,22 +17,6 @@ from util.math.matrix import SingularMatrixError
 import util.logging
 logger = util.logging.logger
 
-# from simulation.optimization.constants import COST_FUNCTION_DIRNAME, COST_FUNCTION_F_FILENAME, COST_FUNCTION_DF_FILENAME, COST_FUNCTION_F_NORMALIZED_FILENAME, COST_FUNCTION_CORRELATION_PARAMETER_FILENAME, COST_FUNCTION_NODES_SETUP_SPINUP, COST_FUNCTION_NODES_SETUP_DERIVATIVE, COST_FUNCTION_NODES_SETUP_TRAJECTORY
-
-
-# option syntax:
-# model_options = {'spinup_options': spinup_options, 'derivative_options': derivative_options, 'time_step': time_step, 'parameter_tolerance_options': parameter_tolerance_options}
-# 
-# spinup_options = {'years': spinup_years, 'tolerance': spinup_tolerance, 'combination': spinup_combination}
-# spinup_years = int (>= 0)
-# spinup_tolerance = float (>= 0)
-# spinup_combination = 'and' or 'or'
-# 
-# time_step in (1, 2, 4, 8, 16, 32, 64)
-# 
-# job_options = {'name': job_name, 'spinup': job_options_spinup, 'derivative': job_options_derivative, 'trajectory': job_options_trajectory}
-# job_name = str
-# job_options_spinup, job_options_derivative, job_options_trajectory = {'nodes_setup': util.batch.universal.system.NodeSetup}
 
 
 ## Base
@@ -121,7 +105,7 @@ class Base():
 
     
     @property
-    def _cost_function_name(self):
+    def name(self):
         return self.__class__.__name__
     
     
@@ -131,12 +115,12 @@ class Base():
         
 
     def __str__(self):
-        return '{}({})'.format(self._cost_function_name, self._measurements_name)
+        return '{}({})'.format(self.name, self._measurements_name)
 
 
     @property
     def _cache_dirname(self):
-        return os.path.join(simulation.optimization.constants.COST_FUNCTION_DIRNAME, self._measurements_name, self._cost_function_name)
+        return os.path.join(simulation.optimization.constants.COST_FUNCTION_DIRNAME, self._measurements_name, self.name)
     
     
     def _filename(self, filename):
@@ -148,26 +132,23 @@ class Base():
     def f_calculate(self):
         raise NotImplementedError("Please implement this method.")
 
-    def f(self, parameters):
-        self.parameters = parameters
+    def f(self):
         filename = self._filename(simulation.optimization.constants.COST_FUNCTION_F_FILENAME)
         return self.cache.get_value(filename, self.f_calculate, derivative_used=False, save_also_txt=True)
 
 
-    def f_available(self, parameters):
-        self.parameters = parameters
+    def f_available(self):
         filename = self._filename(simulation.optimization.constants.COST_FUNCTION_F_FILENAME)
         return self.cache.has_value(filename)
     
 
     def f_normalized_calculate(self):
-        f = self.f(self.parameters)
+        f = self.f()
         m = self.measurements.number_of_measurements
         f_normalized = f / m
         return f_normalized
 
-    def f_normalized(self, parameters):
-        self.parameters = parameters
+    def f_normalized(self):
         filename = self._filename(simulation.optimization.constants.COST_FUNCTION_F_NORMALIZED_FILENAME)
         return self.cache.get_value(filename, self.f_normalized_calculate, derivative_used=False, save_also_txt=True)
 
@@ -175,9 +156,7 @@ class Base():
     def df_calculate(self, derivative_kind):
         raise NotImplementedError("Please implement this method.")
 
-    def df(self, parameters):
-        self.parameters = parameters
-        
+    def df(self):
         ## get needed derivative kinds
         derivative_kinds = ['model_parameters']
         if self.parameters_include_initial_concentrations_factor:
@@ -196,13 +175,11 @@ class Base():
         df = np.concatenate(df, axis=-1)
         
         ## return
-        assert df.shape[-1] == len(parameters)
+        assert df.shape[-1] == len(self.parameters)
         return df
 
 
-    def df_available(self, parameters):
-        self.parameters = parameters
-        
+    def df_available(self):
         ## get needed derivative kinds
         derivative_kinds = ['model_parameters']
         if self.parameters_include_initial_concentrations_factor:
@@ -401,9 +378,10 @@ class LGLS(BaseLog):
         C.data = np.log(C.data + 1)
         return C
 
-    def distribution_matrix_cholmod_factor(self, parameters):
+    def distribution_matrix_cholmod_factor(self):
         import util.math.sparse.decompose.with_cholmod
-        C = self.distribution_matrix(parameters)
+        C = self.distribution_matrix()
         f = util.math.sparse.decompose.with_cholmod.cholmod.cholesky(C)
         return f
+
 

@@ -20,7 +20,7 @@ logger = util.logging.logger
 
 class CostFunctionJob(util.batch.universal.system.Job):
 
-    def __init__(self, output_dir, cf_kind, model_options, model_job_options=None, max_box_distance_to_water=float('inf'), min_measurements_correlations=float('inf'), eval_f=True, eval_df=True, job_options=None, nodes_setup=None):
+    def __init__(self, output_dir, cf_kind, model_options, model_job_options=None, max_box_distance_to_water=float('inf'), min_measurements_correlations=float('inf'), eval_f=True, eval_df=True, job_options=None):
         from simulation.optimization.constants import COST_FUNCTION_NODES_SETUP_JOB
         
         logger.debug('Initiating cost function job with cf_kind {}, eval_f {} and eval_df {}.'.format(cf_kind, eval_f, eval_df))
@@ -89,10 +89,11 @@ class CostFunctionJob(util.batch.universal.system.Job):
         commands += ['    cf = simulation.optimization.cost_function.{cf_kind}(measurements_collection=measurements_collection, model_options=model_options, job_options=job_options)'.format(cf_kind=cf_kind)]
         
         parameters_str = ','.join(map(lambda f: simulation.model.constants.DATABASE_PARAMETERS_FORMAT_STRING.format(f), model_options.parameters))
+        commands += ['    cf.parameters = ({})'.format(parameters_str)]
         if eval_f:
-            commands += ['    cf.f(({}))'.format(parameters_str)]
+            commands += ['    cf.f()']
         if eval_df:
-            commands += ['    cf.df(({}))'.format(parameters_str)]
+            commands += ['    cf.df()']
         commands += ['']
 
         script_str = os.linesep.join(commands)
