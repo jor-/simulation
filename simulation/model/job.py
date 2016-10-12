@@ -509,7 +509,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
         #     check_if_file_option_exists(option, should_be_in_output_dir=False)
         
         for option in ['/metos3d/tracer_output_dir', '/metos3d/output_dir', '/metos3d/option_file']:
-            check_if_file_option_exists(option)
+            check_if_file_option_exists(option, should_be_in_output_dir=True)
     
         
         ## tracer input files
@@ -521,8 +521,8 @@ class Metos3D_Job(util.batch.universal.system.Job):
         
         tracer_input_use = all(tracer_input_options_exist)
         if tracer_input_use:
-            tuple(map(lambda file: check_if_file_exists(file), options['/model/tracer_input_files']))
-            tuple(map(lambda file: check_if_file_exists(file), [os.path.join(options['/metos3d/tracer_input_dir'], filename) for filename in options['/metos3d/tracer_input_filenames']]))
+            tuple(map(lambda file: check_if_file_exists(file, should_be_in_output_dir=False), options['/model/tracer_input_files']))
+            tuple(map(lambda file: check_if_file_exists(file, should_be_in_output_dir=True), [os.path.join(options['/metos3d/tracer_input_dir'], filename) for filename in options['/metos3d/tracer_input_filenames']]))
         
         ## concentrations
         check_if_option_exists('/model/initial_constant_concentrations', should_exists=not tracer_input_use)
@@ -538,4 +538,4 @@ class Metos3D_Job(util.batch.universal.system.Job):
         
         ## tracer output files
         tracer_output_files = tuple(map(lambda filename: os.path.join(options['/metos3d/tracer_output_dir'], filename), options['/metos3d/tracer_output_filenames']))
-        tuple(map(lambda file: check_if_file_exists(file, should_exists=not self.is_running()), tracer_output_files))
+        tuple(map(lambda file: check_if_file_exists(file, should_exists=not self.is_running(), should_be_in_output_dir=True), tracer_output_files))
