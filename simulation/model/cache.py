@@ -307,39 +307,56 @@ class Model_With_F_File_and_MemoryCached(simulation.model.eval.Model_With_F_Memo
         return self._cached_values_for_points(points, calculate_function_for_points, file_pattern, derivative_used=False)
 
     
-    def _cached_values_for_measurements(self, calculate_function_for_points, *measurements_list):        
-        ## perpare list with base measurements and projection matrices (for caching)
-        base_measurements_list = []        
-        projection_matrices_list = []
-        for measurement in measurements_list:
-            ## check if base maeasurement, otherwise store base maeasurement and projection matrices
-            try:
-                measurement.base_measurements
-            except AttributeError:
-                base_measurements_list.append(measurement)
-                projection_matrices_list.append(None)
-            else:
-                base_measurements_list.append(measurement.base_measurements)
-                projection_matrices_list.append(measurement.near_water_projection_matrix)
-        assert len(measurements_list) == len(base_measurements_list) == len(projection_matrices_list)
-                
-        ## calculate results for complete measurements (using caching)
+    def _cached_values_for_measurements(self, calculate_function_for_points, *measurements_list):
+        ## get base measurements
+        not_base_measurements_list = measurements_list
+        base_measurements_list = []
+        
+        while len(not_base_measurements_list) > 0:
+            new_not_base_measurements_list = []
+            for current_measurements in not_base_measurements_list:
+                if isinstance(current_measurements, measurements.universal.data.MeasurementsNearWater):
+                    new_not_base_measurements_list.append(current_measurements.base_measurements)
+                elif isinstance(current_measurements, measurements.universal.data.MeasurementsAnnualPeriodicUnion) or isinstance(current_measurements, measurements.universal.data.MeasurementsCollection):
+                    new_not_base_measurements_list.extend(current_measurements.measurements_list)
+                else:
+                    base_measurements_list.append(current_measurements)
+            not_base_measurements_list = new_not_base_measurements_list
+        
+        ## calculate results for base measurements (using caching)
         base_measurements_collection = measurements.universal.data.MeasurementsCollection(*base_measurements_list)
         base_points_dict = base_measurements_collection.points_dict
         results_dict = calculate_function_for_points(base_points_dict)
         
-        ## project measurements if needed
-        for measurement, base_measurement, projection_matrix in zip(measurements_list, base_measurements_list, projection_matrices_list):
-            if measurement != base_measurement:
-                base_results = results_dict[base_measurement.tracer][base_measurement.data_set_name]
-                del results_dict[base_measurement.tracer][base_measurement.data_set_name]
-                projected_results = projection_matrix * base_results
-                assert measurement.tracer == base_measurement.tracer
-                results_dict[measurement.tracer][measurement.data_set_name] = projected_results
-        
-        ## return 
+        ## convert measurements back if needed
+        def convert_back(results_dict, measurements_list):
+            for current_measurements in measurements_list:
+                if isinstance(current_measurements, measurements.universal.data.MeasurementsNearWater):
+                    base_measurements = current_measurements.base_measurements
+                    base_results_dict = convert_back(results_dict, [base_measurements])
+                    base_results = base_results_dict[base_measurements.tracer][base_measurements.data_set_name]
+                    projected_results = current_measurements.near_water_projection_matrix * base_results
+                    assert current_measurements.tracer == base_measurements.tracer
+                    del results_dict[base_measurements.tracer][base_measurements.data_set_name]
+                    results_dict[current_measurements.tracer][current_measurements.data_set_name] = projected_results
+                    
+                elif isinstance(current_measurements, measurements.universal.data.MeasurementsAnnualPeriodicUnion) or isinstance(current_measurements, measurements.universal.data.MeasurementsCollection):
+                    base_measurements_list = current_measurements.measurements_list
+                    base_results_dict = convert_back(results_dict, base_measurements_list)
+                    base_results_list = [base_results_dict[base_measurements.tracer][base_measurements.data_set_name] for base_measurements in base_measurements_list]
+                    projected_results = np.concatenate(base_results_list)
+                    for base_measurements in base_measurements_list:
+                        assert current_measurements.tracer == base_measurements.tracer
+                        del results_dict[base_measurements.tracer][base_measurements.data_set_name]
+                    results_dict[current_measurements.tracer][current_measurements.data_set_name] = projected_results
+                
+            return results_dict
+
+        results_dict = convert_back(results_dict, measurements_list)
+        assert set(results_dict.keys()) == {m.tracer for m in measurements_list}
+        assert all([set(results_dict[tracer].keys()) == {m.data_set_name for m in measurements_list if m.tracer == tracer} for tracer in results_dict.keys()])
         return results_dict
-    
+
 
     def f_measurements(self, *measurements_list):
         logger.debug('Calculating f values for measurements {}.'.format(tuple(map(str, measurements_list))))
