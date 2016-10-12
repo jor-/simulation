@@ -4,6 +4,8 @@ import warnings
 import numpy as np
 
 import simulation.model.cache
+import simulation.model.constants
+import simulation.model.options
 import simulation.optimization.constants
 
 import measurements.universal.data
@@ -384,4 +386,54 @@ class LGLS(BaseLog):
         f = util.math.sparse.decompose.with_cholmod.cholmod.cholesky(C)
         return f
 
+
+
+## iterator
+
+ALL_COST_FUNCTION_CLASSES = [OLS]
+
+def init_list_of_cost_functions(measurements_collection, model_options=None, cost_function_classes=None):
+    ## default values
+    if cost_function_classes is None:
+        cost_function_classes = ALL_COST_FUNCTION_CLASSES
+    
+    if model_options is None:
+        model_options = simulation.model.options.ModelOptions()
+        model_options.spinup_options = {'years':1, 'tolerance':0.0, 'combination':'or'}
+
+    ## init cost functions
+    cost_functions = [cost_functions_class(measurements_collection) for cost_functions_class in cost_function_classes]
+    
+    ## set same model and model options
+    model = cost_functions[0].model
+    model.model_options = model_options
+    for cost_function in cost_functions:
+        cost_function.model = model
+    
+    ## return
+    return cost_functions
+    
+
+def iterator(measurements_collection, model_names=None, cost_function_classes=None):
+    ## default values
+    if model_names is None:
+        model_names = simulation.model.constants.MODEL_NAMES
+
+    ## init cost functions
+    cost_functions = init_list_of_cost_functions(measurements_collection, cost_function_classes=cost_function_classes)
+    model = cost_functions[0].model
+    model_options = model.model_options
+    
+    ## iterate over models
+    for model_name in model_names:
+        ## set model name
+        model_options.model_name = model_name
+        ## set measurements
+        measurements_collection_for_model = measurements_collection.subset(model_options.tracers)
+        for cost_function in cost_functions:
+            cost_function.measurements = measurements_collection_for_model
+        ## iterate over other options
+        for model_options in model.iterator(model_names=[model_name]):
+            for cost_function in cost_functions:
+                yield cost_function
 
