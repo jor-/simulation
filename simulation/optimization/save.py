@@ -1,101 +1,65 @@
 import argparse
-import os
+import re
 import tempfile
 import time
 
-import numpy as np
-
 import simulation.optimization.cost_function
-import simulation.optimization.constants
 import simulation.optimization.job
-import simulation.model.eval
+import simulation.model.constants
+
+import measurements.all.pw.data
 
 import util.batch.universal.system
 import util.logging
 logger = util.logging.logger
 
 
-def save(model_name='dop_po4', time_step=1, parameter_sets=range(9999), data_kind='WOA', eval_f=True, eval_df=True, as_jobs=False, node_kind='clexpress'):
-    from simulation.model.constants import DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME, DATABASE_TIME_STEP_DIRNAME, DATABASE_PARAMETERS_DIRNAME, DATABASE_PARAMETERS_FILENAME, DATABASE_SPINUP_DIRNAME, DATABASE_DERIVATIVE_DIRNAME
-    
-    ## get time step dir
-    model_dirname = DATABASE_MODEL_DIRNAME.format(model_name)
-    model_dir = os.path.join(DATABASE_OUTPUT_DIR, model_dirname)
-    time_step_dirname = DATABASE_TIME_STEP_DIRNAME.format(time_step)
-    time_step_dir = os.path.join(model_dir, time_step_dirname)
-    
-    ## create model
-    model = simulation.model.eval.Model()
 
-    ## save for all parameter sets
-    for parameter_set_number in parameter_sets:
+def save(measurements_collection, model_names=None, cost_function_classes=None, eval_f=True, eval_df=False):
+    for cost_function in simulation.optimization.cost_function.iterator(measurements_collection, model_names=model_names, cost_function_classes=cost_function_classes):
+        if eval_f and not cost_function.f_available():
+            logger.info('Saving cost function f value in {}'.format(cost_function.model.parameter_set_dir))
+            cost_function.f()
+        if eval_df and not cost_function.df_available():
+            logger.info('Saving cost function df value in {}'.format(cost_function.model.parameter_set_dir))
+            cost_function.df()
 
-        ## get parameter
-        cost_function_family = None
 
-        parameter_set_dirname = DATABASE_PARAMETERS_DIRNAME.format(parameter_set_number)
-        parameter_set_dir = os.path.join(time_step_dir, parameter_set_dirname)
-        parameters_file = os.path.join(parameter_set_dir, DATABASE_PARAMETERS_FILENAME)
 
-        ## create cost functions
-        if os.path.exists(parameters_file):
-            spinup_dir = os.path.join(parameter_set_dir, DATABASE_SPINUP_DIRNAME)
-            last_run_dir = model.last_run_dir(spinup_dir)
+def save_for_all_measurements(max_box_distance_to_water=float('inf'), min_measurements_correlations=float('inf'), model_names=None, cost_function_classes=None, eval_f=True, eval_df=False):
+    measurements_collection = measurements.all.pw.data.all_measurements(max_box_distance_to_water=max_box_distance_to_water, min_measurements_correlations=min_measurements_correlations)
+    save(measurements_collection, model_names=model_names, cost_function_classes=cost_function_classes, eval_f=eval_f, eval_df=eval_df)
 
-            if last_run_dir is not None:
-                cf_kargs = {'data_kind': data_kind, 'model_options': {'spinup_options': {'years':1,}, 'time_step': time_step, 'total_concentration_factor_included_in_parameters': True}, 'job_setup':{'name': 'SCF_' + data_kind}}
-                cost_function_family = simulation.optimization.cost_function.Family(**cf_kargs)
-                
-        ## eval cf family
-        if cost_function_family is not None:
-            p = np.loadtxt(parameters_file)
-            try:
-                ## eval cf by itself
-                if not as_jobs:
-                    ## eval f
-                    if eval_f:
-                        cost_function_family.f(p)
-                        cost_function_family.f_normalized(p)
 
-                    ## eval df
-                    if eval_df:
-                        derivative_dir = os.path.join(parameter_set_dir, DATABASE_DERIVATIVE_DIRNAME)
-                        if os.path.exists(derivative_dir):
-                            cost_function_family.df(p)
-                    
-                ## eval cf as job
-                else:
-                    for cf in cost_function_family.family:
-                        if (eval_f and not cf.f_available(p)) or (eval_df and not cf.df_available(p)):
-                            from util.constants import TMP_DIR
-                            output_dir = tempfile.TemporaryDirectory(dir=TMP_DIR, prefix='save_value_cost_function_tmp_').name
-                            cf_kargs = {'measurements_collection': cf.measurements, 'model_options': cf.model.model_options}
-                            cf_kargs['job_options'] = {'name': '{}:{}'.format(cf, parameter_set_number)}
-                            nodes_setup = util.batch.universal.system.NodeSetup(memory=50, node_kind=node_kind, nodes=1, cpus=1, total_cpus_max=1, walltime=1)
-                            with simulation.optimization.job.CostFunctionJob(output_dir, p, cf.kind, eval_f=eval_f, eval_df=eval_df, nodes_setup=nodes_setup, **cf_kargs) as cf_job:
-                                cf_job.start()
-                            time.sleep(10)
 
-            except ValueError as e:
-                logger.exception(e)
+def save_for_all_measurements_with_jobs(max_box_distance_to_water=float('inf'), min_measurements_correlations=float('inf'), model_names=None, cost_function_classes=None, eval_f=True, eval_df=False, node_kind='clexpress'):
+    measurements_collection = measurements.all.pw.data.all_measurements(max_box_distance_to_water=max_box_distance_to_water, min_measurements_correlations=min_measurements_correlations)
+    nodes_setup = util.batch.universal.system.NodeSetup(memory=50, node_kind=node_kind, nodes=1, cpus=1, total_cpus_max=1, walltime=1)
+    for cost_function in simulation.optimization.cost_function.iterator(measurements_collection, model_names=model_names, cost_function_classes=cost_function_classes):
+        if (eval_f and not cost_function.f_available()) or (eval_df and not cost_function.df_available()):
+                output_dir = tempfile.TemporaryDirectory(dir=simulation.model.constants.DATABASE_TMP_DIR, prefix='save_value_cost_function_tmp_').name
+                ints_str = ','.join(re.findall('\d+', cost_function.model.parameter_set_dir)[-3:])
+                job_name = '{cost_function_name}:{model_name}:{ints_str}'.format(cost_function_name=cost_function.name, model_name=cost_function.model.model_options.model_name, ints_str=ints_str)
+                job_options = {'name': job_name, 'node_setup': nodes_setup}
+                with simulation.optimization.job.CostFunctionJob(output_dir, cost_function.name, cost_function.model.model_options, max_box_distance_to_water=max_box_distance_to_water, min_measurements_correlations=min_measurements_correlations, eval_f=eval_f, eval_df=eval_df, job_options=job_options) as cost_function_job:
+                    cost_function_job.start()
+                time.sleep(10)
 
 
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Calculating cost function values.')
-
-    parser.add_argument('-k', '--kind_of_cost_function', required=True, choices=tuple(simulation.optimization.cost_function.Family.member_classes.keys()), help='The kind of the cost function to chose.')
-    parser.add_argument('-f', '--first', type=int, default=0, help='First parameter set number for which to calculate the values.')
-    parser.add_argument('-l', '--last', type=int, default=9999, help='Last parameter set number for which to calculate the values.')
-    parser.add_argument('-d', '--debug', action='store_true', help='Print debug infos.')
+    parser.add_argument('-m', '--max_box_distance_to_water', type=int, default=float('inf'), help='The maximal distance to water boxes to accept measurements.')
+    parser.add_argument('-c', '--min_measurements_correlations', type=int, default=float('inf'), help='The minimal number of measurements used to calculate correlations.')
     parser.add_argument('-j', '--as_jobs', action='store_true', help='Run as jobs.')
     parser.add_argument('-n', '--node_kind', default='clexpress', help='Node kind to use for the jobs.')
     parser.add_argument('--DF', action='store_true', help='Eval (also) DF.')
-    parser.add_argument('--version', action='version', version='%(prog)s 0.1')
-
+    parser.add_argument('-d', '--debug_level', choices=util.logging.LEVELS, default='INFO', help='Print debug infos low to passed level.')
     args = parser.parse_args()
-    parameter_sets = range(args.first, args.last+1)
     
-    with util.logging.Logger(disp_stdout=args.debug):
-        save(parameter_sets=parameter_sets, data_kind=args.kind_of_cost_function, eval_df=args.DF, as_jobs=args.as_jobs, node_kind=args.node_kind)
+    with util.logging.Logger(level=args.debug_level):
+        if args.as_jobs:
+            save_for_all_measurements_with_jobs(max_box_distance_to_water=args.max_box_distance_to_water, min_measurements_correlations=args.min_measurements_correlations, eval_f=True, eval_df=args.DF, node_kind=args.node_kind)
+        else:
+            save_for_all_measurements(max_box_distance_to_water=args.max_box_distance_to_water, min_measurements_correlations=args.min_measurements_correlations, eval_f=True, eval_df=args.DF)
