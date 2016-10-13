@@ -406,13 +406,18 @@ class Model_Database:
                 
                 initial_concentration_options = self.model_options.initial_concentration_options
                 
-                if initial_concentration_options.use_constant_concentrations:
-                    assert last_run_dir is None
-                    constant_concentrations = initial_concentration_options.concentrations
-                    self.start_run(parameters, run_dir, years, tolerance=tolerance, job_options=self.job_options_for_kind('spinup'), initial_constant_concentrations=constant_concentrations, wait_until_finished=True)
+                if last_run_dir is None:
+                    if initial_concentration_options.use_constant_concentrations:
+                        constant_concentrations = initial_concentration_options.concentrations
+                        self.start_run(parameters, run_dir, years, tolerance=tolerance, job_options=self.job_options_for_kind('spinup'), initial_constant_concentrations=constant_concentrations, wait_until_finished=True)
+                    else:
+                        concentration_files = self.initial_concentration_files
+                        self.start_run(parameters, run_dir, years, tolerance=tolerance, job_options=self.job_options_for_kind('spinup'), tracer_input_files=concentration_files, wait_until_finished=True)
                 else:
-                    concentration_files = self.initial_concentration_files
-                    self.start_run(parameters, run_dir, years, tolerance=tolerance, job_options=self.job_options_for_kind('spinup'), tracer_input_files=concentration_files, wait_until_finished=True)
+                    tracer_input_filenames = ['{}_output.petsc'.format(tracer) for tracer in self.model_options.tracers]
+                    tracer_input_files = [os.path.join(last_run_dir, tracer_input_file) for tracer_input_file in tracer_input_filenames]
+                    self.start_run(parameters, run_dir, years, tolerance=tolerance, job_options=self.job_options_for_kind('spinup'), tracer_input_files=tracer_input_files, wait_until_finished=True)
+                    
                 
             elif combination == 'and':
                 spinup_options = simulation.model.options.SpinupOptions({'years':years, 'tolerance':0, 'combination':'or'})
