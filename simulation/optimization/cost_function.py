@@ -388,52 +388,78 @@ class LGLS(BaseLog):
 
 
 
+## class lists
+
+ALL_COST_FUNCTION_CLASSES_WITHOUT_CORRELATION = [OLS, WLS, LWLS]
+ALL_COST_FUNCTION_CLASSES_WITH_CORRELATION = [GLS, LGLS]
+ALL_COST_FUNCTION_CLASSES = ALL_COST_FUNCTION_CLASSES_WITHOUT_CORRELATION + ALL_COST_FUNCTION_CLASSES_WITH_CORRELATION
+
+
+
 ## iterator
 
-ALL_COST_FUNCTION_CLASSES = [OLS]
-
-def init_list_of_cost_functions(measurements_collection, model_options=None, cost_function_classes=None):
+def cost_functions_for_all_measurements(max_box_distance_to_water_list=None, min_measurements_correlations_list=None, cost_function_classes=None, model_options=None):
     ## default values
+    if max_box_distance_to_water_list is None:
+        max_box_distance_to_water_list = [0, 1, float('inf')]
+    if min_measurements_correlations_list is None:
+        min_measurements_correlations_list = [float('inf')]
     if cost_function_classes is None:
-        cost_function_classes = ALL_COST_FUNCTION_CLASSES
-    
+        cost_function_classes = ALL_COST_FUNCTION_CLASSES    
     if model_options is None:
         model_options = simulation.model.options.ModelOptions()
         model_options.spinup_options = {'years':1, 'tolerance':0.0, 'combination':'or'}
+    
+    ## split cost function classes
+    cost_function_classes = set(cost_function_classes)
+    cost_function_classes_without_correlation = cost_function_classes & set(ALL_COST_FUNCTION_CLASSES_WITHOUT_CORRELATION)
+    cost_function_classes_with_correlation = cost_function_classes & set(ALL_COST_FUNCTION_CLASSES_WITH_CORRELATION)
 
-    ## init cost functions
-    cost_functions = [cost_functions_class(measurements_collection) for cost_functions_class in cost_function_classes]
+    ## init all cost functions
+    cost_functions = []
+    for max_box_distance_to_water in max_box_distance_to_water_list:
+        for i in range(min_measurements_correlations_list):
+            min_measurements_correlations = min_measurements_correlations_list[i]
+            
+            measurements_collection = measurements.all.pw.data.all_measurements(max_box_distance_to_water=max_box_distance_to_water, min_measurements_correlations=min_measurements_correlations)
+            
+            if len(cost_function_classes_without_correlation) > 0 and i == 0:
+                cost_functions.extend([cost_functions_class(measurements_collection) for cost_functions_class in cost_function_classes_without_correlation])
+
+            if len(cost_function_classes_with_correlation) > 0 and min_measurements_correlations != float('inf'):
+                cost_functions.extend([cost_functions_class(measurements_collection) for cost_functions_class in cost_function_classes_with_correlation])
     
     ## set same model and model options
-    model = cost_functions[0].model
-    model.model_options = model_options
-    for cost_function in cost_functions:
-        cost_function.model = model
-    
-    ## return
-    return cost_functions
-    
+    if len(cost_functions) > 0:
+        model = cost_functions[0].model
+        model.model_options = model_options
+        for cost_function in cost_functions:
+            cost_function.model = model
 
-def iterator(measurements_collection, model_names=None, cost_function_classes=None):
+
+
+def iterator(cost_functions, model_names=None):
     ## default values
     if model_names is None:
         model_names = simulation.model.constants.MODEL_NAMES
 
-    ## init cost functions
-    cost_functions = init_list_of_cost_functions(measurements_collection, cost_function_classes=cost_function_classes)
+    ## set same model and model options, store original measurements
     model = cost_functions[0].model
-    model_options = model.model_options
+    model.model_options = model_options
+    original_measurements_list = []
+    for cost_function in cost_functions:
+        cost_function.model = model
+        original_measurements.append(cost_function.measurements)
     
     ## iterate over models
     for model_name in model_names:
         ## set model name
         model_options.model_name = model_name
         ## set measurements
-        measurements_collection_for_model = measurements_collection.subset(model_options.tracers)
-        for cost_function in cost_functions:
-            cost_function.measurements = measurements_collection_for_model
+        for cost_function, original_measurements in zip(cost_functions, original_measurements_list):
+            measurements_for_model = original_measurements.subset(model_options.tracers)
+            cost_function.measurements = measurements_for_model
         ## iterate over other options
         for model_options in model.iterator(model_names=[model_name]):
             for cost_function in cost_functions:
                 yield cost_function
-
