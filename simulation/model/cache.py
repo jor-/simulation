@@ -355,6 +355,7 @@ class Model_With_F_File_and_MemoryCached(simulation.model.eval.Model_With_F_Memo
         results_dict = convert_back(results_dict, measurements_list)
         assert set(results_dict.keys()) == {m.tracer for m in measurements_list}
         assert all([set(results_dict[tracer].keys()) == {m.data_set_name for m in measurements_list if m.tracer == tracer} for tracer in results_dict.keys()])
+        assert all([len(results_dict[m.tracer][m.data_set_name]) == m.number_of_measurements for m in measurements_list])
         return results_dict
 
 
