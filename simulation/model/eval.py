@@ -406,18 +406,16 @@ class Model_Database:
                 
                 initial_concentration_options = self.model_options.initial_concentration_options
                 
-                if last_run_dir is None:
-                    if initial_concentration_options.use_constant_concentrations:
-                        constant_concentrations = initial_concentration_options.concentrations
-                        self.start_run(parameters, run_dir, years, tolerance=tolerance, job_options=self.job_options_for_kind('spinup'), initial_constant_concentrations=constant_concentrations, wait_until_finished=True)
-                    else:
-                        concentration_files = self.initial_concentration_files
-                        self.start_run(parameters, run_dir, years, tolerance=tolerance, job_options=self.job_options_for_kind('spinup'), tracer_input_files=concentration_files, wait_until_finished=True)
+                if last_run_dir is None and initial_concentration_options.use_constant_concentrations:
+                    constant_concentrations = initial_concentration_options.concentrations
+                    self.start_run(parameters, run_dir, years, tolerance=tolerance, job_options=self.job_options_for_kind('spinup'), initial_constant_concentrations=constant_concentrations, wait_until_finished=True)
                 else:
-                    tracer_input_filenames = ['{}_output.petsc'.format(tracer) for tracer in self.model_options.tracers]
-                    tracer_input_files = [os.path.join(last_run_dir, tracer_input_file) for tracer_input_file in tracer_input_filenames]
-                    self.start_run(parameters, run_dir, years, tolerance=tolerance, job_options=self.job_options_for_kind('spinup'), tracer_input_files=tracer_input_files, wait_until_finished=True)
-                    
+                    if last_run_dir is None:
+                        concentration_files = self.initial_concentration_files
+                    else:
+                        with simulation.model.job.Metos3D_Job(last_run_dir, force_load=True) as job:
+                            concentration_files = job.tracer_output_files
+                    self.start_run(parameters, run_dir, years, tolerance=tolerance, job_options=self.job_options_for_kind('spinup'), tracer_input_files=concentration_files, wait_until_finished=True)
                 
             elif combination == 'and':
                 spinup_options = simulation.model.options.SpinupOptions({'years':years, 'tolerance':0, 'combination':'or'})
@@ -596,7 +594,7 @@ class Model_Database:
             spinup_dir = self.spinup_dir
             last_run_dir = self.last_run_dir(spinup_dir)
             if last_run_dir is None:
-                raise DatabaseError('It is no run dir in {}!'.format(spinup_dir))
+                raise DatabaseError(self, 'It is no run dir in {}!'.format(spinup_dir))
 
 
 
@@ -672,10 +670,11 @@ class Model_With_F(Model_Database):
     
             ## write trajectory
             trajectory_dir = tempfile.mkdtemp(dir=tmp_dir, prefix='trajectory_tmp_')
-    
-            tracer_input_filenames = ['{}_output.petsc'.format(tracer) for tracer in self.model_options.tracers]
-            tracer_input_files = [os.path.join(run_dir, tracer_input_file) for tracer_input_file in tracer_input_filenames]
-            self.start_run(model_parameters, trajectory_dir, years=1, tolerance=0, job_options=self.job_options_for_kind('trajectory'), tracer_input_files=tracer_input_files, write_trajectory=True, make_read_only=False)
+
+            with simulation.model.job.Metos3D_Job(run_dir, force_load=True) as job:
+                run_tracer_output_files = job.tracer_output_files
+            
+            self.start_run(model_parameters, trajectory_dir, years=1, tolerance=0, job_options=self.job_options_for_kind('trajectory'), tracer_input_files=run_tracer_output_files, write_trajectory=True, make_read_only=False)
     
             ## read trajectory        
             trajectory_output_dir = os.path.join(trajectory_dir, 'trajectory')
