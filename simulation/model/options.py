@@ -41,6 +41,8 @@ class ModelOptions(util.options.Options):
 
     def parameters_check(self, parameters):
         parameters = np.asanyarray(parameters)
+        if np.any(np.isnan(parameters)):
+            raise ValueError('The model parametes {} are not allowed. Nan is not a valid value for a model parameter.'.format(parameters))
         
         ## check if matching to model
         if 'model_name' in self:
