@@ -1,7 +1,7 @@
 import os
 import time
-import subprocess
 import re
+
 import numpy as np
 
 import simulation.model.constants
