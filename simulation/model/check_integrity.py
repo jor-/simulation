@@ -86,7 +86,7 @@ def check_db(model_names=None):
     
     model = simulation.model.cache.Model()
     try:
-        model.check_integrity()
+        model.check_integrity(model_names=model_names)
     except (util.index_database.general.DatabaseError, simulation.model.eval.DatabaseError, OSError) as e:
         logger.error(e)
 
@@ -97,16 +97,17 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-j', '--check_job_options', action='store_true')
     parser.add_argument('-p', '--check_permissions', action='store_true')
-    parser.add_argument('-d', '--check_database', action='store_true')
-    parser.add_argument('-m', '--model', default=None, help='The model to check. If not specified all models are checked')
+    parser.add_argument('-b', '--check_database', action='store_true')
+    parser.add_argument('-m', '--model_names', default=None, nargs='+', help='The models to check. If not specified all models are checked')
+    parser.add_argument('-d', '--debug_level', choices=util.logging.LEVELS, default='INFO', help='Print debug infos low to passed level.')
     args = parser.parse_args()
     ## run check
-    with util.logging.Logger():
+    with util.logging.Logger(level=args.debug_level):
         if args.check_job_options:
-            check_job_options(model_names=args.model)
+            check_job_options(model_names=args.model_names)
         if args.check_permissions:
-            check_permissions(model_names=args.model)
+            check_permissions(model_names=args.model_names)
         if args.check_database:
-            check_db(model_names=args.model)
+            check_db(model_names=args.model_names)
         logger.info('Check completed.')
 
