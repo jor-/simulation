@@ -8,6 +8,7 @@ import simulation.model.constants
 import simulation.model.options
 import simulation.optimization.constants
 
+import measurements.all.pw.data
 import measurements.universal.data
 
 import util.math.optimize.with_scipy
@@ -65,10 +66,9 @@ class Base():
             except KeyError:
                 job_options['trajectory']['nodes_setup'] = simulation.optimization.constants.COST_FUNCTION_NODES_SETUP_TRAJECTORY.copy()
 
-        ## set model, initial_base_concentrations and cache
+        ## set model and initial_base_concentrations
         self.model = simulation.model.cache.Model(model_options=model_options, job_options=job_options)
         self.initial_base_concentrations = np.asanyarray(self.model.model_options.initial_concentration_options.concentrations)
-        self.cache = self.model._cache
 
 
     @property
@@ -78,6 +78,11 @@ class Base():
     @measurements.setter
     def measurements(self, measurements_collection):
         self._measurements = measurements.universal.data.as_measurements_collection(measurements_collection)
+
+
+    @property
+    def cache(self):
+        return self.model._cache
     
     
     @property
@@ -408,7 +413,6 @@ def cost_functions_for_all_measurements(max_box_distance_to_water_list=None, min
         cost_function_classes = ALL_COST_FUNCTION_CLASSES    
     if model_options is None:
         model_options = simulation.model.options.ModelOptions()
-        model_options.spinup_options = {'years':1, 'tolerance':0.0, 'combination':'or'}
     
     ## split cost function classes
     cost_function_classes = set(cost_function_classes)
@@ -418,7 +422,7 @@ def cost_functions_for_all_measurements(max_box_distance_to_water_list=None, min
     ## init all cost functions
     cost_functions = []
     for max_box_distance_to_water in max_box_distance_to_water_list:
-        for i in range(min_measurements_correlations_list):
+        for i in range(len(min_measurements_correlations_list)):
             min_measurements_correlations = min_measurements_correlations_list[i]
             
             measurements_collection = measurements.all.pw.data.all_measurements(max_box_distance_to_water=max_box_distance_to_water, min_measurements_correlations=min_measurements_correlations)
@@ -435,31 +439,37 @@ def cost_functions_for_all_measurements(max_box_distance_to_water_list=None, min
         model.model_options = model_options
         for cost_function in cost_functions:
             cost_function.model = model
+    
+    return cost_functions
 
 
 
 def iterator(cost_functions, model_names=None):
-    ## default values
-    if model_names is None:
-        model_names = simulation.model.constants.MODEL_NAMES
-
-    ## set same model and model options, store original measurements
-    model = cost_functions[0].model
-    model.model_options = model_options
-    original_measurements_list = []
-    for cost_function in cost_functions:
-        cost_function.model = model
-        original_measurements.append(cost_function.measurements)
+    if cost_functions is None:
+        cost_functions = []
     
-    ## iterate over models
-    for model_name in model_names:
-        ## set model name
-        model_options.model_name = model_name
-        ## set measurements
-        for cost_function, original_measurements in zip(cost_functions, original_measurements_list):
-            measurements_for_model = original_measurements.subset(model_options.tracers)
-            cost_function.measurements = measurements_for_model
-        ## iterate over other options
-        for model_options in model.iterator(model_names=[model_name]):
-            for cost_function in cost_functions:
-                yield cost_function
+    if len(cost_functions) > 0:
+        ## default values
+        if model_names is None:
+            model_names = simulation.model.constants.MODEL_NAMES
+    
+        ## set same model and model options, store original measurements
+        model = cost_functions[0].model
+        model_options = model.model_options
+        original_measurements_list = []
+        for cost_function in cost_functions:
+            cost_function.model = model
+            original_measurements_list.append(cost_function.measurements)
+        
+        ## iterate over models
+        for model_name in model_names:
+            ## set model name
+            model_options.model_name = model_name
+            ## set measurements
+            for cost_function, original_measurements in zip(cost_functions, original_measurements_list):
+                measurements_for_model = original_measurements.subset(model_options.tracers)
+                cost_function.measurements = measurements_for_model
+            ## iterate over other options
+            for model_options in model.iterator(model_names=[model_name]):
+                for cost_function in cost_functions:
+                    yield cost_function
