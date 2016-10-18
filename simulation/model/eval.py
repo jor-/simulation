@@ -917,10 +917,15 @@ class Model_With_F_And_DF(Model_With_F):
         
         def start_partial_derivative_run(partial_derivative_parameters):
             parameter_index = np.where(partial_derivative_parameters != partial_derivative_parameters_undisturbed)[0]
-            assert len(parameter_index) == 1
-            parameter_index = parameter_index[0]
-            h = partial_derivative_parameters[parameter_index] - partial_derivative_parameters_undisturbed[parameter_index]
-            h_factor = int(np.sign(h))
+            if len(parameter_index) == 1:
+                parameter_index = parameter_index[0]
+                h = partial_derivative_parameters[parameter_index] - partial_derivative_parameters_undisturbed[parameter_index]
+                h_factor = int(np.sign(h))
+            elif len(parameter_index) == 0:
+                parameter_index = -1
+                h_factor = 0
+            else:
+                raise ValueError('Partial_derivative_parameters have to be disturbed at maximal 1 index but they are disturbed at {} indices.'.format(len(parameter_index)))
     
             ## get run dir
             partial_derivative_dirname = simulation.model.constants.DATABASE_PARTIAL_DERIVATIVE_DIRNAME.format(kind=partial_derivative_kind, index=parameter_index, h_factor=h_factor)
