@@ -403,12 +403,12 @@ ALL_COST_FUNCTION_CLASSES = ALL_COST_FUNCTION_CLASSES_WITHOUT_CORRELATION + ALL_
 
 ## iterator
 
-def cost_functions_for_all_measurements(max_box_distance_to_water_list=None, min_measurements_correlations_list=None, cost_function_classes=None, model_options=None):
+def cost_functions_for_all_measurements(max_box_distance_to_water_list=None, min_measurements_correlation_list=None, cost_function_classes=None, model_options=None):
     ## default values
     if max_box_distance_to_water_list is None:
         max_box_distance_to_water_list = [0, 1, float('inf')]
-    if min_measurements_correlations_list is None:
-        min_measurements_correlations_list = [float('inf')]
+    if min_measurements_correlation_list is None:
+        min_measurements_correlation_list = [float('inf')]
     if cost_function_classes is None:
         cost_function_classes = ALL_COST_FUNCTION_CLASSES    
     if model_options is None:
@@ -422,15 +422,15 @@ def cost_functions_for_all_measurements(max_box_distance_to_water_list=None, min
     ## init all cost functions
     cost_functions = []
     for max_box_distance_to_water in max_box_distance_to_water_list:
-        for i in range(len(min_measurements_correlations_list)):
-            min_measurements_correlations = min_measurements_correlations_list[i]
+        for i in range(len(min_measurements_correlation_list)):
+            min_measurements_correlation = min_measurements_correlation_list[i]
             
-            measurements_collection = measurements.all.pw.data.all_measurements(max_box_distance_to_water=max_box_distance_to_water, min_measurements_correlations=min_measurements_correlations)
+            measurements_collection = measurements.all.pw.data.all_measurements(max_box_distance_to_water=max_box_distance_to_water, min_measurements_correlation=min_measurements_correlation)
             
             if len(cost_function_classes_without_correlation) > 0 and i == 0:
                 cost_functions.extend([cost_functions_class(measurements_collection) for cost_functions_class in cost_function_classes_without_correlation])
 
-            if len(cost_function_classes_with_correlation) > 0 and min_measurements_correlations != float('inf'):
+            if len(cost_function_classes_with_correlation) > 0 and min_measurements_correlation != float('inf'):
                 cost_functions.extend([cost_functions_class(measurements_collection) for cost_functions_class in cost_function_classes_with_correlation])
     
     ## set same model and model options

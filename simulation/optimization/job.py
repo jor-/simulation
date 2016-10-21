@@ -20,7 +20,7 @@ logger = util.logging.logger
 
 class CostFunctionJob(util.batch.universal.system.Job):
 
-    def __init__(self, output_dir, cf_kind, model_options, model_job_options=None, max_box_distance_to_water=float('inf'), min_measurements_correlations=float('inf'), eval_f=True, eval_df=True, job_options=None):
+    def __init__(self, output_dir, cf_kind, model_options, model_job_options=None, max_box_distance_to_water=float('inf'), min_measurements_correlation=float('inf'), eval_f=True, eval_df=True, job_options=None):
         from simulation.optimization.constants import COST_FUNCTION_NODES_SETUP_JOB
         
         logger.debug('Initiating cost function job with cf_kind {}, eval_f {} and eval_df {}.'.format(cf_kind, eval_f, eval_df))
@@ -34,7 +34,7 @@ class CostFunctionJob(util.batch.universal.system.Job):
         self.options['/cf/model_options'] = repr(model_options)
         self.options['/cf/model_job_options'] = repr(model_job_options)
         self.options['/cf/max_box_distance_to_water'] = max_box_distance_to_water
-        self.options['/cf/min_measurements_correlations'] = min_measurements_correlations
+        self.options['/cf/min_measurements_correlation'] = min_measurements_correlation
         
         ## prepare job options
         if job_options is None:
@@ -46,7 +46,7 @@ class CostFunctionJob(util.batch.universal.system.Job):
         except KeyError:
             job_name = cf_kind
             if cf_kind == 'GLS':
-                job_name = job_name + '_{min_measurements_correlations}'.format(min_measurements_correlations=min_measurements_correlations)
+                job_name = job_name + '_{min_measurements_correlation}'.format(min_measurements_correlation=min_measurements_correlation)
             job_name = job_name + '_' + model_options.model_name
             if max_box_distance_to_water is not None and max_box_distance_to_water != float('inf'):
                 job_name = job_name + '_N{max_box_distance_to_water:d}'.format(max_box_distance_to_water=max_box_distance_to_water)
@@ -75,12 +75,12 @@ class CostFunctionJob(util.batch.universal.system.Job):
 
         if max_box_distance_to_water == float('inf'):
             max_box_distance_to_water = None
-        if min_measurements_correlations == float('inf'):
-            min_measurements_correlations = None
+        if min_measurements_correlation == float('inf'):
+            min_measurements_correlation = None
         
         commands += ['with util.logging.Logger():']
         commands += ['    model_options = {model_options!r}'.format(model_options=model_options)]
-        commands += ['    measurements_collection = measurements.all.pw.data.all_measurements(max_box_distance_to_water={max_box_distance_to_water}, min_measurements_correlations={min_measurements_correlations}, tracers=model_options.tracers)'.format(max_box_distance_to_water=max_box_distance_to_water, min_measurements_correlations=min_measurements_correlations)]
+        commands += ['    measurements_collection = measurements.all.pw.data.all_measurements(max_box_distance_to_water={max_box_distance_to_water}, min_measurements_correlation={min_measurements_correlation}, tracers=model_options.tracers)'.format(max_box_distance_to_water=max_box_distance_to_water, min_measurements_correlation=min_measurements_correlation)]
         
         if model_job_options is not None:
             commands += ['    job_options = {model_job_options!r}'.format(model_job_options=model_job_options)]
