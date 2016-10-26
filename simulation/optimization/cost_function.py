@@ -292,6 +292,8 @@ class GLS(Base):
 
 
     def df_calculate(self, derivative_kind):
+        F = self.model_f()
+        results = self.results()
         DF = self.model_df(derivative_kind)
         inverse_deviations = 1 / self.measurements.standard_deviations
         correlation_matrix_cholesky_decomposition = self.measurements.correlations_own_cholesky_decomposition
