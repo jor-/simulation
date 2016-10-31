@@ -250,7 +250,20 @@ class OLS(Base):
         return df
 
 
-class WLS(Base):
+
+class BaseUsingStandardDeviation(Base):
+    
+    @property
+    def _cache_dirname(self):
+        cache_dirname = super()._cache_dirname
+        standard_deviation_id = self.measurements.standard_deviation_id
+        if len(standard_deviation_id) > 0:
+            cache_dirname = cache_dirname + '(' + standard_deviation_id + ')'
+        return cache_dirname
+
+
+
+class WLS(BaseUsingStandardDeviation):
 
     def f_calculate(self):
         F = self.model_f()
@@ -274,7 +287,19 @@ class WLS(Base):
         return df
 
 
-class GLS(Base):
+
+class BaseUsingCorrelation(Base):
+    
+    @property
+    def _cache_dirname(self):
+        cache_dirname = super()._cache_dirname
+        correlation_id = self.measurements.correlation_id
+        if len(correlation_id) > 0:
+            cache_dirname = cache_dirname + '(' + correlation_id + ')'
+        return cache_dirname
+
+
+class GLS(BaseUsingCorrelation):
 
     def f_calculate(self):
         F = self.model_f()
@@ -337,7 +362,7 @@ class BaseLog(Base):
 
 
 
-class LWLS(BaseLog):
+class LWLS(BaseLog, BaseUsingStandardDeviation):
 
     def f_calculate(self):
         m = self.model_f()
@@ -376,7 +401,7 @@ class LWLS(BaseLog):
 
 
 
-class LGLS(BaseLog):
+class LGLS(BaseLog, BaseUsingCorrelation):
 
     def distribution_matrix(self):
         D = util.math.sparse.create.diag(self.measurements.standard_deviations)
