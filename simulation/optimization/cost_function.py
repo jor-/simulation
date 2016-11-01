@@ -70,6 +70,12 @@ class Base():
         self.model = simulation.model.cache.Model(model_options=model_options, job_options=job_options)
         self.initial_base_concentrations = np.asanyarray(self.model.model_options.initial_concentration_options.concentrations)
 
+    ## cache, measurements, parameters
+
+    @property
+    def cache(self):
+        return self.model._cache
+
 
     @property
     def measurements(self):
@@ -78,11 +84,6 @@ class Base():
     @measurements.setter
     def measurements(self, measurements_collection):
         self._measurements = measurements.universal.data.as_measurements_collection(measurements_collection)
-
-
-    @property
-    def cache(self):
-        return self.model._cache
     
     
     @property
@@ -110,6 +111,7 @@ class Base():
     def parameters_include_initial_concentrations_factor(self):        
         return len(self.parameters) == self.model.model_options.parameters_len + 1
 
+    ## names
     
     @property
     def name(self):
@@ -254,12 +256,12 @@ class OLS(Base):
 class BaseUsingStandardDeviation(Base):
     
     @property
-    def _cache_dirname(self):
-        cache_dirname = super()._cache_dirname
+    def name(self):
+        name = super().name
         standard_deviation_id = self.measurements.standard_deviation_id
         if len(standard_deviation_id) > 0:
-            cache_dirname = cache_dirname + '(' + standard_deviation_id + ')'
-        return cache_dirname
+            name = name + '(' + standard_deviation_id + ')'
+        return name
 
 
 
@@ -291,12 +293,13 @@ class WLS(BaseUsingStandardDeviation):
 class BaseUsingCorrelation(Base):
     
     @property
-    def _cache_dirname(self):
-        cache_dirname = super()._cache_dirname
+    def name(self):
+        name = super().name
         correlation_id = self.measurements.correlation_id
         if len(correlation_id) > 0:
-            cache_dirname = cache_dirname + '(' + correlation_id + ')'
-        return cache_dirname
+            name = name + '(' + correlation_id + ')'
+        return name
+
 
 
 class GLS(BaseUsingCorrelation):
