@@ -21,10 +21,10 @@ logger = util.logging.logger
 def save(cost_functions, model_names=None, eval_f=True, eval_df=False):
     for cost_function in simulation.optimization.cost_function.iterator(cost_functions, model_names=model_names):
         if eval_f and not cost_function.f_available():
-            logger.info('Saving cost function {} f value in {}'.format(cost_function.name, cost_function.model.parameter_set_dir))
+            logger.info('Saving cost function {} f value in {}'.format(cost_function, cost_function.model.parameter_set_dir))
             cost_function.f()
         if eval_df and not cost_function.df_available():
-            logger.info('Saving cost function {} df value in {}'.format(cost_function.name, cost_function.model.parameter_set_dir))
+            logger.info('Saving cost function {} df value in {}'.format(cost_function, cost_function.model.parameter_set_dir))
             cost_function.df()
 
 
