@@ -1,161 +1,136 @@
-import sys
 import argparse
 
-import os
 import numpy as np
 
-import util.pattern
-import util.io.fs
+import util.multi_dict
 
-import simulation.model.eval
-from simulation.optimization.matlab.constants import DATA_KINDS, GLS_DICT
+import simulation.model.options
+import simulation.optimization.cost_function
 
-DATA_KINDS = [data_kind for data_kind in DATA_KINDS if not data_kind.startswith('OLD')]
-COST_FUNCTION_NAMES = ['{data_kind}/{cost_function}'.format(data_kind=dk.replace('.', '_TMM_'), cost_function=cf) for dk in DATA_KINDS for cf in ('OLS', 'WLS', 'LWLS')] + ['{data_kind}/GLS/min_values_{min_values}/max_year_diff_inf/min_diag_1e-01'.format(data_kind=dk.replace('.', '_TMM_'), min_values=mv) for dk in DATA_KINDS for mv in GLS_DICT[dk]] + ['OLDWOD_TMM_1/{cost_function}'.format(cost_function=cf) for cf in ('OLS', 'WLS', 'LWLS')] + ['OLDWOD_TMM_1/GLS/min_values_{min_values}/max_year_diff_inf/min_diag_1e-02'.format(min_values=mv) for mv in GLS_DICT['OLDWOD.1']]
-COST_FUNCTION_NAMES.sort()
-
-COST_FUNCTION_OUTPUT_DIRNAME = 'cost_functions'
-COST_FUNCTION_F_FILENAME = 'f.txt'
+import util.logging
+logger = util.logging.logger
 
 
-# def values_dict(parameter_set_index, cost_function_names):
-#     m = simulation.model.eval.Model()
-#     parameter_set_dir = m.parameter_set_dir_with_index(parameter_set_index)
-#     
-#     values = {}
-#     for cost_function_name in cost_function_names:
-#         cost_function_f_file = os.path.join(parameter_set_dir, COST_FUNCTION_OUTPUT_DIRNAME, cost_function_name, COST_FUNCTION_F_FILENAME)
-#         try:
-#             values[cost_function_name] = np.loadtxt(cost_function_f_file)
-#         except FileNotFoundError:
-#             pass
-#     return values
-# 
-# 
-# def min_values_dicts(cost_function_names):
-#     ## init dicts
-#     best_values = {}
-#     for cost_function_name in cost_function_names:
-#         best_values[cost_function_name] = np.inf
-#     best_indices = {}
-#     for cost_function_name in cost_function_names:
-#         best_indices[cost_function_name] = -1
-#     
-#     ## check alls parameter sets
-#     m = simulation.model.eval.Model()
-#     used_indices = m._parameter_db.used_indices()
-#     for parameter_set_index in used_indices:
-#         current_values_dict = values_dict(parameter_set_index, cost_function_names)
-#         for key, value in current_values_dict.items():
-#             if value < best_values[key]:
-#                 best_indices[key] = int(parameter_set_index)
-#                 best_values[key] = value
-#                 
-#     return (best_indices, best_values)
+f_key = 'f'
+parameters_key = 'parameters'
+concentrations_key = 'concentrations'
 
 
-def values_array(parameter_set_index, cost_function_names):
-    m = simulation.model.eval.Model()
-    parameter_set_dir = m.parameter_set_dir_with_index(parameter_set_index)
+## general functions
+
+def min_values(cost_functions, model_names=None, filter_function=None):
+    if filter_function is None:
+        filter_function = lambda model_options: True
     
-    n = len(cost_function_names)
-    values = np.empty(n)
-    for i in range(n):
-        cost_function_f_file = os.path.join(parameter_set_dir, COST_FUNCTION_OUTPUT_DIRNAME, cost_function_names[i], COST_FUNCTION_F_FILENAME)
-        try:
-            values[i] = np.loadtxt(cost_function_f_file)
-        except FileNotFoundError:
-            values[i] = np.nan
-    return values
-
-
-def min_values_arrays(cost_function_names, parameter_set_filter_function=None):
-    ## set no filter as default
-    if parameter_set_filter_function is None:
-        parameter_set_filter_function = lambda parameters: True
+    results_dict = util.multi_dict.MultiDict()
     
-    ## init arrays
-    cost_function_names = np.asarray(cost_function_names)
-    n = len(cost_function_names)
-    best_indices = np.empty(n, dtype=np.int32)
-    best_values = np.empty(n)
-    for i in range(n):
-        best_indices[i] = -1
-        best_values[i] = np.inf
+    for cost_function in simulation.optimization.cost_function.iterator(cost_functions, model_names=model_names):
+        model_options = cost_function.model.model_options
+        if filter_function(model_options) and cost_function.f_available():
+            ## key
+            key = (model_options.model_name, model_options.time_step, cost_function.name)
+            ## value dict and min value
+            try:
+                values_dict = results_dict[key][0]
+            except KeyError:
+                values_dict = {f_key: float('inf')}
+                results_dict[key] = [values_dict]
+            min_f = values_dict[f_key]
+            ## store if better
+            f = cost_function.f()
+            if f < min_f:
+                values_dict[f_key] = f
+                values_dict[parameters_key] = model_options.parameters
+                values_dict[concentrations_key] = model_options.initial_concentration_options.concentrations
     
-    ## check all parameter sets
-    m = simulation.model.eval.Model()
-    used_indices = m._parameter_db.used_indices()
-    for parameter_set_index in used_indices:
-        parameter_set = m._parameter_db.get_value(parameter_set_index)
-        if parameter_set_filter_function(parameter_set):
-            current_values = values_array(parameter_set_index, cost_function_names)
-            for i in range(n):
-                if current_values[i] < best_values[i]:
-                    best_indices[i] = int(parameter_set_index)
-                    best_values[i] = current_values[i]
+    return results_dict
+
+
+
+def all_values_for_min_values(cost_functions, model_names=None, filter_function=None, normalize=False):
     
-    ## return
-    mask = best_indices >= 0
-    cost_function_names = cost_function_names[mask]
-    best_indices = best_indices[mask]
-    best_values = best_values[mask]
-    return (cost_function_names, best_indices, best_values)
-
-
-
-def all_values_for_min_values(cost_function_names, parameter_set_filter_function=None):
-    (cost_function_names, best_indices, best_values) = min_values_arrays(cost_function_names, parameter_set_filter_function=parameter_set_filter_function)
-    n = len(cost_function_names)
-    all_values = np.empty(n, n)
-    for i in range(n):
-        current_values = values_array(best_indices[i], cost_function_names)
-        all_values[i] = current_values
-    return cost_function_names, all_values
-
-
-def all_normalized_values_for_min_values(cost_function_names, parameter_set_filter_function=None):
-    (cost_function_names, best_indices, best_values) = min_values_arrays(cost_function_names, parameter_set_filter_function=parameter_set_filter_function)
-    n = len(cost_function_names)
-    all_normalized_values = np.empty([n, n])
-    for i in range(n):
-        current_values = values_array(best_indices[i], cost_function_names)
-        all_normalized_values[i] = current_values / best_values
-    return cost_function_names, all_normalized_values, best_indices, best_values
-
-
-def print_all_values_for_min_values(cost_function_names, parameter_set_filter_function=None):
-    cost_function_names, all_normalized_values, best_indices, best_values = all_normalized_values_for_min_values(cost_function_names, parameter_set_filter_function=parameter_set_filter_function)
-    m = simulation.model.eval.Model()
+    def normalized_value(cf_value, min_cf_value):
+        if normalize:
+            return cf_value / min_cf_value
+        else:
+            return cf_value
     
-    parameter_formatter = lambda value: '{:.3}'.format(value)    
-    cf_values_formatter = lambda value: '{:.0%}'.format(value)
+    results_dict = min_values(cost_functions, model_names=model_names, filter_function=filter_function)
     
-    def print_for_parameter_set(cost_function_name, index, values):
-        def array_to_str(array, formatter):
-            array_str = np.array2string(array, formatter={'all': formatter})
-            array_str = array_str.replace('\n', '').replace('\r', '')
-            return array_str
-        p = m._parameter_db.get_value(index)
-        p_str = array_to_str(p, parameter_formatter)
-        print(': Parameter set {:d}: {} (Best for cost function {})'.format(index, p_str, cost_function_name))
-        print(array_to_str(values, cf_values_formatter))
-        print('')
+    all_values_dict = util.multi_dict.MultiDict()
+    
+    for (key, value_list) in results_dict.iterator_keys_and_value_lists():
+        (model_name, time_step, cost_function_name) = key
+        assert len(value_list) == 1
+        values_dict = value_list[0]
+        concentrations = tuple(values_dict[concentrations_key])
+        parameters = tuple(values_dict[parameters_key])
+        min_f = values_dict[f_key]
+        
+        model_options = simulation.model.options.ModelOptions()
+        model_options.model_name = model_name
+        model_options.time_step = time_step
+        model_options.parameters = parameters
+        model_options.initial_concentration_options.concentrations = concentrations
+        
+        new_key = (model_name, time_step, concentrations, parameters)
+        
+        for cost_function in cost_functions:
+            old_measurements = cost_function.measurements
+            cost_function.measurements = old_measurements.subset(model_options.tracers)
+            f = cost_function.f()
+            all_values_dict[new_key + (cost_function.name,)] = [normalized_value(f, min_f)]
+            cost_function.measurements = old_measurements
+    
+    return all_values_dict
 
-    cost_function_names = [cf.replace('/max_year_diff_inf/min_diag_1e-02', '').replace('min_values_','') for cf in cost_function_names]
-    print('All min cost function values for:')
-    print(cost_function_names)
-    print_for_parameter_set('', 184, values_array(184, cost_function_names) / best_values)
-    for i in range(len(best_indices)):
-        if best_indices[i] >= 0:
-            print_for_parameter_set(cost_function_names[i], best_indices[i], all_normalized_values[i])
+
+## functions for all data
+
+def min_values_for_all_measurements(max_box_distance_to_water_list=None, min_measurements_correlation_list=None, cost_function_classes=None, model_names=None, filter_function=None):
+    model_options = simulation.model.options.ModelOptions()
+    model_options.spinup_options = {'years':1, 'tolerance':0.0, 'combination':'or'}
+    cost_functions = simulation.optimization.cost_function.cost_functions_for_all_measurements(max_box_distance_to_water_list=max_box_distance_to_water_list, min_measurements_correlation_list=min_measurements_correlation_list, cost_function_classes=cost_function_classes, model_options=model_options)
+    return min_values(cost_functions, model_names=model_names, filter_function=filter_function)
 
 
+
+def all_values_for_min_values_for_all_measurements(max_box_distance_to_water_list=None, min_measurements_correlation_list=None, cost_function_classes=None, model_names=None, filter_function=None, normalize=False):
+    model_options = simulation.model.options.ModelOptions()
+    model_options.spinup_options = {'years':1, 'tolerance':0.0, 'combination':'or'}
+    cost_functions = simulation.optimization.cost_function.cost_functions_for_all_measurements(max_box_distance_to_water_list=max_box_distance_to_water_list, min_measurements_correlation_list=min_measurements_correlation_list, cost_function_classes=cost_function_classes, model_options=model_options)
+    return all_values_for_min_values(cost_functions, model_names=model_names, filter_function=filter_function, normalize=normalize)
+
+
+
+## main
 
 if __name__ == "__main__":
-    cost_function_names = [cf for cf in COST_FUNCTION_NAMES if 'WOD_TMM_1' in cf and not 'LWLS' in cf]
-    print_all_values_for_min_values(cost_function_names)
-    cost_function_names = [cf for cf in COST_FUNCTION_NAMES if 'WOD_TMM_1' in cf and not 'OLD' in cf and not 'LWLS' in cf]
-    parameter_set_filter_function = lambda p: p[-1] == 1
-    print_all_values_for_min_values(cost_function_names, parameter_set_filter_function)
+    ## parse args
+    parser = argparse.ArgumentParser(description='Getting minimal cost function values.')
+    parser.add_argument('-m', '--max_box_distance_to_water_list', type=int, default=None, nargs='+', help='The maximal distances to water boxes to accept measurements.')
+    parser.add_argument('-c', '--min_measurements_correlation_list', type=int, default=None, nargs='+', help='The minimal number of measurements used to calculate correlations.')
+    # parser.add_argument('-n', '--normalize', action='store_true', help='Normalize cost function values.')
+    parser.add_argument('-d', '--debug_level', choices=util.logging.LEVELS, default='INFO', help='Print debug infos low to passed level.')
+    args = parser.parse_args()
 
+    ## max_box_distance_to_water
+    max_box_distance_to_water = np.array(args.max_box_distance_to_water_list)
+    add_float = np.any(max_box_distance_to_water < 0)
+    max_box_distance_to_water = max_box_distance_to_water[max_box_distance_to_water >= 0]
+    max_box_distance_to_water = np.unique(max_box_distance_to_water)
+    max_box_distance_to_water_list = max_box_distance_to_water.tolist()
+    if add_float:
+        max_box_distance_to_water_list = max_box_distance_to_water_list + [float('inf')]
+
+    ## cost_function_classes
+    if args.cost_function_list is None:
+        cost_function_classes = None
+    else:
+        cost_function_classes = [getattr(simulation.optimization.cost_function, cost_function_name) for cost_function_name in args.cost_function_list]
+    
+    ## run
+    with util.logging.Logger(level=args.debug_level):
+        results = min_values_for_all_measurements(max_box_distance_to_water_list=max_box_distance_to_water_list, min_measurements_correlation_list=args.min_measurements_correlation_list)
+        logger.info(str(results))
+        logger.info('Finished.')
