@@ -137,7 +137,7 @@ class ModelOptions(util.options.Options):
 
 class SpinupOptions(util.options.Options):
     
-    OPTIONS = ('years', 'tolerance', 'combination')
+    OPTIONS = ('years', 'tolerance', 'combination', 'match_type')
 
     def __init__(self, options=None):
         super().__init__(options=options, default_options=simulation.model.constants.MODEL_DEFAULT_SPINUP_OPTIONS, option_names=SpinupOptions.OPTIONS)
@@ -159,6 +159,12 @@ class SpinupOptions(util.options.Options):
         POSSIBLE_VALUES = ['and', 'or']
         if combination not in POSSIBLE_VALUES:
             raise ValueError('Combination "{}" unknown. Possible combinations are: {}'.format(combination, POSSIBLE_VALUES))
+    
+
+    def match_type_check(self, match_type):
+        POSSIBLE_VALUES = ['best', 'equal_or_nearest_better']
+        if match_type not in POSSIBLE_VALUES:
+            raise ValueError('Match type "{}" unknown. Possible match typies are: {}'.format(match_type, POSSIBLE_VALUES))
 
 
 

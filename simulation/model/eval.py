@@ -299,6 +299,15 @@ class Model_Database:
         run_dir = self.matching_run_dir(spinup_options)
         return run_dir
     
+    
+    @property
+    def is_matching_run_available(self):
+        spinup_dir = self.spinup_dir
+        last_run_dir = self.last_run_dir(spinup_dir)
+        spinup_options = self.model_options.spinup_options
+        is_matching = self.is_run_matching_options(last_run_dir, spinup_options)
+        return is_matching
+    
 
     def run_dirs(self, search_path):
         DATABASE_RUN_DIRNAME_REGULAR_EXPRESSION = util.pattern.convert_format_string_in_regular_expression(simulation.model.constants.DATABASE_RUN_DIRNAME)
@@ -369,7 +378,13 @@ class Model_Database:
         ## matching run found
         if self.is_run_matching_options(last_run_dir, spinup_options):
             run_dir = last_run_dir
-            logger.debug('Matching spinup run found at {}.'.format(last_run_dir))
+            if spinup_options.match_type == 'equal_or_nearest_better':
+                previous_run_dir = self.previous_run_dir(run_dir)
+                while self.is_run_matching_options(previous_run_dir, spinup_options):
+                    run_dir = previous_run_dir
+                    previous_run_dir = self.previous_run_dir(run_dir)
+                
+            logger.debug('Matching spinup run with match type {} found at {}.'.format(spinup_options.match_type, run_dir))
 
         ## create new run
         else:
@@ -395,7 +410,7 @@ class Model_Database:
                 
                 ## calculate last years
                 if last_run_dir is not None:
-                    last_years = self.get_total_years(last_run_dir)
+                    last_years = self.real_years(last_run_dir)
                     logger.debug('Found previous run(s) with total {} years.'.format(last_years))
                 else:
                     last_years = 0
@@ -417,7 +432,8 @@ class Model_Database:
                             concentration_files = job.tracer_output_files
                     self.start_run(parameters, run_dir, years, tolerance=tolerance, job_options=self.job_options_for_kind('spinup'), tracer_input_files=concentration_files, wait_until_finished=True)
                 
-            elif combination == 'and':
+            else:
+                assert combination == 'and'
                 spinup_options = simulation.model.options.SpinupOptions({'years':years, 'tolerance':0, 'combination':'or'})
                 run_dir = self.matching_run_dir(spinup_options)
                 spinup_options = simulation.model.options.SpinupOptions({'years':self.model_spinup_max_years, 'tolerance':tolerance, 'combination':'or'})
@@ -455,17 +471,18 @@ class Model_Database:
             job.wait_until_finished()
             job.make_read_only_output(make_read_only)
     
+    
     def is_run_matching_options(self, run_dir, spinup_options):
-        model_spinup_max_years = self.model_spinup_max_years
-        spinup_options = util.options.as_options(spinup_options, simulation.model.options.SpinupOptions)
-
-        years = spinup_options.years
-        tolerance = spinup_options.tolerance
-        combination = spinup_options.combination
-
         if run_dir is not None:
-            run_years = self.get_total_years(run_dir)
-            run_tolerance = self.get_real_tolerance(run_dir)
+            model_spinup_max_years = self.model_spinup_max_years
+            spinup_options = util.options.as_options(spinup_options, simulation.model.options.SpinupOptions)
+    
+            years = spinup_options.years
+            tolerance = spinup_options.tolerance
+            combination = spinup_options.combination
+            
+            run_years = self.real_years(run_dir)
+            run_tolerance = self.real_tolerance(run_dir)
 
             if combination == 'and':
                 is_matching = (run_years >= years and run_tolerance <= tolerance) or run_years >= model_spinup_max_years
@@ -487,27 +504,25 @@ class Model_Database:
         return is_matching
 
 
-    def get_total_years(self, run_dir):
-        total_years = 0
+    def real_years(self, run_dir=None):
+        if run_dir is None:
+            run_dir = self.run_dir
+        real_years = 0
         while run_dir is not None:
             with simulation.model.job.Metos3D_Job(run_dir, force_load=True) as job:
                 years = job.last_year
-            total_years += years
+            real_years += years
             run_dir = self.previous_run_dir(run_dir)
-        return total_years
+        return real_years
 
 
-    def get_real_tolerance(self, run_dir):
+    def real_tolerance(self, run_dir):
+        if run_dir is None:
+            run_dir = self.run_dir
         with simulation.model.job.Metos3D_Job(run_dir, force_load=True) as job:
             tolerance = job.last_tolerance
         return tolerance
 
-
-    def get_time_step(self, run_dir):
-        with simulation.model.job.Metos3D_Job(run_dir, force_load=True) as job:
-            time_step = job.time_step
-        return time_step
-    
     
     ## job options
 
@@ -850,10 +865,10 @@ class Model_With_F_And_DF(Model_With_F):
     
     @property
     def derivative_dir(self):
-        step_size = self.model_options.derivative_options.step_size
-        derivative_dir = os.path.join(self.parameter_set_dir, simulation.model.constants.DATABASE_DERIVATIVE_DIRNAME.format(step_size=step_size))
+        derivative_options = self.model_options.derivative_options
+        derivative_dir = os.path.join(self.parameter_set_dir, simulation.model.constants.DATABASE_DERIVATIVE_DIRNAME.format(spinup_real_years=self.real_years(),derivative_step_size=derivative_options.step_size, derivative_years=derivative_options.years))
         logger.debug('Returning derivative directory {}.'.format(derivative_dir))
-        return spinup_dir
+        return derivative_dir
     
 
     def _df(self, trajectory_load_function, partial_derivative_kind, tracers=None):
@@ -896,7 +911,7 @@ class Model_With_F_And_DF(Model_With_F):
         ## get direavtive dir and spinup run dir
         derivative_dir = self.derivative_dir
         spinup_matching_run_dir = self.matching_run_dir(spinup_options)
-        spinup_matching_run_years = self.get_total_years(spinup_matching_run_dir)
+        spinup_matching_run_years = self.real_years(spinup_matching_run_dir)
 
 
         ## get f if accuracy_order is 1
@@ -1127,7 +1142,7 @@ class Model_Database_MemoryCached(Model_Database):
         return super().closest_spinup_dir
     
     @property
-    @util.cache.memory.method_decorator(dependency=('self.spinup_dir', 'self.model_options.spinup_options.years', 'self.model_options.spinup_options.tolerance', 'self.model_options.spinup_options.combination'))
+    @util.cache.memory.method_decorator(dependency=('self.spinup_dir', 'self.model_options.spinup_options.years', 'self.model_options.spinup_options.tolerance', 'self.model_options.spinup_options.combination', 'self.model_options.spinup_options.match_type'))
     def run_dir(self):
         return super().run_dir
 
@@ -1143,12 +1158,9 @@ class Model_With_F_MemoryCached(Model_Database_MemoryCached, Model_With_F):
 class Model_With_F_And_DF_MemoryCached(Model_With_F_MemoryCached, Model_With_F_And_DF):
 
     @property
-    @util.cache.memory.method_decorator(dependency=('self.parameter_set_dir', 'self.model_options.derivative_options.step_size'))
+    @util.cache.memory.method_decorator(dependency=('self.run_dir', 'self.model_options.derivative_options.step_size', 'self.model_options.derivative_options.years'))
     def derivative_dir(self):
-        step_size = self.model_options.derivative_options.step_size
-        derivative_dir = os.path.join(self.parameter_set_dir, simulation.model.constants.DATABASE_DERIVATIVE_DIRNAME.format(step_size=step_size))
-        logger.debug('Returning derivative directory {}.'.format(derivative_dir))
-        return derivative_dir
+        return super().derivative_dir
 
 
 

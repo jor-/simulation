@@ -148,7 +148,7 @@ class Base():
 
     def f_available(self):
         filename = self._filename(simulation.optimization.constants.COST_FUNCTION_F_FILENAME)
-        return self.cache.has_value(filename)
+        return self.cache.has_value(filename, derivative_used=False)
     
 
     def f_normalized_calculate(self):
@@ -171,7 +171,7 @@ class Base():
         if self.parameters_include_initial_concentrations_factor:
             derivative_kinds.append('total_concentration_factor')
 
-        filename_pattern = self._filename(simulation.optimization.constants.COST_FUNCTION_DF_FILENAME.format(step_size=self.model.model_options.derivative_options.step_size, derivative_kind='{derivative_kind}'))
+        filename_pattern = self._filename(simulation.optimization.constants.COST_FUNCTION_DF_FILENAME.format(derivative_kind='{derivative_kind}'))
         
         ## calculate and cache derivative for each kind
         df = []
@@ -194,10 +194,10 @@ class Base():
         if self.parameters_include_initial_concentrations_factor:
             derivative_kinds.append('total_concentration_factor')
 
-        filename_pattern = self._filename(simulation.optimization.constants.COST_FUNCTION_DF_FILENAME.format(step_size=self.model.model_options.derivative_options.step_size, derivative_kind='{derivative_kind}'))
+        filename_pattern = self._filename(simulation.optimization.constants.COST_FUNCTION_DF_FILENAME.format(derivative_kind='{derivative_kind}'))
         
         ## check cache derivative for each kind
-        return all(self.cache.has_value(filename_pattern.format(derivative_kind=derivative_kind)) for derivative_kind in derivative_kinds)
+        return all(self.cache.has_value(filename_pattern.format(derivative_kind=derivative_kind), derivative_used=True) for derivative_kind in derivative_kinds)
 
 
     ## model and data values

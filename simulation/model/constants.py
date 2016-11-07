@@ -47,7 +47,7 @@ JOB_MEMORY_GB = 4
 ## model spinup
 MODEL_SPINUP_MAX_YEARS = 50000
 MODEL_START_FROM_CLOSEST_PARAMETER_SET = False
-MODEL_DEFAULT_SPINUP_OPTIONS = {'years':10000, 'tolerance':0.0, 'combination':'or'}
+MODEL_DEFAULT_SPINUP_OPTIONS = {'years':10000, 'tolerance':0.0, 'combination':'or', 'match_type': 'best'}
 MODEL_DEFAULT_DERIVATIVE_OPTIONS = {'years': 500, 'step_size': 10**(-6), 'accuracy_order': 2}
 
 
@@ -203,7 +203,7 @@ from simulation.constants import SIMULATION_OUTPUT_DIR as DATABASE_OUTPUT_DIR
 DATABASE_MODEL_DIRNAME = 'model_{}'
 DATABASE_TIME_STEP_DIRNAME = 'time_step_{:0>4d}'
 DATABASE_SPINUP_DIRNAME = 'spinup'
-DATABASE_DERIVATIVE_DIRNAME = os.path.join('derivative', 'step_size_{step_size}')
+DATABASE_DERIVATIVE_DIRNAME = os.path.join('derivative', 'spinup_years_{spinup_real_years:d}', 'derivative_step_size_{derivative_step_size:g}', 'derivative_spinup_years_{derivative_years:d}')
 DATABASE_PARTIAL_DERIVATIVE_DIRNAME = 'partial_derivative_{kind}_{index:d}_{h_factor:+d}'
 DATABASE_RUN_DIRNAME = 'run_{:0>5d}'
 
@@ -226,6 +226,8 @@ assert DATABASE_PARAMETERS_RELIABLE_DECIMAL_PLACES == 15
 DATABASE_PARAMETERS_FORMAT_STRING = '{:.' + '{}'.format(DATABASE_PARAMETERS_RELIABLE_DECIMAL_PLACES) + 'f}'
 
 
+DATABASE_CACHE_SPINUP_DIRNAME = 'spinup_years_{real_years:d}'
+DATABASE_CACHE_DERIVATIVE_DIRNAME = os.path.join('derivative_step_size_{derivative_step_size:g}', 'derivative_spinup_years_{derivative_years:d}', 'derivative_accuracy_order_{derivative_accuracy_order:d}')
 DATABASE_POINTS_OUTPUT_DIRNAME = os.path.join('output', '{tracer}', '{data_set_name}')
 DATABASE_ALL_DATASET_NAME = 'all_model_values_-_time_dim_{time_dim}'
 DATABASE_F_FILENAME = 'f.npz'
