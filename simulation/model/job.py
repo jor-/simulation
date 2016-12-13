@@ -288,7 +288,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
 
 
         ## init job
-        super().init_job_file(job_name, nodes_setup)
+        super().set_job_options(job_name, nodes_setup)
 
 
         ## get output dir

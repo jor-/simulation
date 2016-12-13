@@ -63,7 +63,7 @@ class CostFunctionJob(util.batch.universal.system.Job):
 
         ## init job file
         queue = None
-        super().init_job_file(job_name, nodes_setup, queue=queue)
+        super().set_job_options(job_name, nodes_setup, queue=queue)
 
         ## write python script
         commands = ['import numpy as np']
