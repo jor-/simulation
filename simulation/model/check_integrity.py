@@ -1,7 +1,6 @@
 import argparse
 import os
 import stat
-import numpy as np
 
 import simulation.model.job
 import simulation.model.constants
@@ -35,7 +34,7 @@ def get_files_in_dir(pattern, directory):
     files = util.io.fs.get_files(directory, filename_pattern=pattern, use_absolute_filenames=True, recursive=True)
     logger.info('Got {} jobs.'.format(len(files)))
     return files
-    
+
 
 def get_files(pattern, model_names=None):
     files = []
@@ -49,7 +48,7 @@ def get_files(pattern, model_names=None):
 
 def check_job_options(model_names=None):
     logger.info('Checking job options integrity.')
-    
+
     pattern = '*/job_options.hdf5'
     files = get_files(pattern, model_names=model_names)
     for file in files:
@@ -57,16 +56,16 @@ def check_job_options(model_names=None):
         try:
             with simulation.model.job.Metos3D_Job(run_dir, force_load=True) as job:
                 job.check_integrity(should_be_started=True, should_be_readonly=True)
-        except util.batch.universal.system.JobError as e:
+        except Exception as e:
             logger.error(e)
 
 
 
 def check_permissions(model_names=None):
     logger.info('Checking permissions.')
-    
+
     base_dirs = get_base_dirs(model_names=model_names)
-    
+
     def check_file(file):
         permissions = os.stat(file)[stat.ST_MODE]
         if not (permissions & stat.S_IRUSR and permissions & stat.S_IRGRP):
@@ -83,7 +82,7 @@ def check_permissions(model_names=None):
 
 def check_db(model_names=None):
     logger.info('Checking database integrity.')
-    
+
     model = simulation.model.cache.Model()
     try:
         model.check_integrity(model_names=model_names)
