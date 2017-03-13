@@ -1,13 +1,14 @@
 import os.path
+
 import numpy as np
 import scipy.stats
 import scipy.sparse
+import scipy.sparse.linalg
 
 import simulation.util.value_cache
 import simulation.util.data_base
 
 import util.math.matrix
-import util.math.sparse.solve
 import util.parallel.universal
 import util.parallel.with_multiprocessing
 
@@ -33,7 +34,7 @@ class Base():
         self.data_base = simulation.util.data_base.init_data_base(data_kind, model_options=model_options, job_setup=job_setup)
         self.cache = simulation.util.value_cache.Cache(model_options=model_options, cache_dirname=self.cache_dirname, use_memory_cache=True)
         self.dtype = np.float128
-    
+
 
     @property
     def cache_dirname(self):
@@ -78,7 +79,7 @@ class Base():
             return self.cache.get_value(parameters, COVARIANCE_MATRIX_FILENAME, self.covariance_matrix_calculate_with_parameters, derivative_used=True, save_also_txt=True)
         else:
             raise ValueError('Wrong shape: parameters_or_information_matrix must have 1 or 2 dimensions but it has {} dimensions.'.format(parameters_or_information_matrix.ndim))
-    
+
 
 
     def correlation_matrix(self, parameters_or_information_matrix):
@@ -187,7 +188,7 @@ class Base():
 
 
     def average_model_confidence_calculate(self, parameters, information_matrix=None, time_dim_df=2880, value_mask=None, use_mem_map=False, parallel_mode=util.parallel.universal.max_parallel_mode()):
-        
+
         if information_matrix is None:
             time_dim_confidence = 12
         elif value_mask is None:
@@ -245,7 +246,7 @@ class Base():
         parallel_mode_average_model_confidence_increase = parallel_mode
         parallel_mode_average_model_confidence = max([parallel_mode - 1, 0])
         parallel_mode_average_model_confidence_last = min([parallel_mode, 1])
-        
+
         ## create shared arrays
         if parallel_mode == util.parallel.universal.MODES['multiprocessing']:
             value_mask = util.parallel.with_multiprocessing.shared_array(value_mask)
@@ -264,7 +265,7 @@ class Base():
 
         ## calculate average model confidence increase
         logger.debug('Calculating average model confidence increase for {} values.'.format(np.sum(~ np.isnan(df_boxes_increase))))
-        
+
         average_model_confidence_increase = util.parallel.universal.create_array(confidence_increase_shape, self.average_model_confidence_increase_calculate_for_index, parameters, number_of_measurements, time_dim_confidence_increase, time_dim_df, value_mask, use_mem_map, parallel_mode_average_model_confidence, parallel_mode=parallel_mode_average_model_confidence_increase)
 
         average_model_confidence = self.average_model_confidence(parameters, time_dim_df=time_dim_df, value_mask=value_mask, use_mem_map=use_mem_map, parallel_mode=parallel_mode_average_model_confidence_last)
@@ -368,11 +369,11 @@ class GLS(Base):
     @property
     def cache_dirname(self):
         return os.path.join(CACHE_DIRNAME, str(self.data_base), self.__class__.__name__, 'min_values_{}'.format(self.correlation_min_values), 'max_year_diff_{}'.format(self.correlation_max_year_diff), 'min_diag_{:.0e}'.format(self.positive_definite_approximation_min_diag_value))
-    
+
 
     def information_matrix_calculate_with_DF(self, DF, inverse_deviations, correlation_matrix):
         logger.debug('Calculating information matrix of type {} with {} DF values.'.format(self.__class__.__name__, len(DF)))
-        
+
         assert DF.ndim == 2
         assert inverse_deviations.ndim == 1
         assert correlation_matrix.ndim == 2
@@ -393,11 +394,11 @@ class GLS(Base):
     def information_matrix_calculate_with_parameters(self, parameters):
         P, L = self.data_base.correlation_matrix_cholesky_decomposition(min_measurements=self.correlation_min_values, max_year_diff=self.correlation_max_year_diff, positive_definite_approximation_min_diag_value=self.positive_definite_approximation_min_diag_value)
         DF = self.data_base.df(parameters)
-        
+
         weighted_DF = DF * self.data_base.inverse_deviations[:, np.newaxis]
         weighted_DF = P * np.asmatrix(weighted_DF, dtype=self.dtype)
 
-        X = util.math.sparse.solve.forward_substitution(L, weighted_DF, dtype=self.dtype)
+        X = scipy.sparse.linalg.spsolve_triangular(L, weighted_DF, lower=True, overwrite_A=True, overwrite_b=True)
         X = np.asmatrix(X)
         M = X.T * X
 
@@ -463,7 +464,7 @@ class GLS_P3(Base):
 
 
 class Family(simulation.util.data_base.Family):
-    
+
     member_classes = {'WOA': [(OLS, [{}]), (WLS, [{}])], 'WOD': [(OLS, [{}]), (WLS, [{}]), (GLS, [{'correlation_min_values': correlation_min_values, 'correlation_max_year_diff': float('inf')} for correlation_min_values in (30, 35, 40)])]}
 
     def information_matrix(self, parameters):
