@@ -1,7 +1,4 @@
 import argparse
-import re
-import tempfile
-import time
 
 import numpy as np
 
@@ -61,7 +58,7 @@ if __name__ == "__main__":
         cost_function_classes = None
     else:
         cost_function_classes = [getattr(simulation.optimization.cost_function, cost_function_name) for cost_function_name in args.cost_function_list]
-    
+
     ## run
     with util.logging.Logger(level=args.debug_level):
         save_for_all_measurements(max_box_distance_to_water_list=max_box_distance_to_water_list, min_measurements_correlation_list=args.min_measurements_correlation_list, cost_function_classes=cost_function_classes, eval_f=True, eval_df=args.DF)
