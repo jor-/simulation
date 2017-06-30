@@ -1,5 +1,5 @@
 # simulation: a collection of functions to handel simulations using Metos3D
-# Copyright (C) 2011-2016  Joscha Reimer jor@informatik.uni-kiel.de
+# Copyright (C) 2011-2017  Joscha Reimer jor@informatik.uni-kiel.de
 # 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -56,7 +56,7 @@ setuptools.setup(
     use_scm_version = version,
 
     # License
-    license = 'GPLv3+',
+    license = 'AGPLv3+',
 
     # Classifiers
     classifiers = [
@@ -69,7 +69,7 @@ setuptools.setup(
         'Topic :: Software Development :: Libraries :: Python Modules',
 
         # Licence (should match "license" above)
-        'License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)',
+        'License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)',
 
         # Supported Python versions
         'Programming Language :: Python :: 3',
