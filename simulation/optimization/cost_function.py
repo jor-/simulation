@@ -323,6 +323,7 @@ class GLS(BaseUsingCorrelation):
         correlation_matrix_decomposition = self.measurements.correlations_own_decomposition
         inverse_correlation_matrix_right_side_multiplied_weighted_residual = correlation_matrix_decomposition.inverse_matrix_right_side_multiplication(weighted_residual)
         df_factors = inverse_correlation_matrix_right_side_multiplied_weighted_residual * inverse_deviations
+
         df = 2 * np.sum(df_factors[:, np.newaxis] * DF, axis=0)
         return df
 
@@ -483,18 +484,21 @@ class LGLS(BaseUsingCorrelation, BaseLog):
 
 ## class lists
 
-ALL_COST_FUNCTION_CLASSES_WITHOUT_CORRELATION = [OLS, WLS, LOLS, LWLS]
+ALL_COST_FUNCTION_CLASSES_WITHOUT_STANDARD_DEVIATION = [OLS,]
+ALL_COST_FUNCTION_CLASSES_ONLY_WITH_STANDARD_DEVIATION = [WLS, LOLS, LWLS]
 ALL_COST_FUNCTION_CLASSES_WITH_CORRELATION = [GLS, LGLS]
-ALL_COST_FUNCTION_CLASSES = ALL_COST_FUNCTION_CLASSES_WITHOUT_CORRELATION + ALL_COST_FUNCTION_CLASSES_WITH_CORRELATION
+ALL_COST_FUNCTION_CLASSES = ALL_COST_FUNCTION_CLASSES_WITHOUT_STANDARD_DEVIATION + ALL_COST_FUNCTION_CLASSES_ONLY_WITH_STANDARD_DEVIATION + ALL_COST_FUNCTION_CLASSES_WITH_CORRELATION
 
 
 
 ## iterator
 
-def cost_functions_for_all_measurements(max_box_distance_to_water_list=None, min_measurements_correlation_list=None, cost_function_classes=None, model_options=None):
+def cost_functions_for_all_measurements(max_box_distance_to_water_list=None, min_standard_deviation_list=None, min_measurements_correlation_list=None, cost_function_classes=None, model_options=None):
     ## default values
     if max_box_distance_to_water_list is None:
         max_box_distance_to_water_list = [0, 1, float('inf')]
+    if min_standard_deviation_list is None:
+        min_standard_deviation_list = [None]
     if min_measurements_correlation_list is None:
         min_measurements_correlation_list = [float('inf')]
     if cost_function_classes is None:
@@ -504,22 +508,25 @@ def cost_functions_for_all_measurements(max_box_distance_to_water_list=None, min
 
     ## split cost function classes
     cost_function_classes = set(cost_function_classes)
-    cost_function_classes_without_correlation = cost_function_classes & set(ALL_COST_FUNCTION_CLASSES_WITHOUT_CORRELATION)
+    cost_function_classes_without_standard_deviation = cost_function_classes & set(ALL_COST_FUNCTION_CLASSES_WITHOUT_STANDARD_DEVIATION)
+    cost_function_classes_only_with_standard_deviation = cost_function_classes & set(ALL_COST_FUNCTION_CLASSES_ONLY_WITH_STANDARD_DEVIATION)
     cost_function_classes_with_correlation = cost_function_classes & set(ALL_COST_FUNCTION_CLASSES_WITH_CORRELATION)
 
     ## init all cost functions
     cost_functions = []
     for max_box_distance_to_water in max_box_distance_to_water_list:
-        for i in range(len(min_measurements_correlation_list)):
-            min_measurements_correlation = min_measurements_correlation_list[i]
+        for i, min_standard_deviation in enumerate(min_standard_deviation_list):
+            for j, min_measurements_correlation in enumerate(min_measurements_correlation_list):
+                measurements_collection = measurements.all.pw.data.all_measurements(max_box_distance_to_water=max_box_distance_to_water, min_standard_deviation=min_standard_deviation, min_measurements_correlation=min_measurements_correlation)
 
-            measurements_collection = measurements.all.pw.data.all_measurements(max_box_distance_to_water=max_box_distance_to_water, min_measurements_correlation=min_measurements_correlation)
+                if len(cost_function_classes_without_standard_deviation) > 0 and i == 0 and j == 0:
+                    cost_functions.extend([cost_functions_class(measurements_collection) for cost_functions_class in cost_function_classes_without_standard_deviation])
 
-            if len(cost_function_classes_without_correlation) > 0 and i == 0:
-                cost_functions.extend([cost_functions_class(measurements_collection) for cost_functions_class in cost_function_classes_without_correlation])
+                if len(cost_function_classes_only_with_standard_deviation) > 0 and j == 0:
+                    cost_functions.extend([cost_functions_class(measurements_collection) for cost_functions_class in cost_function_classes_only_with_standard_deviation])
 
-            if len(cost_function_classes_with_correlation) > 0 and min_measurements_correlation != float('inf'):
-                cost_functions.extend([cost_functions_class(measurements_collection) for cost_functions_class in cost_function_classes_with_correlation])
+                if len(cost_function_classes_with_correlation) > 0 and min_measurements_correlation != float('inf'):
+                    cost_functions.extend([cost_functions_class(measurements_collection) for cost_functions_class in cost_function_classes_with_correlation])
 
     ## set same model and model options
     if len(cost_functions) > 0:

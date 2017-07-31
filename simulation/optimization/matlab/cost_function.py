@@ -28,6 +28,7 @@ if __name__ == "__main__":
 
     parser.add_argument('--cost_function_name', choices=COST_FUNCTION_NAMES, help='The cost function which should be evaluated.')
     parser.add_argument('--max_box_distance_to_water', type=int, default=float('inf'), help='The maximal distance to water boxes to accept measurements.')
+    parser.add_argument('--min_standard_deviation', type=float, default=None, help='The minimal standard deviation assumed for the measurement error.')
     parser.add_argument('--min_measurements_correlation', type=int, default=float('inf'), help='The minimal number of measurements used to calculate correlations.')
 
     parser.add_argument('--exchange_dir', help='The directory from where to load the parameters and where to save the cost function values.')
@@ -144,8 +145,9 @@ if __name__ == "__main__":
 
         ## choose measurements
         max_box_distance_to_water = args.max_box_distance_to_water
+        min_standard_deviation = args.min_standard_deviation
         min_measurements_correlation = args.min_measurements_correlation
-        measurements = measurements.all.pw.data.all_measurements(max_box_distance_to_water=max_box_distance_to_water, min_measurements_correlation=min_measurements_correlation, tracers=model_options.tracers)
+        measurements = measurements.all.pw.data.all_measurements(max_box_distance_to_water=max_box_distance_to_water, min_standard_deviation=min_standard_deviation, min_measurements_correlation=min_measurements_correlation, tracers=model_options.tracers)
 
         ## init cost function
         cf = cf_class(measurements_collection=measurements, model_options=model_options, job_options=prepare_job_options())
