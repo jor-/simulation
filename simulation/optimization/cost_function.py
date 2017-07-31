@@ -3,6 +3,7 @@ import os.path
 import numpy as np
 import scipy.sparse
 import scipy.sparse.linalg
+import matrix
 
 import simulation.model.cache
 import simulation.model.constants
@@ -14,7 +15,6 @@ import measurements.universal.data
 
 import util.math.optimize.with_scipy
 import util.math.finite_differences
-import util.math.sparse.decompose.with_cholmod
 from util.math.matrix import SingularMatrixError
 
 import util.logging
@@ -308,35 +308,22 @@ class GLS(BaseUsingCorrelation):
         F = self.model_f()
         results = self.results()
         inverse_deviations = 1 / self.measurements.standard_deviations
-        correlation_matrix_cholesky_decomposition = self.measurements.correlations_own_cholesky_decomposition
-        P = correlation_matrix_cholesky_decomposition['P']
-        L = correlation_matrix_cholesky_decomposition['L']
-
         weighted_residual =  (F - results) * inverse_deviations
-        inv_L_mul_weighted_residual = scipy.sparse.linalg.spsolve_triangular(L, P * weighted_residual, lower=True, overwrite_A=True, overwrite_b=True)
-
-        f = np.sum(inv_L_mul_weighted_residual**2)
+        correlation_matrix_decomposition = self.measurements.correlations_own_decomposition
+        f = correlation_matrix_decomposition.inverse_matrix_both_sides_multiplication(weighted_residual)
         return f
 
 
     def df_calculate(self, derivative_kind):
         F = self.model_f()
         results = self.results()
-        DF = self.model_df(derivative_kind)
         inverse_deviations = 1 / self.measurements.standard_deviations
-        correlation_matrix_cholesky_decomposition = self.measurements.correlations_own_cholesky_decomposition
-        P = correlation_matrix_cholesky_decomposition['P']
-        L = correlation_matrix_cholesky_decomposition['L']
-
         weighted_residual =  (F - results) * inverse_deviations
-        inv_L_mul_weighted_residual = scipy.sparse.linalg.spsolve_triangular(L, P * weighted_residual, lower=True, overwrite_A=True, overwrite_b=True)
-
-        inv_C_mul_weighted_residual = scipy.sparse.linalg.spsolve_triangular(L.T, inv_L_mul_weighted_residual, lower=False, overwrite_A=True, overwrite_b=True)
-        inv_C_mul_weighted_residual = P.T * inv_C_mul_weighted_residual
-
-        df_factors = inv_C_mul_weighted_residual * inverse_deviations
-
-        df = 2 * np.sum(df_factors[:,np.newaxis] * DF, axis=0)
+        DF = self.model_df(derivative_kind)
+        correlation_matrix_decomposition = self.measurements.correlations_own_decomposition
+        inverse_correlation_matrix_right_side_multiplied_weighted_residual = correlation_matrix_decomposition.inverse_matrix_right_side_multiplication(weighted_residual)
+        df_factors = inverse_correlation_matrix_right_side_multiplied_weighted_residual * inverse_deviations
+        df = 2 * np.sum(df_factors[:, np.newaxis] * DF, axis=0)
         return df
 
 
@@ -465,9 +452,9 @@ class LGLS(BaseUsingCorrelation, BaseLog):
         standard_deviations_diag_matrix = scipy.sparse.diags(self.measurements.standard_deviations)
         correlation_matrix = self.measurements.correlations()
 
-        correlation_matrix.data[correlation_matrix.data < 0] = 0        # set negative correlations to zero (since it mus hold C_ij >= - E_i E_j)
+        correlation_matrix.data[correlation_matrix.data < 0] = 0        # set negative correlations to zero (since it must hold C_ij >= - E_i E_j)
         correlation_matrix.eliminate_zeros()
-        correlation_matrix, reduction_factors = util.math.sparse.decompose.with_cholmod.approximate_positive_definite(correlation_matrix, min_abs_value=self.measurements.min_abs_correlation, min_diag_value=self.measurements.cholesky_min_diag_value_correlation, ordering_method=self.measurements.cholesky_ordering_method_correlation, reorder_after_each_step=self.measurements.cholesky_reordering_correlation)
+        correlation_matrix = matrix.approximate(correlation_matrix, min_diag_value=self.measurements.min_diag_value_decomposition_correlation, min_abs_value=self.measurements.min_abs_correlation, permutation_method=self.measurements.permutation_method_decomposition_correlation, check_finite=False, return_type=matrix.constants.LDL_DECOMPOSITION_TYPE, overwrite_A=True)
 
         covariance_matrix = standard_deviations_diag_matrix * correlation_matrix * standard_deviations_diag_matrix
 
@@ -477,23 +464,18 @@ class LGLS(BaseUsingCorrelation, BaseLog):
         return sigma
 
 
-    def distribution_parameter_sigma_cholmod_factor(self):
-        sigma = self.distribution_parameter_sigma()
-        P, L = util.math.sparse.decompose.with_cholmod.cholesky(sigma, ordering_method=self.measurements.cholesky_ordering_method_correlation, return_type=util.math.sparse.decompose.with_cholmod.RETURN_P_L)
-        return P, L
+    def distribution_parameter_sigma_decomposition(self):
+        decomposition = matrix.decompose(self.distribution_parameter_sigma(), permutation_method=self.measurements.permutation_method_decomposition_correlation, check_finite=False, return_type=matrix.constants.LDL_DECOMPOSITION_TYPE)
+        return decomposition
 
 
     def f_calculate(self):
         results = self.results()
         my = self.distribution_parameter_my()
-        P, L = self.distribution_parameter_sigma_cholmod_factor()
-
+        sigma_decomposition = self.distribution_parameter_sigma_decomposition()
         diff = np.log(results) - my
-        inverse_cholesky_factor_multiplied_diff = scipy.sparse.linalg.spsolve_triangular(L, P * diff, lower=True, overwrite_A=True, overwrite_b=True)
-
-        f = np.sum(inverse_cholesky_factor_multiplied_diff**2)
-        f += 2 * np.sum(np.log(L.diagonal()))
-
+        f = sigma_decomposition.inverse_matrix_both_sides_multiplication(diff)
+        f += np.sum(np.log(sigma_decomposition.d))
         return f
 
 

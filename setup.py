@@ -86,11 +86,12 @@ setuptools.setup(
     ],
     install_requires = [
         'numpy',
-        'utillib[cache,options,interpolate,cholmod]',
+        'scipy',
+        'matrix-decomposition',
+        'utillib[cache,options,interpolate]',
         'measurements',
     ],
     extras_require = {
-        'asymptotic' : ['scipy'],
         'sorted_measurements_dict': ['measurements[sorted_measurements_dict]'],
     },
 )
