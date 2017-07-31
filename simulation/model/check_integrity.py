@@ -46,11 +46,11 @@ def get_files(pattern, model_names=None):
 
 ## check functions
 
-def check_job_options(model_names=None):
-    logger.info('Checking job options integrity.')
+def check_job_options_in_dir(directory):
+    logger.info('Checking job options integrity in {}.'.format(directory))
 
     pattern = '*/job_options.hdf5'
-    files = get_files(pattern, model_names=model_names)
+    files = get_files_in_dir(pattern, directory)
     for file in files:
         run_dir = os.path.dirname(file)
         try:
@@ -59,6 +59,11 @@ def check_job_options(model_names=None):
         except Exception as e:
             logger.error(e)
 
+
+def check_job_options(model_names=None):
+    base_dirs = get_base_dirs(model_names=model_names)
+    for base_dir in base_dirs:
+        check_job_options_in_dir(base_dir)
 
 
 def check_permissions(model_names=None):
@@ -79,7 +84,6 @@ def check_permissions(model_names=None):
         util.io.fs.walk_all_in_dir(base_dir, check_file, check_dir, exclude_dir=False, topdown=True)
 
 
-
 def check_db(model_names=None):
     logger.info('Checking database integrity.')
 
@@ -90,15 +94,15 @@ def check_db(model_names=None):
         logger.error(e)
 
 
-
 if __name__ == "__main__":
     ## configure arguments
     parser = argparse.ArgumentParser()
     parser.add_argument('-j', '--check_job_options', action='store_true')
     parser.add_argument('-p', '--check_permissions', action='store_true')
-    parser.add_argument('-b', '--check_database', action='store_true')
+    parser.add_argument('-d', '--check_database', action='store_true')
     parser.add_argument('-m', '--model_names', default=None, nargs='+', help='The models to check. If not specified all models are checked')
-    parser.add_argument('-d', '--debug_level', choices=util.logging.LEVELS, default='INFO', help='Print debug infos low to passed level.')
+    parser.add_argument('-f', '--check_job_options_in_dir', default=None, nargs='+', help='The directories where to check job options files. If not specified no special directories are checked')
+    parser.add_argument('-D', '--debug_level', choices=util.logging.LEVELS, default='INFO', help='Print debug infos low to passed level.')
     args = parser.parse_args()
     ## run check
     with util.logging.Logger(level=args.debug_level):
