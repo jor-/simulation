@@ -20,20 +20,14 @@ https://packaging.python.org/en/latest/distributing.html
 
 import setuptools
 import os.path
+import versioneer
 
 # Get the long description from the README file
 readme_file = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'README.rst')
 with open(readme_file, mode='r', encoding='utf-8') as f:
     long_description = f.read()
 
-# Version string
-def version():
-    import setuptools_scm
-    def empty_local_scheme(version):
-        return ""
-    return {'local_scheme': empty_local_scheme}
-
-
+# Setup
 setuptools.setup(
     # Name
     name = 'simulation',
@@ -53,7 +47,8 @@ setuptools.setup(
     author_email = 'jor@informatik.uni-kiel.de',
 
     # Version
-    use_scm_version = version,
+    version=versioneer.get_version(),
+    cmdclass=versioneer.get_cmdclass(),
 
     # License
     license = 'AGPLv3+',
@@ -62,15 +57,12 @@ setuptools.setup(
     classifiers = [
         # Development Status
         'Development Status :: 3 - Alpha',
-
         # Intended Audience, Topic
         'Intended Audience :: Developers',
         'Intended Audience :: Science/Research',
         'Topic :: Software Development :: Libraries :: Python Modules',
-
         # Licence (should match "license" above)
         'License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)',
-
         # Supported Python versions
         'Programming Language :: Python :: 3',
     ],
@@ -82,7 +74,6 @@ setuptools.setup(
     setup_requires = [
         'setuptools>=0.8',
         'pip>=1.4',
-        'setuptools_scm',
     ],
     install_requires = [
         'numpy',
