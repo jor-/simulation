@@ -1,4 +1,7 @@
-if __name__ == "__main__":
+# *** main function for script call *** #
+
+
+def _main():
 
     import argparse
     import os
@@ -6,6 +9,7 @@ if __name__ == "__main__":
 
     import numpy as np
 
+    import simulation
     import simulation.model.constants
     import simulation.model.options
     import simulation.optimization.cost_function
@@ -22,16 +26,15 @@ if __name__ == "__main__":
 
     from simulation.optimization.matlab.constants import MATLAB_PARAMETER_FILENAME, MATLAB_F_FILENAME, MATLAB_DF_FILENAME, NODES_MAX_FILENAME, COST_FUNCTION_NAMES
 
-
-    ## parse arguments
+    # parse arguments
     parser = argparse.ArgumentParser(description='Evaluating a cost function for matlab.')
 
-    parser.add_argument('--cost_function_name', choices=COST_FUNCTION_NAMES, help='The cost function which should be evaluated.')
+    parser.add_argument('--cost_function_name', required=True, choices=COST_FUNCTION_NAMES, help='The cost function which should be evaluated.')
     parser.add_argument('--max_box_distance_to_water', type=int, default=float('inf'), help='The maximal distance to water boxes to accept measurements.')
     parser.add_argument('--min_standard_deviation', type=float, default=None, help='The minimal standard deviation assumed for the measurement error.')
     parser.add_argument('--min_measurements_correlation', type=int, default=float('inf'), help='The minimal number of measurements used to calculate correlations.')
 
-    parser.add_argument('--exchange_dir', help='The directory from where to load the parameters and where to save the cost function values.')
+    parser.add_argument('--exchange_dir', required=True, help='The directory from where to load the parameters and where to save the cost function values.')
     parser.add_argument('--debug_logging_file', default=None, help='File to store debug informations.')
 
     parser.add_argument('--eval_function_value', action='store_true', help='Save the value of the cost function.')
@@ -59,32 +62,32 @@ if __name__ == "__main__":
     parser.add_argument('--initial_concentrations_relative_tolerance', type=float, default=None, help='The relative tolerance up to which two initial concentration vectors are considered equal.')
     parser.add_argument('--initial_concentrations_absolute_tolerance', type=float, default=None, help='The absolute tolerance up to which two initial concentration vectors are considered equal.')
 
-    parser.add_argument('--version', action='version', version='%(prog)s 0.1')
+    parser.add_argument('--version', action='version', version='%(prog)s {}'.format(simulation.__version__))
 
     args = parser.parse_args()
 
-    ## prepare model options
+    # prepare model options
     model_options = simulation.model.options.ModelOptions()
 
-    ## set model name
+    # set model name
     if args.model_name is not None:
         model_options['model_name'] = args.model_name
 
-    ## set time step
+    # set time step
     model_options['time_step'] = args.time_step
 
-    ## set initial concentration
+    # set initial concentration
     if args.initial_concentrations is not None:
         model_options['initial_concentration_options'] = {'concentrations': args.initial_concentrations}
 
-    ## set spinup options
+    # set spinup options
     if args.spinup_satisfy_years_and_tolerance:
-        combination='and'
+        combination = 'and'
     else:
-        combination='or'
+        combination = 'or'
     model_options['spinup_options'] = {'years': args.spinup_years, 'tolerance': args.spinup_tolerance, 'combination': combination}
 
-    ## set derivative options
+    # set derivative options
     if args.derivative_step_size is not None or args.derivative_years is not None or args.derivative_accuracy_order is not None:
         derivative_options = model_options['derivative_options']
         if args.derivative_step_size is not None:
@@ -94,7 +97,7 @@ if __name__ == "__main__":
         if args.derivative_accuracy_order is not None:
             derivative_options['accuracy_order'] = args.derivative_accuracy_order
 
-    ## set model parameters tolerance options
+    # set model parameters tolerance options
     if args.model_parameters_relative_tolerance is not None or args.model_parameters_absolute_tolerance is not None:
         parameter_tolerance_options = model_options['parameter_tolerance_options']
         if args.model_parameters_relative_tolerance is not None:
@@ -102,7 +105,7 @@ if __name__ == "__main__":
         if args.model_parameters_absolute_tolerance is not None:
             parameter_tolerance_options['absolute'] = np.array(args.model_parameters_absolute_tolerance)
 
-    ## set initial concentration tolerance options
+    # set initial concentration tolerance options
     if args.initial_concentrations_relative_tolerance is not None or args.initial_concentrations_absolute_tolerance is not None:
         tolerance_options = model_options['initial_concentration_options']['tolerance_options']
         if args.initial_concentrations_relative_tolerance is not None:
@@ -110,7 +113,7 @@ if __name__ == "__main__":
         if args.initial_concentrations_absolute_tolerance is not None:
             tolerance_options['absolute'] = args.initial_concentrations_absolute_tolerance
 
-    ## set job setup
+    # set job setup
     def prepare_job_options():
         if args.nodes_setup_node_kind is not None:
             from simulation.optimization.constants import COST_FUNCTION_NODES_SETUP_SPINUP
@@ -118,50 +121,50 @@ if __name__ == "__main__":
             nodes_setup['node_kind'] = args.nodes_setup_node_kind
             nodes_setup['nodes'] = args.nodes_setup_number_of_nodes
             nodes_setup['cpus'] = args.nodes_setup_number_of_cpus
-            job_options = {'spinup':{'nodes_setup':nodes_setup}}
+            job_options = {'spinup': {'nodes_setup': nodes_setup}}
         else:
             job_options = None
         return job_options
 
-    ## calculate file locations
+    # calculate file locations
     exchange_dir = args.exchange_dir
     p_file = os.path.join(exchange_dir, MATLAB_PARAMETER_FILENAME)
     f_file = os.path.join(exchange_dir, MATLAB_F_FILENAME)
     df_file = os.path.join(exchange_dir, MATLAB_DF_FILENAME)
 
-    ## load cf parameters
+    # load cf parameters
     parameters = util.io.matlab.load(p_file, 'p')
 
-    ## choose cost function
+    # choose cost function
     cost_function_name = args.cost_function_name
     try:
         cf_class = getattr(simulation.optimization.cost_function, cost_function_name)
     except AttributeError:
         raise ValueError('Unknown cost function {}.'.format(cost_function_name))
 
-    ## run cost function evaluation
+    # run cost function evaluation
     log_file = args.debug_logging_file
     with util.logging.Logger(log_file=log_file, disp_stdout=log_file is None):
 
-        ## choose measurements
+        # choose measurements
         max_box_distance_to_water = args.max_box_distance_to_water
         min_standard_deviation = args.min_standard_deviation
         min_measurements_correlation = args.min_measurements_correlation
         measurements = measurements.all.pw.data.all_measurements(max_box_distance_to_water=max_box_distance_to_water, min_standard_deviation=min_standard_deviation, min_measurements_correlation=min_measurements_correlation, tracers=model_options.tracers)
 
-        ## init cost function
+        # init cost function
         cf = cf_class(measurements_collection=measurements, model_options=model_options, job_options=prepare_job_options())
         cf.parameters = parameters
 
-        ## if necessary start calculation job
+        # if necessary start calculation job
         eval_function_value = args.eval_function_value
         eval_grad_value = args.eval_grad_value
         if (eval_function_value and not cf.f_available()) or (eval_grad_value and not cf.df_available()):
 
-            ## start spinup job
+            # start spinup job
             cf.model.run_dir
 
-            ## start cf calculation job
+            # start cf calculation job
             output_dir = simulation.model.constants.DATABASE_TMP_DIR
             os.makedirs(output_dir, exist_ok=True)
             output_dir = tempfile.mkdtemp(dir=output_dir, prefix='cost_function_tmp_')
@@ -175,9 +178,12 @@ if __name__ == "__main__":
             except OSError as e:
                 logger.warning('Dir {} could not be removed: {}'.format(output_dir, e))
 
-        ## save cost function values
+        # save cost function values
         if eval_function_value:
             util.io.matlab.save(f_file, cf.f(), value_name='f', oned_as='column')
         if eval_grad_value:
             util.io.matlab.save(df_file, cf.df(), value_name='df', oned_as='column')
 
+
+if __name__ == "__main__":
+    _main()

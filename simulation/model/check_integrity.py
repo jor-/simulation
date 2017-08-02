@@ -1,7 +1,7 @@
-import argparse
 import os
 import stat
 
+import simulation
 import simulation.model.job
 import simulation.model.constants
 import simulation.model.cache
@@ -14,7 +14,7 @@ import util.logging
 logger = util.logging.logger
 
 
-## util functions
+# util functions
 
 def get_base_dirs(model_names=None):
     if model_names is None:
@@ -44,7 +44,7 @@ def get_files(pattern, model_names=None):
     return files
 
 
-## check functions
+# check functions
 
 def check_job_options_in_dir(directory):
     logger.info('Checking job options integrity in {}.'.format(directory))
@@ -75,6 +75,7 @@ def check_permissions(model_names=None):
         permissions = os.stat(file)[stat.ST_MODE]
         if not (permissions & stat.S_IRUSR and permissions & stat.S_IRGRP):
             logger.error('File {} is not readable!'.format(file))
+
     def check_dir(file):
         permissions = os.stat(file)[stat.ST_MODE]
         if not (permissions & stat.S_IRUSR and permissions & stat.S_IXUSR and permissions & stat.S_IRGRP and permissions & stat.S_IXGRP):
@@ -94,8 +95,12 @@ def check_db(model_names=None):
         logger.error(e)
 
 
-if __name__ == "__main__":
-    ## configure arguments
+# *** main function for script call *** #
+
+def _main():
+
+    # parse arguments
+    import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('-j', '--check_job_options', action='store_true')
     parser.add_argument('-p', '--check_permissions', action='store_true')
@@ -103,8 +108,10 @@ if __name__ == "__main__":
     parser.add_argument('-m', '--model_names', default=None, nargs='+', help='The models to check. If not specified all models are checked')
     parser.add_argument('-f', '--check_job_options_in_dir', default=None, nargs='+', help='The directories where to check job options files. If not specified no special directories are checked')
     parser.add_argument('-D', '--debug_level', choices=util.logging.LEVELS, default='INFO', help='Print debug infos low to passed level.')
+    parser.add_argument('--version', action='version', version='%(prog)s {}'.format(simulation.__version__))
     args = parser.parse_args()
-    ## run check
+
+    # call function
     with util.logging.Logger(level=args.debug_level):
         if args.check_job_options:
             check_job_options(model_names=args.model_names)
@@ -114,3 +121,6 @@ if __name__ == "__main__":
             check_db(model_names=args.model_names)
         logger.info('Check completed.')
 
+
+if __name__ == "__main__":
+    _main()
