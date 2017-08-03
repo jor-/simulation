@@ -697,7 +697,10 @@ class Model_With_F(Model_Database):
                 trajectory_values[tracer] = trajectory_values_tracer
 
             ## remove trajectory
-            util.io.fs.remove_recursively(trajectory_dir, not_exist_okay=True, exclude_dir=False)
+            try:
+                util.io.fs.remove_recursively(trajectory_dir, not_exist_okay=True, exclude_dir=False)
+            except OSError:
+                warnings.warn('Temporary trajectory directory {} could not be removed.'.format(trajectory_dir))
 
         ## return
         assert len(trajectory_values) == len(tracers)

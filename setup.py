@@ -47,7 +47,7 @@ setuptools.setup(
     author_email = 'jor@informatik.uni-kiel.de',
 
     # Version
-    version=versioneer.get_version(),
+    version=versioneer.get_version().replace('.dev0+', '+dirty.').replace('.post', '.post.dev'),
     cmdclass=versioneer.get_cmdclass(),
 
     # License
