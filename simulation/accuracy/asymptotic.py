@@ -13,7 +13,6 @@ import util.parallel.universal
 import util.parallel.with_multiprocessing
 
 import util.logging
-logger = util.logging.logger
 
 from .constants import CACHE_DIRNAME, INFORMATION_MATRIX_FILENAME, COVARIANCE_MATRIX_FILENAME, PARAMETER_CONFIDENCE_FILENAME, MODEL_CONFIDENCE_FILENAME, AVERAGE_MODEL_CONFIDENCE_FILENAME, AVERAGE_MODEL_CONFIDENCE_INCREASE_FILENAME
 
@@ -54,7 +53,7 @@ class Base():
 
 
     def covariance_matrix_calculate_with_information_matrix(self, information_matrix):
-        logger.debug('Calculating covariance matrix for information matrix.')
+        util.logging.debug('Calculating covariance matrix for information matrix.')
 
         information_matrix = np.asmatrix(information_matrix, dtype=self.dtype)
         try:
@@ -65,7 +64,7 @@ class Base():
 
 
     def covariance_matrix_calculate_with_parameters(self, parameters):
-        logger.debug('Calculating covariance matrix for parameters.')
+        util.logging.debug('Calculating covariance matrix for parameters.')
         information_matrix = self.information_matrix(parameters)
         return self.covariance_matrix_calculate_with_information_matrix(information_matrix)
 
@@ -96,7 +95,7 @@ class Base():
     def parameter_confidence_calculate(self, parameters_or_information_matrix, alpha=0.99):
         covariance_matrix = self.covariance_matrix(parameters_or_information_matrix)
 
-        logger.debug('Calculating parameter confidence with confidence level {}.'.format(alpha))
+        util.logging.debug('Calculating parameter confidence with confidence level {}.'.format(alpha))
 
         C = np.asmatrix(covariance_matrix)
         d = np.diag(C)
@@ -105,7 +104,7 @@ class Base():
         gamma = scipy.stats.chi2.ppf(alpha, n)
         confidences = d**(1/2) * gamma**(1/2)
 
-        logger.debug('Parameter confidence calculated.')
+        util.logging.debug('Parameter confidence calculated.')
 
         return confidences
 
@@ -136,13 +135,13 @@ class Base():
         else:
             confidence = np.nan
 
-#         logger.debug('Model confidence {} calculated for index {}.'.format(confidence, confidence_index))
+#         util.logging.debug('Model confidence {} calculated for index {}.'.format(confidence, confidence_index))
 
         return confidence
 
 
     def model_confidence_calculate(self, parameters, information_matrix=None, alpha=0.99, time_dim_confidence=12, time_dim_df=2880, value_mask=None, use_mem_map=False, parallel_mode=util.parallel.universal.max_parallel_mode()):
-        logger.debug('Calculating model confidence with confidence level {}, desired time dim {} of the confidence and time dim {} of df in parallel mode {}.'.format(alpha, time_dim_confidence, time_dim_df, parallel_mode))
+        util.logging.debug('Calculating model confidence with confidence level {}, desired time dim {} of the confidence and time dim {} of df in parallel mode {}.'.format(alpha, time_dim_confidence, time_dim_df, parallel_mode))
 
         ## calculate time step size
         if time_dim_df % time_dim_confidence == 0:
@@ -204,9 +203,9 @@ class Base():
 
         alpha = 0.99
         if value_mask is None:
-            logger.debug('Average model confidence {} calculated for confidence level {} and time dim {} of df.'.format(average_model_confidence, alpha, time_dim_df))
+            util.logging.debug('Average model confidence {} calculated for confidence level {} and time dim {} of df.'.format(average_model_confidence, alpha, time_dim_df))
         else:
-            logger.debug('Average model confidence {} calculated for confidence level {} and time dim {} of df with {} values in value mask.'.format(average_model_confidence, alpha, time_dim_df, value_mask.sum()))
+            util.logging.debug('Average model confidence {} calculated for confidence level {} and time dim {} of df with {} values in value mask.'.format(average_model_confidence, alpha, time_dim_df, value_mask.sum()))
 
         return average_model_confidence
 
@@ -235,12 +234,12 @@ class Base():
         else:
             average_model_confidence_increase_index = np.nan
 
-        logger.debug('Average model confidence {} calulated for index {}.'.format(average_model_confidence_increase_index, index))
+        util.logging.debug('Average model confidence {} calulated for index {}.'.format(average_model_confidence_increase_index, index))
         return average_model_confidence_increase_index
 
 
     def average_model_confidence_increase_calculate(self, parameters, number_of_measurements=1, time_dim_confidence_increase=12, time_dim_df=2880, value_mask=None, use_mem_map=False, parallel_mode=util.parallel.universal.max_parallel_mode()):
-        logger.debug('Calculating average model confidence increase for parameters {} with {} additional measurements, time dim {} and df time dim {} in parallel mode {}.'.format(parameters, number_of_measurements, time_dim_confidence_increase, time_dim_df, parallel_mode))
+        util.logging.debug('Calculating average model confidence increase for parameters {} with {} additional measurements, time dim {} and df time dim {} in parallel mode {}.'.format(parameters, number_of_measurements, time_dim_confidence_increase, time_dim_df, parallel_mode))
 
         ## set parallel modes
         parallel_mode_average_model_confidence_increase = parallel_mode
@@ -264,7 +263,7 @@ class Base():
         assert value_mask is None or confidence_increase_shape == value_mask.shape
 
         ## calculate average model confidence increase
-        logger.debug('Calculating average model confidence increase for {} values.'.format(np.sum(~ np.isnan(df_boxes_increase))))
+        util.logging.debug('Calculating average model confidence increase for {} values.'.format(np.sum(~ np.isnan(df_boxes_increase))))
 
         average_model_confidence_increase = util.parallel.universal.create_array(confidence_increase_shape, self.average_model_confidence_increase_calculate_for_index, parameters, number_of_measurements, time_dim_confidence_increase, time_dim_df, value_mask, use_mem_map, parallel_mode_average_model_confidence, parallel_mode=parallel_mode_average_model_confidence_increase)
 
@@ -287,7 +286,7 @@ class Base():
 class OLS(Base):
 
     def information_matrix_calculate_with_DF(self, DF, inverse_average_variance):
-        logger.debug('Calculating information matrix of type {} with {} DF values.'.format(self.__class__.__name__, len(DF)))
+        util.logging.debug('Calculating information matrix of type {} with {} DF values.'.format(self.__class__.__name__, len(DF)))
 
         assert DF.ndim == 2
 
@@ -300,7 +299,7 @@ class OLS(Base):
 
 
     def information_matrix_calculate_with_parameters(self, parameters):
-        logger.debug('Calculating information matrix of type {} for parameters {}.'.format(self.__class__.__name__, parameters))
+        util.logging.debug('Calculating information matrix of type {} for parameters {}.'.format(self.__class__.__name__, parameters))
 
         DF = self.data_base.df(parameters)
         M = self.information_matrix_calculate_with_DF(DF, self.data_base.inverse_average_variance)
@@ -320,7 +319,7 @@ class OLS(Base):
 class WLS(Base):
 
     def information_matrix_calculate_with_DF(self, DF, inverse_deviations):
-        logger.debug('Calculating information matrix of type {} with {} DF values.'.format(self.__class__.__name__, len(DF)))
+        util.logging.debug('Calculating information matrix of type {} with {} DF values.'.format(self.__class__.__name__, len(DF)))
 
         assert DF.ndim == 2
         assert inverse_deviations.ndim == 1
@@ -335,7 +334,7 @@ class WLS(Base):
 
 
     def information_matrix_calculate_with_parameters(self, parameters):
-        logger.debug('Calculating information matrix of type {} for parameters {}.'.format(self.__class__.__name__, parameters))
+        util.logging.debug('Calculating information matrix of type {} for parameters {}.'.format(self.__class__.__name__, parameters))
 
         DF = self.data_base.df(parameters)
         M = self.information_matrix_calculate_with_DF(DF, self.data_base.inverse_deviations)
@@ -372,7 +371,7 @@ class GLS(Base):
 
 
     def information_matrix_calculate_with_DF(self, DF, inverse_deviations, correlation_matrix):
-        logger.debug('Calculating information matrix of type {} with {} DF values.'.format(self.__class__.__name__, len(DF)))
+        util.logging.debug('Calculating information matrix of type {} with {} DF values.'.format(self.__class__.__name__, len(DF)))
 
         assert DF.ndim == 2
         assert inverse_deviations.ndim == 1
@@ -418,14 +417,14 @@ class GLS(Base):
 class GLS_P3(Base):
 
     def DF_projected_calculate_with_DF(self, DF, inverse_deviations, split_index, projected_value_index=0):
-        logger.debug('Calculating projected DF {} with {} DF values.'.format(projected_value_index, len(DF)))
+        util.logging.debug('Calculating projected DF {} with {} DF values.'.format(projected_value_index, len(DF)))
 
         DF = DF * inverse_deviations
         return self.data_base.project(DF, split_index, projected_value_index=projected_value_index)
 
 
     def DF_projected_calculate_with_parameters(self, parameters, projected_value_index=0):
-        logger.debug('Calculating projected DF {} for parameters {}.'.format(projected_value_index, parameters))
+        util.logging.debug('Calculating projected DF {} for parameters {}.'.format(projected_value_index, parameters))
 
         n = self.data_base.m_dop
         DF = self.data_base.df(parameters)

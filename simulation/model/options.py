@@ -6,7 +6,6 @@ import util.logging
 
 import simulation.model.constants
 
-logger = util.logging.logger
 
 
 

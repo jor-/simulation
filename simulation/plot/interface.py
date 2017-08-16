@@ -9,7 +9,6 @@ import simulation.constants
 
 import util.plot
 import util.logging
-logger = util.logging.logger
 
 
 def get_kind(data_kind, setup_index=3):
@@ -220,7 +219,7 @@ def model_output(parameter_set_nr, kind='BOXES', path='/tmp', y_max=(None, None)
     from simulation.model.constants import DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME, DATABASE_TIME_STEP_DIRNAME, DATABASE_PARAMETERS_DIRNAME, DATABASE_PARAMETERS_FILENAME
     from simulation.util.constants import CACHE_DIRNAME, BOXES_F_FILENAME, WOD_F_FILENAME
 
-    logger.debug('Plotting model output for parameter set {}'.format(parameter_set_nr))
+    util.logging.debug('Plotting model output for parameter set {}'.format(parameter_set_nr))
 
     ## load parameters
     parameter_set_dirname = DATABASE_PARAMETERS_DIRNAME.format(parameter_set_nr)
@@ -250,7 +249,7 @@ def relative_parameter_confidence(parameter_set_nr, kind='WOA_WLS', path='/tmp')
     from simulation.model.constants import DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME, DATABASE_TIME_STEP_DIRNAME, DATABASE_PARAMETERS_DIRNAME, DATABASE_PARAMETERS_FILENAME
     from simulation.accuracy.constants import CACHE_DIRNAME, PARAMETER_CONFIDENCE_FILENAME
 
-    logger.debug('Plotting parameter confidence for parameter set {}'.format(parameter_set_nr))
+    util.logging.debug('Plotting parameter confidence for parameter set {}'.format(parameter_set_nr))
 
     ## load value
     parameter_dirname = DATABASE_PARAMETERS_DIRNAME.format(parameter_set_nr)
@@ -273,7 +272,7 @@ def model_confidence(parameter_set_nr, kind='WOA_WLS', path='/tmp', v_max=[None,
     from simulation.model.constants import DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME, DATABASE_TIME_STEP_DIRNAME, DATABASE_PARAMETERS_DIRNAME
     from simulation.accuracy.constants import CACHE_DIRNAME, MODEL_CONFIDENCE_FILENAME
 
-    logger.debug('Plotting model confidence for parameter set {}'.format(parameter_set_nr))
+    util.logging.debug('Plotting model confidence for parameter set {}'.format(parameter_set_nr))
 
     ## load value
     parameter_set_dirname = DATABASE_PARAMETERS_DIRNAME.format(parameter_set_nr)
@@ -301,7 +300,7 @@ def average_model_confidence_increase(parameter_set_nr, kind='WOA_WLS', path='/t
     from simulation.model.constants import DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME, DATABASE_TIME_STEP_DIRNAME, DATABASE_PARAMETERS_DIRNAME
     from simulation.accuracy.constants import CACHE_DIRNAME, AVERAGE_MODEL_CONFIDENCE_INCREASE_FILENAME
 
-    logger.debug('Plotting average model confidence increase for parameter set {}'.format(parameter_set_nr))
+    util.logging.debug('Plotting average model confidence increase for parameter set {}'.format(parameter_set_nr))
 
     parameter_set_dirname = DATABASE_PARAMETERS_DIRNAME.format(parameter_set_nr)
 
@@ -327,7 +326,7 @@ def model_diff(parameter_set_nr, data_kind='WOA', path='/tmp', normalize_with_de
     from simulation.model.constants import DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME, DATABASE_TIME_STEP_DIRNAME, DATABASE_PARAMETERS_DIRNAME, DATABASE_PARAMETERS_FILENAME
     from simulation.model.constants import (METOS_X_DIM as X_DIM, METOS_Y_DIM as Y_DIM, METOS_Z_LEFT as Z_VALUES_LEFT)
 
-    logger.debug('Plotting model output for parameter set {}'.format(parameter_set_nr))
+    util.logging.debug('Plotting model output for parameter set {}'.format(parameter_set_nr))
 
     ## load parameters
     parameter_set_dirname = DATABASE_PARAMETERS_DIRNAME.format(parameter_set_nr)

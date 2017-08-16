@@ -11,7 +11,6 @@ import util.io.fs
 import util.options
 import util.petsc.universal
 import util.logging
-logger = util.logging.logger
 
 
 ## general update functions for job options
@@ -19,17 +18,17 @@ logger = util.logging.logger
 def update_job_options(update_function, model_names=None):
     if model_names is None:
         database_dir = simulation.model.constants.DATABASE_OUTPUT_DIR
-        logger.info('Getting jobs in {}.'.format(database_dir))
+        util.logging.info('Getting jobs in {}.'.format(database_dir))
         job_files = util.io.fs.get_files(database_dir, filename_pattern='*/job_options.hdf5', use_absolute_filenames=True, recursive=True)
-        logger.info('Got {} jobs.'.format(len(job_files)))
+        util.logging.info('Got {} jobs.'.format(len(job_files)))
     else:
         job_files = []
         for model_name in model_names:
             model_dirname = simulation.model.constants.DATABASE_MODEL_DIRNAME.format(model_name)
             model_dir = os.path.join(simulation.model.constants.DATABASE_OUTPUT_DIR, model_dirname)
-            logger.info('Getting jobs in {}.'.format(model_dir))
+            util.logging.info('Getting jobs in {}.'.format(model_dir))
             model_job_files = util.io.fs.get_files(model_dir, filename_pattern='*/job_options.hdf5', use_absolute_filenames=True, recursive=True)
-            logger.info('Got {} jobs.'.format(len(model_job_files)))
+            util.logging.info('Got {} jobs.'.format(len(model_job_files)))
             job_files.extend(model_job_files)
 
 
@@ -52,7 +51,7 @@ def update_function_output_dir(job_file):
         new_output_dir = new_output_dir.replace(simulation.constants.SIMULATION_OUTPUT_DIR, '${{{}}}'.format((simulation.constants.SIMULATION_OUTPUT_DIR_ENV_NAME)))
 
         if new_output_dir != old_output_dir:
-            logger.info('Changing output path from {} to {}.'.format(old_output_dir, new_output_dir))
+            util.logging.info('Changing output path from {} to {}.'.format(old_output_dir, new_output_dir))
             options.replace_all_str_options(old_output_dir, new_output_dir)
 
 
@@ -71,10 +70,10 @@ def update_function_output_dir(job_file):
         #     options['/model/initial_concentrations']
         # except KeyError:
         #     options['/model/initial_constant_concentrations'] = np.array([2.17, 10**-4])
-        #     logger.info('Setting default value for /model/initial_constant_concentrations in job option file {}.'.format(job_file))
+        #     util.logging.info('Setting default value for /model/initial_constant_concentrations in job option file {}.'.format(job_file))
         # else:
         #     options['/model/initial_constant_concentrations'] = options['/model/initial_concentrations']
-        #     logger.info('Renaming /model/initial_concentrations to /model/initial_constant_concentrations in job option file {}.'.format(job_file))
+        #     util.logging.info('Renaming /model/initial_concentrations to /model/initial_constant_concentrations in job option file {}.'.format(job_file))
         #     del options['/model/initial_concentrations']
         #
         # ## remove concentration factor
@@ -87,15 +86,15 @@ def update_function_output_dir(job_file):
         #     saved_concentration = options['/model/initial_constant_concentrations']
         #
         #     if np.any(saved_concentration != concentration):
-        #         logger.info('Correcting /model/initial_constant_concentrations with /model/total_concentration_factor in job option file {}.'.format(job_file))
+        #         util.logging.info('Correcting /model/initial_constant_concentrations with /model/total_concentration_factor in job option file {}.'.format(job_file))
         #         options['/model/initial_constant_concentrations'] = concentration
 
         #       del options['/model/total_concentration_factor']
-        #     logger.info('Deleting /model/total_concentration_factor in job option file {}.'.format(job_file))
+        #     util.logging.info('Deleting /model/total_concentration_factor in job option file {}.'.format(job_file))
         #
         # ## set model name
         # options['/model/name'] = 'MITgcm-PO4-DOP'
-        # logger.info('Setting /model/name in job option file {}.'.format(job_file))
+        # util.logging.info('Setting /model/name in job option file {}.'.format(job_file))
         #
         # ## '/model/tracer_input_dir' -> '/model/tracer_input_files'
         #
@@ -107,7 +106,7 @@ def update_function_output_dir(job_file):
         #     tracer_input_files = [os.path.join(tracer_input_dir, input_file) for input_file in ['dop_input.petsc', 'po4_input.petsc']]
         #     options['/model/tracer_input_files'] = tracer_input_files
         #     del options['/model/tracer_input_dir']
-        #     logger.info('Setting /model/tracer_input_files in job option file {}.'.format(job_file))
+        #     util.logging.info('Setting /model/tracer_input_files in job option file {}.'.format(job_file))
         #
         #
         # ## replace dirs with env
@@ -123,7 +122,7 @@ def update_function_output_dir(job_file):
         #     pass
         # else:
         #     del options['/metos3d/initial_concentrations']
-        #     logger.info('Initial concentration option removed, since tracer input is available to job option file {}.'.format(job_file))
+        #     util.logging.info('Initial concentration option removed, since tracer input is available to job option file {}.'.format(job_file))
         #
         # try:
         #     options['/model/concentrations']
@@ -131,7 +130,7 @@ def update_function_output_dir(job_file):
         #     pass
         # else:
         #     del options['/model/concentrations']
-        #     logger.info('Concentrations option removed in job option file {}.'.format(job_file))
+        #     util.logging.info('Concentrations option removed in job option file {}.'.format(job_file))
         #
         # try:
         #     options['/model/initial_concentrations']
@@ -140,7 +139,7 @@ def update_function_output_dir(job_file):
         #         options['/metos3d/tracer_input_path']
         #     except KeyError:
         #         options['/model/initial_concentrations'] = np.array([2.17, 10**-4])
-        #         logger.info('Model initial concentration option added to job option file {}.'.format(job_file))
+        #         util.logging.info('Model initial concentration option added to job option file {}.'.format(job_file))
         #
         # try:
         #     options['/metos3d/initial_concentrations']
@@ -148,26 +147,26 @@ def update_function_output_dir(job_file):
         #     pass
         # else:
         #     del options['/metos3d/initial_concentrations']
-        #     logger.info('Metos3d concentrations option removed in job option file {}.'.format(job_file))
+        #     util.logging.info('Metos3d concentrations option removed in job option file {}.'.format(job_file))
         #
         # try:
         #     options['/model/time_step_multiplier']
         # except KeyError:
         #     options['/model/time_step_multiplier'] = 1
-        #     logger.info('time_step_multiplier option added to job option file {}.'.format(job_file))
+        #     util.logging.info('time_step_multiplier option added to job option file {}.'.format(job_file))
         #
         # try:
         #     options['/model/time_steps_per_year']
         # except KeyError:
         #     options['/model/time_steps_per_year'] = options['/model/time_step_count']
         #     del options['/model/time_step_count']
-        #     logger.info('time_steps_per_year option added to job option file {}.'.format(job_file))
+        #     util.logging.info('time_steps_per_year option added to job option file {}.'.format(job_file))
         #
         # try:
         #     options['/model/tracer']
         # except KeyError:
         #     options['/model/tracer'] = ['po4', 'dop']
-        #     logger.info('model tracer option added to job option file {}.'.format(job_file))
+        #     util.logging.info('model tracer option added to job option file {}.'.format(job_file))
         #
         # try:
         #     options['/metos3d/po4_output_filename']
@@ -177,7 +176,7 @@ def update_function_output_dir(job_file):
         #     del options['/metos3d/po4_output_filename']
         #     del options['/metos3d/dop_output_filename']
         #     options['/metos3d/output_filenames'] = ['{}_output.petsc'.format(tracer) for tracer in options['/model/tracer']]
-        #     logger.info('generic output filenames added to job option file {}.'.format(job_file))
+        #     util.logging.info('generic output filenames added to job option file {}.'.format(job_file))
         #
         # try:
         #     options['/metos3d/po4_input_filename']
@@ -187,7 +186,7 @@ def update_function_output_dir(job_file):
         #     del options['/metos3d/po4_input_filename']
         #     del options['/metos3d/dop_input_filename']
         #     options['/metos3d/input_filenames'] = ['{}_input.petsc'.format(tracer) for tracer in options['/model/tracer']]
-        #     logger.info('generic input filenames added to job option file {}.'.format(job_file))
+        #     util.logging.info('generic input filenames added to job option file {}.'.format(job_file))
         #
         # try:
         #     options['/metos3d/tracer_input_path']
@@ -195,7 +194,7 @@ def update_function_output_dir(job_file):
         #     pass
         # else:
         #     del options['/metos3d/tracer_input_path']
-        #     logger.info('Metos3d tracer input path removed from job option file {}.'.format(job_file))
+        #     util.logging.info('Metos3d tracer input path removed from job option file {}.'.format(job_file))
         #
         # try:
         #     options['/metos3d/path']
@@ -203,7 +202,7 @@ def update_function_output_dir(job_file):
         #     pass
         # else:
         #     del options['/metos3d/path']
-        #     logger.info('Metos3d path removed from job option file {}.'.format(job_file))
+        #     util.logging.info('Metos3d path removed from job option file {}.'.format(job_file))
         #
         # try:
         #     options['/model/tracer_input_path']
@@ -211,20 +210,20 @@ def update_function_output_dir(job_file):
         #     pass
         # else:
         #     del options['/model/tracer_input_path']
-        #     logger.info('Model tracer input path removed from job option file {}.'.format(job_file))
+        #     util.logging.info('Model tracer input path removed from job option file {}.'.format(job_file))
         #
         # try:
         #     options['/metos3d/output_dir']
         # except KeyError:
         #     options['/metos3d/output_dir'] = options['/metos3d/output_dir']
         #     del options['/metos3d/output_dir']
-        #     logger.info('Metos3d output_dir remamed to ouput_dir in job option file {}.'.format(job_file))
+        #     util.logging.info('Metos3d output_dir remamed to ouput_dir in job option file {}.'.format(job_file))
         #
         #   try:
         #     options['/metos3d/tracer_output_dir']
         # except KeyError:
         #     options['/metos3d/tracer_output_dir'] = options['/metos3d/output_dir']
-        #     logger.info('Metos3d tracer output dir added to job option file {}.'.format(job_file))
+        #     util.logging.info('Metos3d tracer output dir added to job option file {}.'.format(job_file))
         #
         #
         # try:
@@ -240,14 +239,14 @@ def update_function_output_dir(job_file):
         #         options['/metos3d/tracer_input_dir']
         #     except KeyError:
         #         options['/metos3d/tracer_input_dir'] = correct_metos3d_tracer_input_dir
-        #         logger.info('Metos3d tracer input dir was not set, added to job option file {}.'.format(job_file))
+        #         util.logging.info('Metos3d tracer input dir was not set, added to job option file {}.'.format(job_file))
         #
         #       correct_model_tracer_input_dir = os.path.dirname(os.path.realpath(input_tracer)).replace(simulation.constants.SIMULATION_OUTPUT_DIR, '${{{}}}'.format(simulation.constants.SIMULATION_OUTPUT_DIR_ENV_NAME))
         #     try:
         #         options['/model/tracer_input_dir']
         #     except KeyError:
         #         options['/model/tracer_input_dir'] = correct_model_tracer_input_dir
-        #         logger.info('Model tracer input dir added to job option file {}.'.format(job_file))
+        #         util.logging.info('Model tracer input dir added to job option file {}.'.format(job_file))
 
         ##   try:
         #     options['/model/parameters_file']
@@ -255,7 +254,7 @@ def update_function_output_dir(job_file):
         #     pass
         # else:
         #     del options['/model/parameters_file']
-        #     logger.info('Model parameters file removed from job option file {}.'.format(job_file))
+        #     util.logging.info('Model parameters file removed from job option file {}.'.format(job_file))
         #
         # try:
         #     options['/metos3d/data_path']
@@ -264,7 +263,7 @@ def update_function_output_dir(job_file):
         # else:
         #     options['/metos3d/data_dir'] = options['/metos3d/data_path']
         #     del options['/metos3d/data_path']
-        #     logger.info('/metos3d/data_path renamed to /metos3d/data_dir in job option file {}.'.format(job_file))
+        #     util.logging.info('/metos3d/data_path renamed to /metos3d/data_dir in job option file {}.'.format(job_file))
 
         ##   try:
         #     options['/metos3d/data_path']
@@ -273,7 +272,7 @@ def update_function_output_dir(job_file):
         # else:
         #     options['/metos3d/data_dir'] = options['/metos3d/data_path']
         #     del options['/metos3d/data_path']
-        #     logger.info('/metos3d/data_path renamed to /metos3d/data_dir in job option file {}.'.format(job_file))
+        #     util.logging.info('/metos3d/data_path renamed to /metos3d/data_dir in job option file {}.'.format(job_file))
 
         ##   try:
         #     options['/metos3d/tracer_output_dir']
@@ -282,7 +281,7 @@ def update_function_output_dir(job_file):
         # else:
         #     options['/metos3d/tracer_output_dir'] = options['/metos3d/tracer_output_dir']
         #     del options['/metos3d/tracer_output_dir']
-        #     logger.info('/metos3d/tracer_output_dir renamed to /metos3d/tracer_output_dir in job option file {}.'.format(job_file))
+        #     util.logging.info('/metos3d/tracer_output_dir renamed to /metos3d/tracer_output_dir in job option file {}.'.format(job_file))
 
         ##   try:
         #     options['/metos3d/output_dir']
@@ -291,13 +290,13 @@ def update_function_output_dir(job_file):
         # else:
         #     options['/metos3d/output_dir'] = options['/metos3d/output_dir']
         #     del options['/metos3d/output_dir']
-        #     logger.info('/metos3d/output_dir renamed to /metos3d/output_dir in job option file {}.'.format(job_file))
+        #     util.logging.info('/metos3d/output_dir renamed to /metos3d/output_dir in job option file {}.'.format(job_file))
 
         ##   try:
         #     options['/job/unfinished_file']
         # except KeyError:
         #     options['/job/unfinished_file'] = os.path.join(job_options_dir, 'unfinished.txt')
-        #     logger.info('/job/unfinished_file added to job option file {}.'.format(job_file))
+        #     util.logging.info('/job/unfinished_file added to job option file {}.'.format(job_file))
         #
         # try:
         #     options['/metos3d/tolerance']
@@ -306,7 +305,7 @@ def update_function_output_dir(job_file):
         # else:
         #     options['/model/spinup/tolerance'] = options['/metos3d/tolerance']
         #     del options['/metos3d/tolerance']
-        #     logger.info('/metos3d/tolerance renamed to /model/spinup/tolerance in job option file {}.'.format(job_file))
+        #     util.logging.info('/metos3d/tolerance renamed to /model/spinup/tolerance in job option file {}.'.format(job_file))
         #
         # try:
         #     options['/metos3d/years']
@@ -315,7 +314,7 @@ def update_function_output_dir(job_file):
         # else:
         #     options['/model/spinup/years'] = options['/metos3d/years']
         #     del options['/metos3d/years']
-        #     logger.info('/metos3d/years renamed to /model/spinup/years in job option file {}.'.format(job_file))
+        #     util.logging.info('/metos3d/years renamed to /model/spinup/years in job option file {}.'.format(job_file))
 
 #        try:
 #            options['/model/tracer_input_files']
@@ -367,10 +366,10 @@ def update_function_output_dir(job_file):
 #
 #            ## set
 #            if any(options['/model/tracer_input_files'] != new_files):
-#                logger.info('/model/tracer_input_files: {} replaced by {}.'.format(files, new_files))
+#                util.logging.info('/model/tracer_input_files: {} replaced by {}.'.format(files, new_files))
 #                options['/model/tracer_input_files'] = new_files
 #        except AssertionError:
-#            logger.error('Could not update /model/tracer_input_files: {}.'.format(files))
+#            util.logging.error('Could not update /model/tracer_input_files: {}.'.format(files))
 
 
 
@@ -410,7 +409,7 @@ def update_tracer_input_files_in_job_options():
 
                 options['/model/tracer_input_files'] = model_tracer_input_files_new
 
-                logger.info('Changing "/metos3d/tracer_input_dir" from {} to {}.'.format(model_tracer_input_files_old, model_tracer_input_files_new))
+                util.logging.info('Changing "/metos3d/tracer_input_dir" from {} to {}.'.format(model_tracer_input_files_old, model_tracer_input_files_new))
     update_job_options(update_function)
 
 
@@ -426,7 +425,7 @@ def update_parameter_files(update_function):
 
         for time_step_dir in util.io.fs.get_dirs(model_dir, use_absolute_filenames=True):
             parameter_set_dirs = util.io.fs.get_dirs(time_step_dir, use_absolute_filenames=True)
-            logger.debug('{} parameter set dirs found in {}.'.format(len(parameter_set_dirs), time_step_dir))
+            util.logging.debug('{} parameter set dirs found in {}.'.format(len(parameter_set_dirs), time_step_dir))
 
             for parameter_set_dir in parameter_set_dirs:
                 parameter_file = os.path.join(parameter_set_dir, DATABASE_PARAMETERS_FILENAME)
@@ -457,4 +456,4 @@ if __name__ == "__main__":
 #        update_job_options(update_function_option_entries, model_names=['MITgcm-PO4-DOP'])
         update_job_options(update_function_output_dir)
 
-    logger.info('Update completed.')
+    util.logging.info('Update completed.')

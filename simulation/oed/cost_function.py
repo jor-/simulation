@@ -7,7 +7,6 @@ import util.parallel.universal
 import util.math.interpolate
 import util.math.optimize.with_deap
 import util.logging
-logger = util.logging.logger
 
 
 class CostFunction():
@@ -33,7 +32,7 @@ class CostFunction():
     def f(self, points):
         points = np.asanyarray(points).reshape(-1, 5)
 
-        logger.debug('Calculating cost function for points {}'.format(points))
+        util.logging.debug('Calculating cost function for points {}'.format(points))
 
         points_df = util.math.interpolate.data_with_regular_grid(self.df, points, self.BOUNDS)
         points_df[np.isnan(points_df)] = 0
@@ -44,16 +43,16 @@ class CostFunction():
         information_matrix = self.accuracy.information_matrix(self.parameters, additional)
         average_model_confidence = self.accuracy.average_model_confidence(self.parameters, information_matrix, time_dim_df=self.time_dim_df, value_mask=self.value_mask, parallel_mode=self.parallel_mode)
 
-        logger.debug('Value {} for cost function calculated'.format(average_model_confidence))
+        util.logging.debug('Value {} for cost function calculated'.format(average_model_confidence))
 
         return average_model_confidence
 
 
     def optimize(self, number_of_points, number_of_initial_individuals=100, number_of_generations=50):
-        logger.debug('Optimizing cost function for {} points'.format(number_of_points))
+        util.logging.debug('Optimizing cost function for {} points'.format(number_of_points))
 
         bounds = np.tile(self.BOUNDS.T, number_of_points).T
         points_opt = util.math.optimize.with_deap.minimize(self.f, bounds, number_of_initial_individuals=number_of_initial_individuals, number_of_generations=number_of_generations)
 
-        logger.debug('Optimal points {} calculated'.format(points_opt))
+        util.logging.debug('Optimal points {} calculated'.format(points_opt))
         return points_opt

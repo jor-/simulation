@@ -22,7 +22,6 @@ def _main():
     import util.io.fs
 
     import util.logging
-    logger = util.logging.logger
 
     from simulation.optimization.matlab.constants import MATLAB_PARAMETER_FILENAME, MATLAB_F_FILENAME, MATLAB_DF_FILENAME, NODES_MAX_FILENAME, COST_FUNCTION_NAMES
 
@@ -176,7 +175,7 @@ def _main():
             try:
                 util.io.fs.remove_recursively(output_dir, not_exist_okay=True)
             except OSError as e:
-                logger.warning('Dir {} could not be removed: {}'.format(output_dir, e))
+                util.logging.warning('Dir {} could not be removed: {}'.format(output_dir, e))
 
         # save cost function values
         if eval_function_value:

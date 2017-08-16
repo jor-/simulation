@@ -8,7 +8,6 @@ import simulation.model.constants
 import measurements.all.pw.data
 
 import util.logging
-logger = util.logging.get_logger()
 
 
 def save(model_name, time_step=1, spinup_years=10000, spinup_tolerance=0, spinup_satisfy_years_and_tolerance=False, concentrations=None, concentrations_index=None, parameters=None, parameter_set_index=None, derivative_years=None, derivative_step_size=None, derivative_accuracy_order=None, eval_function_value=True, eval_grad_value=True, all_values_time_dim=None, debug_output=True):
@@ -101,7 +100,7 @@ def save_all(concentration_indices=None, time_steps=None, parameter_set_indices=
                         parameter_set_indices = model._parameter_db.used_indices()
                     for parameter_set_index in parameter_set_indices:
                         model_options.parameters = model._parameter_db.get_value(parameter_set_index)
-                        logger.info('Calculating model output in {}.'.format(model.parameter_set_dir))
+                        util.logging.info('Calculating model output in {}.'.format(model.parameter_set_dir))
                         model.f_measurements(*measurements_list)
 
 

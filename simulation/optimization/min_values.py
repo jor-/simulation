@@ -8,7 +8,6 @@ import simulation.model.options
 import simulation.optimization.cost_function
 
 import util.logging
-logger = util.logging.logger
 
 
 f_key = 'f'
@@ -136,5 +135,5 @@ if __name__ == "__main__":
             results = all_values_for_min_values_for_all_measurements(max_box_distance_to_water_list=max_box_distance_to_water_list, min_measurements_correlation_list=args.min_measurements_correlation_list, cost_function_classes=cost_function_classes, normalize=True)
         else:
             results = min_values_for_all_measurements(max_box_distance_to_water_list=max_box_distance_to_water_list, min_measurements_correlation_list=args.min_measurements_correlation_list, cost_function_classes=cost_function_classes)
-        logger.info(str(results))
-        logger.info('Finished.')
+        util.logging.info(str(results))
+        util.logging.info('Finished.')

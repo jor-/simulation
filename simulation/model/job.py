@@ -11,7 +11,6 @@ import util.io.fs
 import util.petsc.universal
 
 import util.logging
-logger = util.logging.logger
 
 
 class Metos3D_Job(util.batch.universal.system.Job):
@@ -210,7 +209,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
 
     def write_job_file(self, model_name, model_parameters, years, tolerance=None, time_step=1, initial_constant_concentrations=None, tracer_input_files=None, total_concentration_factor=1, write_trajectory=False, job_options=None):
 
-        logger.debug('Initialising job with model {}, parameters {},  years {}, tolerance {}, time step {}, initial_constant_concentrations {}, tracer_input_files {}, total concentration factor {} and job_options {}.'.format(model_name, model_parameters, years, tolerance, time_step, initial_constant_concentrations, tracer_input_files, total_concentration_factor, job_options))
+        util.logging.debug('Initialising job with model {}, parameters {},  years {}, tolerance {}, time step {}, initial_constant_concentrations {}, tracer_input_files {}, total concentration factor {} and job_options {}.'.format(model_name, model_parameters, years, tolerance, time_step, initial_constant_concentrations, tracer_input_files, total_concentration_factor, job_options))
 
         ## check input
         if not time_step in simulation.model.constants.METOS_TIME_STEPS:
@@ -264,19 +263,19 @@ class Metos3D_Job(util.batch.universal.system.Job):
         if nodes_setup.memory is None:
             nodes_setup.memory = simulation.model.constants.JOB_MEMORY_GB
         elif nodes_setup.memory < simulation.model.constants.JOB_MEMORY_GB:
-            logger.warn('The chosen memory {} is below the needed memory {}. Changing to needed memory.'.format(nodes_setup.memory, simulation.model.constants.JOB_MEMORY_GB))
+            util.logging.warn('The chosen memory {} is below the needed memory {}. Changing to needed memory.'.format(nodes_setup.memory, simulation.model.constants.JOB_MEMORY_GB))
             nodes_setup.memory = simulation.model.constants.JOB_MEMORY_GB
 
         ## check/set walltime
         sec_per_year = np.exp(- (nodes_setup.nodes * nodes_setup.cpus) / (6*16)) * 10 + 2.5
         sec_per_year /= time_step**(1/2)
         estimated_walltime_hours = np.ceil(years * sec_per_year / 60**2)
-        logger.debug('The estimated walltime for {} nodes with {} cpus, {} years and time step {} is {} hours.'.format(nodes_setup.nodes, nodes_setup.cpus, years, time_step, estimated_walltime_hours))
+        util.logging.debug('The estimated walltime for {} nodes with {} cpus, {} years and time step {} is {} hours.'.format(nodes_setup.nodes, nodes_setup.cpus, years, time_step, estimated_walltime_hours))
         if nodes_setup.walltime is None:
             nodes_setup.walltime = estimated_walltime_hours
         else:
             if nodes_setup.walltime < estimated_walltime_hours:
-                logger.debug('The chosen walltime {} for the job with {} years, {} nodes and {} cpus is below the estimated walltime {}.'.format(nodes_setup.walltime, years, nodes_setup.nodes, nodes_setup.cpus, estimated_walltime_hours))
+                util.logging.debug('The chosen walltime {} for the job with {} years, {} nodes and {} cpus is below the estimated walltime {}.'.format(nodes_setup.walltime, years, nodes_setup.nodes, nodes_setup.cpus, estimated_walltime_hours))
 
         ## check/set min cpus
         if nodes_setup.total_cpus_min is None:
@@ -449,7 +448,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
         command = '{} {} \n'.format(opt['/metos3d/sim_file'], opt['/metos3d/option_file'])
         super().write_job_file(command, pre_command=pre_command, use_mpi=True)
 
-        logger.debug('Job initialised.')
+        util.logging.debug('Job initialised.')
 
 
 

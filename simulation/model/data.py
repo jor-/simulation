@@ -7,7 +7,6 @@ import simulation.model.constants
 
 import util.petsc.universal
 import util.logging
-logger = util.logging.logger
 
 
 ## convert Metos vector to 3D vector
@@ -22,7 +21,7 @@ def convert_metos_1D_to_3D(metos_vec):
     array.fill(np.nan)
 
     ## fill array
-    logger.debug('Converting metos {} vector to {} matrix.'.format(metos_vec.shape, array.shape))
+    util.logging.debug('Converting metos {} vector to {} matrix.'.format(metos_vec.shape, array.shape))
 
     offset = 0
     for iy in range(METOS_LSM.y_dim):
@@ -58,7 +57,7 @@ def convert_3D_to_metos_1D(data):
 ## load trajectory
 
 def load_trajectories_to_universal(path, convert_function=None, converted_result_shape=None, tracers=None, time_dim_desired=None, set_negative_values_to_zero=False):
-    logger.debug('Loading trajectories with tracers {}, desired time dim {}, set_negative_values_to_zero {} and convert function {} with result shape {} from {}.'.format(tracers, time_dim_desired, set_negative_values_to_zero, convert_function, converted_result_shape, path))
+    util.logging.debug('Loading trajectories with tracers {}, desired time dim {}, set_negative_values_to_zero {} and convert function {} with result shape {} from {}.'.format(tracers, time_dim_desired, set_negative_values_to_zero, convert_function, converted_result_shape, path))
 
     ## check input
     if isinstance(tracers, str):
@@ -88,7 +87,7 @@ def load_trajectories_to_universal(path, convert_function=None, converted_result
         else:
             tracer_time_dim_found = True
 
-    logger.debug('{} petsc vectors were found for each tracer.'.format(tracer_time_dim_found))
+    util.logging.debug('{} petsc vectors were found for each tracer.'.format(tracer_time_dim_found))
 
     ## calculate time_step, check time_dim_desired
     if time_dim_desired is not None:
@@ -114,12 +113,12 @@ def load_trajectories_to_universal(path, convert_function=None, converted_result
     trajectory = np.zeros(trajectory_shape, dtype=np.float64)
 
     ## load and calculate trajectory
-    logger.debug('Loading trajectories from {} to array of size {}.'.format(path, trajectory.shape))
+    util.logging.debug('Loading trajectories from {} to array of size {}.'.format(path, trajectory.shape))
 
     for tracers_index in range(tracers_len):
         tracer = tracers[tracers_index]
 
-        logger.debug('Loading trajectory for tracer {}.'.format(tracer))
+        util.logging.debug('Loading trajectory for tracer {}.'.format(tracer))
         for time_index in range(time_dim_desired):
             ## average trajectory
             for k in range(time_step):
@@ -145,7 +144,7 @@ def load_trajectories_to_universal(path, convert_function=None, converted_result
 
             trajectory[tracers_index, time_index] = trajectory_averaged
 
-    logger.debug('Trajectory with shape {} loaded.'.format(trajectory.shape))
+    util.logging.debug('Trajectory with shape {} loaded.'.format(trajectory.shape))
 
     return trajectory
 

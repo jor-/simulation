@@ -8,14 +8,13 @@ import simulation.model.eval
 import simulation.model.constants
 
 import util.logging
-logger = util.logging.logger
 
 
 
 class Cache:
 
     def __init__(self, model, cache_dirname=None):
-        logger.debug('Initiating {} with model {} and cache dirname {}.'.format(self.__class__.__name__, model, cache_dirname))
+        util.logging.debug('Initiating {} with model {} and cache dirname {}.'.format(self.__class__.__name__, model, cache_dirname))
 
         self.model = model
         
@@ -65,7 +64,7 @@ class Cache:
             else:
                 mem_map_mode = None
             ## load
-            logger.debug('Loading value from {} with mem_map_mode {} and as_shared_array {}.'.format(file, mem_map_mode, as_shared_array))
+            util.logging.debug('Loading value from {} with mem_map_mode {} and as_shared_array {}.'.format(file, mem_map_mode, as_shared_array))
             value = util.io.np.load(file, mmap_mode=mem_map_mode)
             ## if scalar, get scalar value
             if value.ndim == 0:
@@ -89,7 +88,7 @@ class Cache:
         file = self.get_file(filename, derivative_used=derivative_used)
         assert file is not None
         
-        logger.debug('Saving value to {} file with save_also_txt {}.'.format(file, save_also_txt))
+        util.logging.debug('Saving value to {} file with save_also_txt {}.'.format(file, save_also_txt))
         os.makedirs(os.path.dirname(file), exist_ok=True)
         if save_also_txt:
             util.io.np.save_np_and_txt(file, value, make_read_only=True, overwrite=True)
@@ -105,7 +104,7 @@ class Cache:
         if not is_matchig:
             
             ## calculating and saving value
-            logger.debug('Calculating value with {} and saving with filename {} with derivative_used {}.'.format(calculate_function, filename, derivative_used))
+            util.logging.debug('Calculating value with {} and saving with filename {} with derivative_used {}.'.format(calculate_function, filename, derivative_used))
             value = calculate_function()
             self.save_value(filename, value, derivative_used=derivative_used, save_also_txt=save_also_txt)
 
@@ -253,7 +252,7 @@ class Model_With_F_File_and_MemoryCached(simulation.model.eval.Model_With_F_Memo
 
 
     def f_measurements(self, *measurements_list):
-        logger.debug('Calculating f values for measurements {}.'.format(tuple(map(str, measurements_list))))
+        util.logging.debug('Calculating f values for measurements {}.'.format(tuple(map(str, measurements_list))))
         return self._cached_values_for_measurements(self.f_points, *measurements_list)
 
 
@@ -276,7 +275,7 @@ class Model_With_F_And_DF_File_and_MemoryCached(Model_With_F_File_and_MemoryCach
 
 
     def df_measurements(self, *measurements_list, partial_derivative_kind='model_parameters'):
-        logger.debug('Calculating df values for measurements {} and partial_derivative_kind {}.'.format(tuple(map(str, measurements_list)), partial_derivative_kind))
+        util.logging.debug('Calculating df values for measurements {} and partial_derivative_kind {}.'.format(tuple(map(str, measurements_list)), partial_derivative_kind))
         calculate_function_for_points = lambda points: self.df_points(points, partial_derivative_kind=partial_derivative_kind)
         return self._cached_values_for_measurements(calculate_function_for_points, *measurements_list)
 

@@ -14,7 +14,6 @@ import util.io.fs
 import util.io.env
 
 import util.logging
-logger = util.logging.logger
 
 
 
@@ -23,7 +22,7 @@ class CostFunctionJob(util.batch.universal.system.Job):
     def __init__(self, output_dir, cf_kind, model_options, model_job_options=None, max_box_distance_to_water=float('inf'), min_measurements_correlation=float('inf'), eval_f=True, eval_df=True, job_options=None):
         from simulation.optimization.constants import COST_FUNCTION_NODES_SETUP_JOB
 
-        logger.debug('Initiating cost function job with cf_kind {}, eval_f {} and eval_df {}.'.format(cf_kind, eval_f, eval_df))
+        util.logging.debug('Initiating cost function job with cf_kind {}, eval_f {} and eval_df {}.'.format(cf_kind, eval_f, eval_df))
 
         model_options = simulation.model.options.as_model_options(model_options)
 

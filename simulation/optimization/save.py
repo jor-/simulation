@@ -8,16 +8,15 @@ import simulation.model.options
 
 import util.batch.universal.system
 import util.logging
-logger = util.logging.logger
 
 
 def save(cost_functions, model_names=None, eval_f=True, eval_df=False):
     for cost_function in simulation.optimization.cost_function.iterator(cost_functions, model_names=model_names):
         if eval_f and not cost_function.f_available():
-            logger.info('Saving cost function {} f value in {}'.format(cost_function, cost_function.model.parameter_set_dir))
+            util.logging.info('Saving cost function {} f value in {}'.format(cost_function, cost_function.model.parameter_set_dir))
             cost_function.f()
         if eval_df and not cost_function.df_available():
-            logger.info('Saving cost function {} df value in {}'.format(cost_function, cost_function.model.parameter_set_dir))
+            util.logging.info('Saving cost function {} df value in {}'.format(cost_function, cost_function.model.parameter_set_dir))
             cost_function.df()
 
 
@@ -65,7 +64,7 @@ def _main():
     # run
     with util.logging.Logger(level=args.debug_level):
         save_for_all_measurements(max_box_distance_to_water_list=max_box_distance_to_water_list, min_standard_deviation_list=args.min_standard_deviation_list, min_measurements_correlation_list=args.min_measurements_correlation_list, cost_function_classes=cost_function_classes, eval_f=True, eval_df=args.DF)
-        logger.info('Finished.')
+        util.logging.info('Finished.')
 
 
 if __name__ == "__main__":

@@ -11,7 +11,6 @@ import util.io.fs
 import util.batch.universal.system
 import util.index_database.general
 import util.logging
-logger = util.logging.logger
 
 
 # util functions
@@ -30,9 +29,9 @@ def get_base_dirs(model_names=None):
 
 
 def get_files_in_dir(pattern, directory):
-    logger.info('Getting jobs in {}.'.format(directory))
+    util.logging.info('Getting jobs in {}.'.format(directory))
     files = util.io.fs.get_files(directory, filename_pattern=pattern, use_absolute_filenames=True, recursive=True)
-    logger.info('Got {} jobs.'.format(len(files)))
+    util.logging.info('Got {} jobs.'.format(len(files)))
     return files
 
 
@@ -47,7 +46,7 @@ def get_files(pattern, model_names=None):
 # check functions
 
 def check_job_options_in_dir(directory):
-    logger.info('Checking job options integrity in {}.'.format(directory))
+    util.logging.info('Checking job options integrity in {}.'.format(directory))
 
     pattern = '*/job_options.hdf5'
     files = get_files_in_dir(pattern, directory)
@@ -57,7 +56,7 @@ def check_job_options_in_dir(directory):
             with simulation.model.job.Metos3D_Job(run_dir, force_load=True) as job:
                 job.check_integrity(should_be_started=True, should_be_readonly=True)
         except Exception as e:
-            logger.error(e)
+            util.logging.error(e)
 
 
 def check_job_options(model_names=None):
@@ -67,32 +66,32 @@ def check_job_options(model_names=None):
 
 
 def check_permissions(model_names=None):
-    logger.info('Checking permissions.')
+    util.logging.info('Checking permissions.')
 
     base_dirs = get_base_dirs(model_names=model_names)
 
     def check_file(file):
         permissions = os.stat(file)[stat.ST_MODE]
         if not (permissions & stat.S_IRUSR and permissions & stat.S_IRGRP):
-            logger.error('File {} is not readable!'.format(file))
+            util.logging.error('File {} is not readable!'.format(file))
 
     def check_dir(file):
         permissions = os.stat(file)[stat.ST_MODE]
         if not (permissions & stat.S_IRUSR and permissions & stat.S_IXUSR and permissions & stat.S_IRGRP and permissions & stat.S_IXGRP):
-            logger.error('Dir {} is not readable!'.format(file))
+            util.logging.error('Dir {} is not readable!'.format(file))
 
     for base_dir in base_dirs:
         util.io.fs.walk_all_in_dir(base_dir, check_file, check_dir, exclude_dir=False, topdown=True)
 
 
 def check_db(model_names=None):
-    logger.info('Checking database integrity.')
+    util.logging.info('Checking database integrity.')
 
     model = simulation.model.cache.Model()
     try:
         model.check_integrity(model_names=model_names)
     except (util.index_database.general.DatabaseError, simulation.model.eval.DatabaseError, OSError) as e:
-        logger.error(e)
+        util.logging.error(e)
 
 
 # *** main function for script call *** #
@@ -119,7 +118,7 @@ def _main():
             check_permissions(model_names=args.model_names)
         if args.check_database:
             check_db(model_names=args.model_names)
-        logger.info('Check completed.')
+        util.logging.info('Check completed.')
 
 
 if __name__ == "__main__":

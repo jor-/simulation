@@ -24,14 +24,13 @@ import simulation.model.job
 import simulation.model.options
 import simulation.model.constants
 
-logger = util.logging.logger
 
 
 
 class Model_Database:
 
     def __init__(self, model_options=None, job_options=None):
-        logger.debug('Model initiated with model_options {} and job setup {}.'.format(model_options, job_options))
+        util.logging.debug('Model initiated with model_options {} and job setup {}.'.format(model_options, job_options))
 
         ## set model options
         model_options = util.options.as_options(model_options, simulation.model.options.ModelOptions)
@@ -98,7 +97,7 @@ class Model_Database:
         model_dirname = simulation.model.constants.DATABASE_MODEL_DIRNAME.format(model_name)
         model_dir = os.path.join(self.database_output_dir, model_dirname)
 
-        logger.debug('Returning model directory {} for model {}.'.format(model_dir, model_name))
+        util.logging.debug('Returning model directory {} for model {}.'.format(model_dir, model_name))
         return model_dir
 
 
@@ -114,7 +113,7 @@ class Model_Database:
             initial_concentration_base_dirname = simulation.model.constants.DATABASE_VECTOR_CONCENTRATIONS_DIRNAME
 
         initial_concentration_base_dir = os.path.join(self.model_dir, initial_concentration_base_dirname)
-        logger.debug('Returning initial concentration directory {} for use constant concentration {}.'.format(initial_concentration_base_dir, use_constant_concentrations))
+        util.logging.debug('Returning initial concentration directory {} for use constant concentration {}.'.format(initial_concentration_base_dir, use_constant_concentrations))
         return initial_concentration_base_dir
 
 
@@ -148,7 +147,7 @@ class Model_Database:
         initial_concentration_options = self.model_options.initial_concentration_options
 
         ## search for directories with matching concentration
-        logger.debug('Searching concentration directory for concentration {} .'.format(initial_concentration_options))
+        util.logging.debug('Searching concentration directory for concentration {} .'.format(initial_concentration_options))
 
         concentrations = initial_concentration_options.concentrations
         if initial_concentration_options.use_constant_concentrations:
@@ -164,7 +163,7 @@ class Model_Database:
     def initial_concentration_dir_with_index(self, index):
         if index is not None:
             dir = os.path.join(self.initial_concentration_base_dir, simulation.model.constants.DATABASE_CONCENTRATIONS_DIRNAME.format(index))
-            logger.debug('Returning initial concentration directory {} for index {}.'.format(dir, index))
+            util.logging.debug('Returning initial concentration directory {} for index {}.'.format(dir, index))
             return dir
         else:
             return None
@@ -175,7 +174,7 @@ class Model_Database:
         index = self.initial_concentration_dir_index
         concentration_set_dir = self.initial_concentration_dir_with_index(index)
 
-        logger.debug('Matching directory for concentrations found at {}.'.format(concentration_set_dir))
+        util.logging.debug('Matching directory for concentrations found at {}.'.format(concentration_set_dir))
         assert concentration_set_dir is not None
         return concentration_set_dir
 
@@ -187,7 +186,7 @@ class Model_Database:
         concentration_db = self._vector_concentrations_db
         concentration_files = concentration_db.value_files(index)
 
-        logger.debug('Using concentration files {}.'.format(concentration_files))
+        util.logging.debug('Using concentration files {}.'.format(concentration_files))
         assert concentration_files is not None
         return concentration_files
 
@@ -200,7 +199,7 @@ class Model_Database:
         initial_concentration_dir = self.initial_concentration_dir
         time_step_dirname = simulation.model.constants.DATABASE_TIME_STEP_DIRNAME.format(time_step)
         time_step_dir = os.path.join(initial_concentration_dir, time_step_dirname, '')
-        logger.debug('Returning time step directory {} for time step {}.'.format(time_step_dir, time_step))
+        util.logging.debug('Returning time step directory {} for time step {}.'.format(time_step_dir, time_step))
         return time_step_dir
 
 
@@ -209,7 +208,7 @@ class Model_Database:
     def parameter_set_dir_with_index(self, index):
         if index is not None:
             dir = os.path.join(self.time_step_dir, simulation.model.constants.DATABASE_PARAMETERS_DIRNAME.format(index))
-            logger.debug('Returning parameter set directory {} for index {}.'.format(dir, index))
+            util.logging.debug('Returning parameter set directory {} for index {}.'.format(dir, index))
             return dir
         else:
             return None
@@ -231,13 +230,13 @@ class Model_Database:
     def parameter_set_dir(self):
         ## search for directories with matching parameters
         parameters = self.model_options.parameters
-        logger.debug('Searching parameter directory for parameters {}.'.format(parameters))
+        util.logging.debug('Searching parameter directory for parameters {}.'.format(parameters))
 
         index = self._parameter_db.get_or_add_index(parameters)
         parameter_set_dir = self.parameter_set_dir_with_index(index)
 
         ## return
-        logger.debug('Matching directory for parameters found at {}.'.format(parameter_set_dir))
+        util.logging.debug('Matching directory for parameters found at {}.'.format(parameter_set_dir))
         assert parameter_set_dir is not None
         return parameter_set_dir
 
@@ -245,7 +244,7 @@ class Model_Database:
     @property
     def closest_parameter_set_dir(self):
         parameters = self.model_options.parameters
-        logger.debug('Searching for directory for parameters as close as possible to {}.'.format(parameters))
+        util.logging.debug('Searching for directory for parameters as close as possible to {}.'.format(parameters))
 
         ## get closest indices
         closest_indices = self._parameter_db.closest_indices(parameters)
@@ -261,7 +260,7 @@ class Model_Database:
 
         ## get parameter set dir and return
         closest_parameter_set_dir = self.parameter_set_dir_with_index(closest_index)
-        logger.debug('Closest parameter set dir is {}.'.format(closest_parameter_set_dir))
+        util.logging.debug('Closest parameter set dir is {}.'.format(closest_parameter_set_dir))
         return closest_parameter_set_dir
 
 
@@ -270,7 +269,7 @@ class Model_Database:
     def spinup_dir_with_index(self, index):
         if index is not None:
             dir = os.path.join(self.parameter_set_dir_with_index(index), simulation.model.constants.DATABASE_SPINUP_DIRNAME)
-            logger.debug('Returning spinup directory {} for index {}.'.format(dir, index))
+            util.logging.debug('Returning spinup directory {} for index {}.'.format(dir, index))
             return dir
         else:
             return None
@@ -279,14 +278,14 @@ class Model_Database:
     @property
     def spinup_dir(self):
         spinup_dir = os.path.join(self.parameter_set_dir, simulation.model.constants.DATABASE_SPINUP_DIRNAME)
-        logger.debug('Returning spinup directory {}.'.format(spinup_dir))
+        util.logging.debug('Returning spinup directory {}.'.format(spinup_dir))
         return spinup_dir
 
 
     @property
     def closest_spinup_dir(self):
         spinup_dir = os.path.join(self.closest_parameter_set_dir, simulation.model.constants.DATABASE_SPINUP_DIRNAME)
-        logger.debug('Returning closest spinup directory {}.'.format(spinup_dir))
+        util.logging.debug('Returning closest spinup directory {}.'.format(spinup_dir))
         return spinup_dir
 
 
@@ -313,14 +312,14 @@ class Model_Database:
         try:
             run_dirs = util.io.fs.find_with_regular_expression(search_path, DATABASE_RUN_DIRNAME_REGULAR_EXPRESSION, exclude_files=True, use_absolute_filenames=False, recursive=False)
         except OSError as exception:
-            logger.warn('It could not been searched in the search path "{}": {}'.format(search_path, exception))
+            util.logging.warn('It could not been searched in the search path "{}": {}'.format(search_path, exception))
             run_dirs = []
 
         return run_dirs
 
 
     def last_run_dir(self, search_path):
-        logger.debug('Searching for last run in {}.'.format(search_path))
+        util.logging.debug('Searching for last run in {}.'.format(search_path))
 
         last_run_index =  len(self.run_dirs(search_path)) - 1
 
@@ -334,7 +333,7 @@ class Model_Database:
         else:
             last_run_dir = None
 
-        logger.debug('Returning last run directory {}.'.format(last_run_dir))
+        util.logging.debug('Returning last run directory {}.'.format(last_run_dir))
         return last_run_dir
 
 
@@ -359,7 +358,7 @@ class Model_Database:
         run_dirname = simulation.model.constants.DATABASE_RUN_DIRNAME.format(next_run_index)
         run_dir = os.path.join(output_path, run_dirname)
 
-        logger.debug('Creating new run directory {} at {}.'.format(run_dir, output_path))
+        util.logging.debug('Creating new run directory {} at {}.'.format(run_dir, output_path))
         os.makedirs(run_dir, exist_ok=False)
         return run_dir
 
@@ -369,7 +368,7 @@ class Model_Database:
 
         ## get spinup dir
         spinup_dir = self.spinup_dir
-        logger.debug('Searching for matching spinup run with options {} in {}.'.format(spinup_options, spinup_dir))
+        util.logging.debug('Searching for matching spinup run with options {} in {}.'.format(spinup_options, spinup_dir))
 
         ## get last run dir
         last_run_dir = self.last_run_dir(spinup_dir)
@@ -383,11 +382,11 @@ class Model_Database:
                     run_dir = previous_run_dir
                     previous_run_dir = self.previous_run_dir(run_dir)
 
-            logger.debug('Matching spinup run with match type {} found at {}.'.format(spinup_options.match_type, run_dir))
+            util.logging.debug('Matching spinup run with match type {} found at {}.'.format(spinup_options.match_type, run_dir))
 
         ## create new run
         else:
-            logger.debug('No matching spinup run found.')
+            util.logging.debug('No matching spinup run found.')
 
             ## no previous run exists and starting from closest parameters get last run from closest parameters
             if last_run_dir is None and self.start_from_closest_parameters:
@@ -410,7 +409,7 @@ class Model_Database:
                 ## calculate last years
                 if last_run_dir is not None:
                     last_years = self.real_years(last_run_dir)
-                    logger.debug('Found previous run(s) with total {} years.'.format(last_years))
+                    util.logging.debug('Found previous run(s) with total {} years.'.format(last_years))
                 else:
                     last_years = 0
 
@@ -438,7 +437,7 @@ class Model_Database:
                 spinup_options = simulation.model.options.SpinupOptions({'years':self.model_spinup_max_years, 'tolerance':tolerance, 'combination':'or'})
                 run_dir = self.matching_run_dir(spinup_options)
 
-            logger.debug('Spinup run directory created at {}.'.format(run_dir))
+            util.logging.debug('Spinup run directory created at {}.'.format(run_dir))
 
         return run_dir
 
@@ -459,7 +458,7 @@ class Model_Database:
         if wait_until_finished:
             self.wait_until_run_finished(output_path, make_read_only=make_read_only)
         else:
-            logger.debug('Not waiting for job to finish.')
+            util.logging.debug('Not waiting for job to finish.')
 
 
     ##  access run properties
@@ -493,12 +492,12 @@ class Model_Database:
                 raise ValueError('Combination "{}" unknown.'.format(combination))
 
             if is_matching:
-                logger.debug('Run in {} with years {} and tolerance {} is matching spinup options {}.'.format(run_dir, run_years, run_tolerance, spinup_options))
+                util.logging.debug('Run in {} with years {} and tolerance {} is matching spinup options {}.'.format(run_dir, run_years, run_tolerance, spinup_options))
             else:
-                logger.debug('Run in {} with years {} and tolerance {} is not matching spinup options {}.'.format(run_dir, run_years, run_tolerance, spinup_options))
+                util.logging.debug('Run in {} with years {} and tolerance {} is not matching spinup options {}.'.format(run_dir, run_years, run_tolerance, spinup_options))
         else:
             is_matching = False
-            logger.debug('Run in {} is not matching spinup options {}. No run available.'.format(run_dir, spinup_options))
+            util.logging.debug('Run in {} is not matching spinup options {}. No run available.'.format(run_dir, spinup_options))
 
         return is_matching
 
@@ -570,7 +569,7 @@ class Model_Database:
 
     ## integrity
     def check_integrity(self, model_names=None):
-        logger.debug('Checking database integrity.')
+        util.logging.debug('Checking database integrity.')
 
         ## check concentrations and parameters database
         if model_names is None:
@@ -598,7 +597,7 @@ class Model_Database:
                                     parameter_db = self._parameter_db
                                     parameter_db.check_integrity()
         except util.index_database.general.DatabaseError as e:
-            logger.error(e)
+            util.logging.error(e)
             raise
         finally:
             self.model_options = old_model_options
@@ -638,17 +637,17 @@ class Model_With_F(Model_Database):
         interpolator = self._cached_interpolator
         if interpolator is not None:
             interpolator.data_values = data_values
-            logger.debug('Returning cached interpolator.')
+            util.logging.debug('Returning cached interpolator.')
         else:
             ## otherwise try to get saved interpolator
             if use_cache and os.path.exists(interpolator_file):
                 interpolator = util.math.interpolate.Interpolator_Base.load(interpolator_file)
                 interpolator.data_values = data_values
-                logger.debug('Returning interpolator loaded from {}.'.format(interpolator_file))
+                util.logging.debug('Returning interpolator loaded from {}.'.format(interpolator_file))
             ## if no interpolator exists, create new interpolator
             else:
                 interpolator = util.math.interpolate.Periodic_Interpolator(data_points=data_points, data_values=data_values, point_range_size=METOS_DIM, scaling_values=(METOS_DIM[1]/METOS_DIM[0], None, None, None), wrap_around_amount=MODEL_INTERPOLATOR_AMOUNT_OF_WRAP_AROUND, number_of_linear_interpolators=MODEL_INTERPOLATOR_NUMBER_OF_LINEAR_INTERPOLATOR, single_overlapping_amount_linear_interpolators=MODEL_INTERPOLATOR_SINGLE_OVERLAPPING_AMOUNT_OF_LINEAR_INTERPOLATOR)
-                logger.debug('Returning new created interpolator.')
+                util.logging.debug('Returning new created interpolator.')
 
             self._cached_interpolator = interpolator
 
@@ -720,7 +719,7 @@ class Model_With_F(Model_Database):
 
         ## preprare interpolation points for each tracer
         for tracer, points_for_tracer in points.items():
-            logger.debug('Calculating model output for tracer {} at {} points.'.format(tracer, len(points_for_tracer)))
+            util.logging.debug('Calculating model output for tracer {} at {} points.'.format(tracer, len(points_for_tracer)))
 
             ## check tracer and points
             if tracer not in self.model_options.tracers:
@@ -794,7 +793,7 @@ class Model_With_F(Model_Database):
 
             tracer_merged_dict[tracer] = tracer_value
 
-        logger.debug('Merged data sets with tracer_split_dict {}.'.format(tracer_split_dict))
+        util.logging.debug('Merged data sets with tracer_split_dict {}.'.format(tracer_split_dict))
         return tracer_merged_dict, tracer_split_dict
 
 
@@ -816,7 +815,7 @@ class Model_With_F(Model_Database):
                 assert sum(map(len, data_set_dict.values())) == len(tracer_value)
                 tracer_splitted_dict[tracer] = data_set_dict
 
-        logger.debug('Splitted data sets with tracer_split_dict {}.'.format(tracer_split_dict))
+        util.logging.debug('Splitted data sets with tracer_split_dict {}.'.format(tracer_split_dict))
         return tracer_splitted_dict
 
 
@@ -835,14 +834,14 @@ class Model_With_F(Model_Database):
 
     def f_all(self, time_dim, tracers=None):
 
-        logger.debug('Calculating all f values for tracers {} with time dimension {}.'.format(tracers, time_dim))
+        util.logging.debug('Calculating all f values for tracers {} with time dimension {}.'.format(tracers, time_dim))
         f = self._f(self._trajectory_load_function_for_all(time_dim), tracers=tracers)
 
         return f
 
 
     def f_points(self, points):
-        logger.debug('Calculating f values at points for tracers {}.'.format(tuple(points.keys())))
+        util.logging.debug('Calculating f values at points for tracers {}.'.format(tuple(points.keys())))
 
         tracers = points.keys()
         points, split_dict = self._merge_data_sets(points)
@@ -853,7 +852,7 @@ class Model_With_F(Model_Database):
 
 
     def f_measurements(self, *measurements_list):
-        logger.debug('Calculating f values for measurements {}.'.format(tuple(map(str, measurements_list))))
+        util.logging.debug('Calculating f values for measurements {}.'.format(tuple(map(str, measurements_list))))
         measurements_collection = measurements.universal.data.MeasurementsCollection(*measurements_list)
         points_dict = measurements_collection.points_dict
         return self.f_points(points_dict)
@@ -869,7 +868,7 @@ class Model_With_F_And_DF(Model_With_F):
     def derivative_dir(self):
         derivative_options = self.model_options.derivative_options
         derivative_dir = os.path.join(self.parameter_set_dir, simulation.model.constants.DATABASE_DERIVATIVE_DIRNAME.format(spinup_real_years=self.real_years(),derivative_step_size=derivative_options.step_size, derivative_years=derivative_options.years))
-        logger.debug('Returning derivative directory {}.'.format(derivative_dir))
+        util.logging.debug('Returning derivative directory {}.'.format(derivative_dir))
         return derivative_dir
 
 
@@ -948,7 +947,7 @@ class Model_With_F_And_DF(Model_With_F):
             partial_derivative_dirname = simulation.model.constants.DATABASE_PARTIAL_DERIVATIVE_DIRNAME.format(kind=partial_derivative_kind, index=parameter_index, h_factor=h_factor)
             partial_derivative_dir = os.path.join(derivative_dir, partial_derivative_dirname)
             partial_derivative_run_dir = self.last_run_dir(partial_derivative_dir)
-            logger.debug('Checking partial derivative runs in {}.'.format(partial_derivative_dir))
+            util.logging.debug('Checking partial derivative runs in {}.'.format(partial_derivative_dir))
 
             ## get corresponding spinup run dir
             if partial_derivative_run_dir is not None:
@@ -967,7 +966,7 @@ class Model_With_F_And_DF(Model_With_F):
 
                 ## remove old run
                 if partial_derivative_run_dir is not None:
-                    logger.debug('Old partial derivative run {} is not matching desired option. It is removed.'.format(partial_derivative_run_dir))
+                    util.logging.debug('Old partial derivative run {} is not matching desired option. It is removed.'.format(partial_derivative_run_dir))
                     util.io.fs.remove_recursively(partial_derivative_run_dir, not_exist_okay=True, exclude_dir=False)
 
                 ## create new run dir
@@ -1025,7 +1024,7 @@ class Model_With_F_And_DF(Model_With_F):
         df_concatenated = np.moveaxis(df_concatenated, 0, -1)
 
         ## unpack concatenation
-        logger.debug('Unpacking derivative with shape {} for tracers with tracer_start_stop_indices {}.'.format(df_concatenated.shape, tracer_start_stop_indices))
+        util.logging.debug('Unpacking derivative with shape {} for tracers with tracer_start_stop_indices {}.'.format(df_concatenated.shape, tracer_start_stop_indices))
         assert len(tracer_start_stop_indices) == len(tracers) + 1
         assert max(tracer_start_stop_indices) == len(df_concatenated)
 
@@ -1045,14 +1044,14 @@ class Model_With_F_And_DF(Model_With_F):
     def df_all(self, time_dim, tracers=None, partial_derivative_kind='model_parameters'):
         tracers = self.check_tracers(tracers)
 
-        logger.debug('Calculating all df values for tracers {} with time dimension {} and partial_derivative_kind {}.'.format(tracers, time_dim, partial_derivative_kind))
+        util.logging.debug('Calculating all df values for tracers {} with time dimension {} and partial_derivative_kind {}.'.format(tracers, time_dim, partial_derivative_kind))
 
         df = self._df(self._trajectory_load_function_for_all(time_dim=time_dim), partial_derivative_kind=partial_derivative_kind, tracers=tracers)
         return df
 
 
     def df_points(self, points, partial_derivative_kind='model_parameters'):
-        logger.debug('Calculating df values at points {} and partial_derivative_kind {}.'.format(tuple(map(len, points)), partial_derivative_kind))
+        util.logging.debug('Calculating df values at points {} and partial_derivative_kind {}.'.format(tuple(map(len, points)), partial_derivative_kind))
 
         tracers = points.keys()
         points, split_dict = self._merge_data_sets(points)
@@ -1063,7 +1062,7 @@ class Model_With_F_And_DF(Model_With_F):
 
 
     def df_measurements(self, *measurements_list, partial_derivative_kind='model_parameters'):
-        logger.debug('Calculating df values for measurements {} and partial_derivative_kind {}.'.format(tuple(map(str, measurements_list)), partial_derivative_kind))
+        util.logging.debug('Calculating df values for measurements {} and partial_derivative_kind {}.'.format(tuple(map(str, measurements_list)), partial_derivative_kind))
 
         measurements_collection = measurements.universal.data.MeasurementsCollection(*measurements_list)
         points_dict = measurements_collection.points_dict

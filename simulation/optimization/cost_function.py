@@ -18,7 +18,6 @@ import util.math.finite_differences
 from util.math.matrix import SingularMatrixError
 
 import util.logging
-logger = util.logging.logger
 
 
 
