@@ -13,11 +13,19 @@ import util.logging
 def save(cost_functions, model_names=None, eval_f=True, eval_df=False):
     for cost_function in simulation.optimization.cost_function.iterator(cost_functions, model_names=model_names):
         if eval_f and not cost_function.f_available():
-            util.logging.info('Saving cost function {} f value in {}'.format(cost_function, cost_function.model.parameter_set_dir))
-            cost_function.f()
+            try:
+                cost_function.f()
+            except Exception:
+                util.logging.error('Model function could not be evaluated.', exc_info=True)
+            else:
+                util.logging.info('Saving cost function {} f value in {}'.format(cost_function, cost_function.model.parameter_set_dir))
         if eval_df and not cost_function.df_available():
-            util.logging.info('Saving cost function {} df value in {}'.format(cost_function, cost_function.model.parameter_set_dir))
-            cost_function.df()
+            try:
+                cost_function.df()
+            except Exception:
+                util.logging.error('Model function derivative could not be evaluated.', exc_info=True)
+            else:
+                util.logging.info('Saving cost function {} df value in {}'.format(cost_function, cost_function.model.parameter_set_dir))
 
 
 def save_for_all_measurements(max_box_distance_to_water_list=None, min_standard_deviation_list=None, min_measurements_correlation_list=None, cost_function_classes=None, model_names=None, eval_f=True, eval_df=False):
