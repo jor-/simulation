@@ -29,31 +29,17 @@ with open(readme_file, mode='r', encoding='utf-8') as f:
 
 # Setup
 setuptools.setup(
-    # Name
+    # general informations
     name = 'simulation',
-    
-    # Desctiption
     description = 'simulation functions',
     long_description = long_description,
-    
-    # Keywords
     keywords = 'simulation functions',
 
-    # Homepage
     url = 'https://github.com/jor-/measurements',
-
-    # Author
     author = 'Joscha Reimer',
     author_email = 'jor@informatik.uni-kiel.de',
-
-    # Version
-    version=versioneer.get_version().replace('.dev0+', '+dirty.').replace('.post', '.post.dev'),
-    cmdclass=versioneer.get_cmdclass(),
-
-    # License
     license = 'AGPLv3+',
 
-    # Classifiers
     classifiers = [
         # Development Status
         'Development Status :: 3 - Alpha',
@@ -67,10 +53,14 @@ setuptools.setup(
         'Programming Language :: Python :: 3',
     ],
 
-    # Packages to install
+    # version
+    version=versioneer.get_version().replace('.dev0+', '+dirty.').replace('.post', '.post.dev'),
+    cmdclass=versioneer.get_cmdclass(),
+
+    # packages to install
     packages = setuptools.find_packages(),
 
-    # Dependencies
+    # dependencies
     setup_requires = [
         'setuptools>=0.8',
         'pip>=1.4',
