@@ -446,9 +446,10 @@ class Metos3D_Job(util.batch.universal.system.Job):
         metos3d_options = linesep.join(metos3d_options)
 
         ## write metos3d option file
-        f = open(opt['/metos3d/option_file'], mode='w')
-        f.write(metos3d_options)
-        util.io.fs.flush_and_close(f)
+        with open(opt['/metos3d/option_file'], mode='w') as f:
+            f.write(metos3d_options)
+            f.flush()
+            os.fsync(f.fileno())
 
         ## write job file
         batch_system = util.batch.universal.system.BATCH_SYSTEM
