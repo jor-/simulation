@@ -454,6 +454,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
         ## write job file
         batch_system = util.batch.universal.system.BATCH_SYSTEM
         pre_command = batch_system.pre_command('metos3d')
+        pre_command += linesep + 'export OMP_NUM_THREADS=1' + linesep
         command = '{} {}'.format(opt['/metos3d/sim_file'], opt['/metos3d/option_file']) + linesep
         super().write_job_file(command, pre_command=pre_command, use_mpi=True)
 
