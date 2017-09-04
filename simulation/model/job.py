@@ -364,88 +364,96 @@ class Metos3D_Job(util.batch.universal.system.Job):
         model_parameters_string = ','.join(map(lambda f: simulation.model.constants.DATABASE_PARAMETERS_FORMAT_STRING.format(f), model_parameters))
         opt['/metos3d/parameters_string'] = model_parameters_string
 
-        ## initial concentrations
+        ## prepare metos3d options
+        linesep = os.linesep
+
+        metos3d_options = []
+
+        metos3d_options.append('# debug')
+        metos3d_options.append('-Metos3DDebugLevel                      {:d}'.format(opt['/metos3d/debuglevel']))
+        metos3d_options.append(linesep)
+
+        metos3d_options.append('# geometry')
+        metos3d_options.append('-Metos3DGeometryType                    Profile')
+        metos3d_options.append('-Metos3DProfileInputDirectory           {}/Geometry/'.format(opt['/metos3d/data_dir']))
+        metos3d_options.append('-Metos3DProfileMaskFile                 landSeaMask.petsc')
+        metos3d_options.append('-Metos3DProfileVolumeFile               volumes.petsc')
+        metos3d_options.append(linesep)
+
+        metos3d_options.append('# bgc tracer')
+        metos3d_options.append('-Metos3DTracerCount                     {:d}'.format(len(opt['/model/tracer'])))
+        try:
+            metos3d_options.append('-Metos3DTracerInputDirectory            {}'.format(opt['/metos3d/tracer_input_dir']))
+            metos3d_options.append('-Metos3DTracerInitFile                  {}'.format(','.join(map(str, opt['/metos3d/tracer_input_filenames']))))
+        except KeyError:
+            metos3d_options.append('-Metos3DTracerInitValue                 {}'.format(opt['/metos3d/initial_constant_concentrations_string']))
+        metos3d_options.append('-Metos3DTracerOutputDirectory           {}'.format(opt['/metos3d/tracer_output_dir']))
+        metos3d_options.append('-Metos3DTracerOutputFile                {}'.format(','.join(map(str, opt['/metos3d/tracer_output_filenames']))))
+        metos3d_options.append(linesep)
+
+        metos3d_options.append('# bgc parameter')
+        metos3d_options.append('-Metos3DParameterCount                  {:d}'.format(len(opt['/model/parameters'])))
+        metos3d_options.append('-Metos3DParameterValue                  {}'.format(opt['/metos3d/parameters_string']))
+        metos3d_options.append(linesep)
+
+        metos3d_options.append('# bgc boundary conditions')
+        metos3d_options.append('-Metos3DBoundaryConditionCount          2')
+        metos3d_options.append('-Metos3DBoundaryConditionInputDirectory {}/Forcing/BoundaryCondition/'.format(opt['/metos3d/data_dir']))
+        metos3d_options.append('-Metos3DBoundaryConditionName           Latitude,IceCover')
+        metos3d_options.append('-Metos3DLatitudeCount                   1')
+        metos3d_options.append('-Metos3DLatitudeFileFormat              latitude.petsc')
+        metos3d_options.append('-Metos3DIceCoverCount                   12')
+        metos3d_options.append('-Metos3DIceCoverFileFormat              fice_$02d.petsc')
+        metos3d_options.append(linesep)
+
+        metos3d_options.append('# bgc domain conditions')
+        metos3d_options.append('-Metos3DDomainConditionCount            2')
+        metos3d_options.append('-Metos3DDomainConditionInputDirectory   {}/Forcing/DomainCondition/'.format(opt['/metos3d/data_dir']))
+        metos3d_options.append('-Metos3DDomainConditionName             LayerDepth,LayerHeight')
+        metos3d_options.append('-Metos3DLayerDepthCount                 1')
+        metos3d_options.append('-Metos3DLayerDepthFileFormat            z.petsc')
+        metos3d_options.append('-Metos3DLayerHeightCount                1')
+        metos3d_options.append('-Metos3DLayerHeightFileFormat           dz.petsc')
+
+        metos3d_options.append('# transport')
+        metos3d_options.append('-Metos3DTransportType                   Matrix')
+        metos3d_options.append('-Metos3DMatrixInputDirectory            {}/Transport/Matrix5_4/{:d}dt/'.format(opt['/metos3d/data_dir'], opt['/model/time_step_multiplier']))
+        metos3d_options.append('-Metos3DMatrixCount                     12')
+        metos3d_options.append('-Metos3DMatrixExplicitFileFormat        Ae_$02d.petsc')
+        metos3d_options.append('-Metos3DMatrixImplicitFileFormat        Ai_$02d.petsc')
+        metos3d_options.append(linesep)
+
+        metos3d_options.append('# time stepping')
+        metos3d_options.append('-Metos3DTimeStepStart                   0.0')
+        metos3d_options.append('-Metos3DTimeStepCount                   {:d}'.format(opt['/model/time_steps_per_year']))
+        metos3d_options.append('-Metos3DTimeStep                        {:.18f}'.format(opt['/model/time_step']))
+        metos3d_options.append(linesep)
+
+        metos3d_options.append('# solver')
+        metos3d_options.append('-Metos3DSolverType                      Spinup')
+        metos3d_options.append('-Metos3DSpinupMonitor')
+        try:
+            metos3d_options.append('-Metos3DSpinupTolerance                 {:f}'.format(opt['/model/spinup/tolerance']))
+        except KeyError:
+            pass
+        metos3d_options.append('-Metos3DSpinupCount                     {:d}'.format(opt['/model/spinup/years']))
+
+        if opt['/metos3d/write_trajectory']:
+            metos3d_options.append('-Metos3DSpinupMonitorFileFormatPrefix   sp$0004d-,ts$0004d-')
+            metos3d_options.append('-Metos3DSpinupMonitorModuloStep         1,1')
+        metos3d_options.append(linesep)
+
+        metos3d_options = linesep.join(metos3d_options)
 
         ## write metos3d option file
         f = open(opt['/metos3d/option_file'], mode='w')
-
-        f.write('# debug \n')
-        f.write('-Metos3DDebugLevel                      {:d} \n\n'.format(opt['/metos3d/debuglevel']))
-
-        f.write('# geometry \n')
-        f.write('-Metos3DGeometryType                    Profile \n')
-        f.write('-Metos3DProfileInputDirectory           {}/Geometry/ \n'.format(opt['/metos3d/data_dir']))
-        # f.write('-Metos3DProfileIndexStartFile           gStartIndices.bin \n')
-        # f.write('-Metos3DProfileIndexEndFile             gEndIndices.bin \n\n')
-        f.write('-Metos3DProfileMaskFile                 landSeaMask.petsc \n')
-        f.write('-Metos3DProfileVolumeFile               volumes.petsc \n\n')
-
-        f.write('# bgc tracer \n')
-        f.write('-Metos3DTracerCount                     {:d} \n'.format(len(opt['/model/tracer'])))
-
-        try:
-            f.write('-Metos3DTracerInputDirectory            {} \n'.format(opt['/metos3d/tracer_input_dir']))
-            f.write('-Metos3DTracerInitFile                  {} \n'.format(','.join(map(str, opt['/metos3d/tracer_input_filenames']))))
-        except KeyError:
-            f.write('-Metos3DTracerInitValue                 {} \n'.format(opt['/metos3d/initial_constant_concentrations_string']))
-
-        f.write('-Metos3DTracerOutputDirectory           {} \n'.format(opt['/metos3d/tracer_output_dir']))
-        f.write('-Metos3DTracerOutputFile                {} \n\n'.format(','.join(map(str, opt['/metos3d/tracer_output_filenames']))))
-
-        f.write('# bgc parameter \n')
-        f.write('-Metos3DParameterCount                  {:d} \n'.format(len(opt['/model/parameters'])))
-        f.write('-Metos3DParameterValue                  {} \n\n'.format(opt['/metos3d/parameters_string']))
-
-        f.write('# bgc boundary conditions \n')
-        f.write('-Metos3DBoundaryConditionCount          2 \n')
-        f.write('-Metos3DBoundaryConditionInputDirectory {}/Forcing/BoundaryCondition/ \n'.format(opt['/metos3d/data_dir']))
-        f.write('-Metos3DBoundaryConditionName           Latitude,IceCover \n')
-        f.write('-Metos3DLatitudeCount                   1 \n')
-        f.write('-Metos3DLatitudeFileFormat              latitude.petsc \n')
-        f.write('-Metos3DIceCoverCount                   12 \n')
-        f.write('-Metos3DIceCoverFileFormat              fice_$02d.petsc \n\n')
-
-        f.write('# bgc domain conditions \n')
-        f.write('-Metos3DDomainConditionCount            2 \n')
-        f.write('-Metos3DDomainConditionInputDirectory   {}/Forcing/DomainCondition/ \n'.format(opt['/metos3d/data_dir']))
-        f.write('-Metos3DDomainConditionName             LayerDepth,LayerHeight \n')
-        f.write('-Metos3DLayerDepthCount                 1 \n')
-        f.write('-Metos3DLayerDepthFileFormat            z.petsc \n\n')
-        f.write('-Metos3DLayerHeightCount                1 \n')
-        f.write('-Metos3DLayerHeightFileFormat           dz.petsc \n')
-
-        f.write('# transport \n')
-        f.write('-Metos3DTransportType                   Matrix \n')
-        f.write('-Metos3DMatrixInputDirectory            {}/Transport/Matrix5_4/{:d}dt/ \n'.format(opt['/metos3d/data_dir'], opt['/model/time_step_multiplier']))
-        f.write('-Metos3DMatrixCount                     12 \n')
-        f.write('-Metos3DMatrixExplicitFileFormat        Ae_$02d.petsc \n')
-        f.write('-Metos3DMatrixImplicitFileFormat        Ai_$02d.petsc \n\n')
-
-        f.write('# time stepping \n')
-        f.write('-Metos3DTimeStepStart                   0.0 \n')
-        f.write('-Metos3DTimeStepCount                   {:d} \n'.format(opt['/model/time_steps_per_year']))
-        f.write('-Metos3DTimeStep                        {:.18f} \n\n'.format(opt['/model/time_step']))
-
-        f.write('# solver \n')
-        f.write('-Metos3DSolverType                      Spinup \n')
-        f.write('-Metos3DSpinupMonitor \n')
-        try:
-            f.write('-Metos3DSpinupTolerance                 {:f} \n'.format(opt['/model/spinup/tolerance']))
-        except KeyError:
-            pass
-        f.write('-Metos3DSpinupCount                     {:d} \n'.format(opt['/model/spinup/years']))
-
-        if opt['/metos3d/write_trajectory']:
-            f.write('-Metos3DSpinupMonitorFileFormatPrefix   sp$0004d-,ts$0004d- \n')
-            f.write('-Metos3DSpinupMonitorModuloStep         1,1 \n')
-
+        f.write(metos3d_options)
         util.io.fs.flush_and_close(f)
-
 
         ## write job file
         batch_system = util.batch.universal.system.BATCH_SYSTEM
         pre_command = batch_system.pre_command('metos3d')
-        command = '{} {} \n'.format(opt['/metos3d/sim_file'], opt['/metos3d/option_file'])
+        command = '{} {}'.format(opt['/metos3d/sim_file'], opt['/metos3d/option_file']) + linesep
         super().write_job_file(command, pre_command=pre_command, use_mpi=True)
 
         util.logging.debug('Job initialised.')
