@@ -47,6 +47,7 @@ def _main():
     parser.add_argument('--min_standard_deviation_list', type=float, default=None, nargs='+', help='The minimal standard deviation of measurements.')
     parser.add_argument('--max_box_distance_to_water_list', type=int, default=None, nargs='+', help='The maximal distances to water boxes to accept measurements.')
     parser.add_argument('--cost_function_list', type=str, default=None, nargs='+', help='The cost function to evaluate.')
+    parser.add_argument('--model_list', type=str, default=None, choices=simulation.model.constants.MODEL_NAMES, nargs='+', help='The models to evaluate.')
     parser.add_argument('--DF', action='store_true', help='Eval (also) DF.')
     parser.add_argument('--debug_level', choices=util.logging.LEVELS, default='INFO', help='Print debug infos low to passed level.')
     parser.add_argument('--version', action='version', version='%(prog)s {}'.format(simulation.__version__))
@@ -71,7 +72,7 @@ def _main():
 
     # run
     with util.logging.Logger(level=args.debug_level):
-        save_for_all_measurements(max_box_distance_to_water_list=max_box_distance_to_water_list, min_standard_deviation_list=args.min_standard_deviation_list, min_measurements_correlation_list=args.min_measurements_correlation_list, cost_function_classes=cost_function_classes, eval_f=True, eval_df=args.DF)
+        save_for_all_measurements(max_box_distance_to_water_list=max_box_distance_to_water_list, min_standard_deviation_list=args.min_standard_deviation_list, min_measurements_correlation_list=args.min_measurements_correlation_list, cost_function_classes=cost_function_classes, model_names=args.model_list, eval_f=True, eval_df=args.DF)
         util.logging.info('Finished.')
 
 
