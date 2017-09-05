@@ -1,9 +1,8 @@
-import argparse
-
 import numpy as np
 
 import util.multi_dict
 
+import simulation.model.constants
 import simulation.model.options
 import simulation.optimization.cost_function
 
@@ -15,27 +14,28 @@ parameters_key = 'parameters'
 concentrations_key = 'concentrations'
 
 
-## general functions
+# general functions
 
 def min_values(cost_functions, model_names=None, filter_function=None):
     if filter_function is None:
-        filter_function = lambda model_options: True
+        def filter_function(model_options):
+            return True
 
     results_dict = util.multi_dict.MultiDict()
 
     for cost_function in simulation.optimization.cost_function.iterator(cost_functions, model_names=model_names):
         model_options = cost_function.model.model_options
         if filter_function(model_options) and cost_function.f_available():
-            ## key
+            # key
             key = (model_options.model_name, model_options.time_step, str(cost_function))
-            ## value dict and min value
+            # value dict and min value
             try:
                 values_dict = results_dict[key][0]
             except KeyError:
                 values_dict = {f_key: float('inf')}
                 results_dict[key] = [values_dict]
             min_f = values_dict[f_key]
-            ## store if better
+            # store if better
             f = cost_function.f()
             if f < min_f:
                 values_dict[f_key] = f
@@ -43,7 +43,6 @@ def min_values(cost_functions, model_names=None, filter_function=None):
                 values_dict[concentrations_key] = model_options.initial_concentration_options.concentrations
 
     return results_dict
-
 
 
 def all_values_for_min_values(cost_functions, model_names=None, filter_function=None, normalize=False):
@@ -84,56 +83,65 @@ def all_values_for_min_values(cost_functions, model_names=None, filter_function=
     return all_values_dict
 
 
-## functions for all data
+# functions for all data
 
-def min_values_for_all_measurements(max_box_distance_to_water_list=None, min_measurements_correlation_list=None, cost_function_classes=None, model_names=None, filter_function=None):
+def min_values_for_all_measurements(max_box_distance_to_water_list=None, min_standard_deviation_list=None, min_measurements_correlation_list=None, cost_function_classes=None, model_names=None, filter_function=None):
     model_options = simulation.model.options.ModelOptions()
-    model_options.spinup_options = {'years':1, 'tolerance':0.0, 'combination':'or'}
-    cost_functions = simulation.optimization.cost_function.cost_functions_for_all_measurements(max_box_distance_to_water_list=max_box_distance_to_water_list, min_measurements_correlation_list=min_measurements_correlation_list, cost_function_classes=cost_function_classes, model_options=model_options)
+    model_options.spinup_options = {'years': 1, 'tolerance': 0.0, 'combination': 'or'}
+    cost_functions = simulation.optimization.cost_function.cost_functions_for_all_measurements(max_box_distance_to_water_list=max_box_distance_to_water_list, min_standard_deviation_list=min_standard_deviation_list, min_measurements_correlation_list=min_measurements_correlation_list, cost_function_classes=cost_function_classes, model_options=model_options)
     return min_values(cost_functions, model_names=model_names, filter_function=filter_function)
 
 
-
-def all_values_for_min_values_for_all_measurements(max_box_distance_to_water_list=None, min_measurements_correlation_list=None, cost_function_classes=None, model_names=None, filter_function=None, normalize=False):
+def all_values_for_min_values_for_all_measurements(max_box_distance_to_water_list=None, min_standard_deviation_list=None, min_measurements_correlation_list=None, cost_function_classes=None, model_names=None, filter_function=None, normalize=False):
     model_options = simulation.model.options.ModelOptions()
-    model_options.spinup_options = {'years':1, 'tolerance':0.0, 'combination':'or'}
-    cost_functions = simulation.optimization.cost_function.cost_functions_for_all_measurements(max_box_distance_to_water_list=max_box_distance_to_water_list, min_measurements_correlation_list=min_measurements_correlation_list, cost_function_classes=cost_function_classes, model_options=model_options)
+    model_options.spinup_options = {'years': 1, 'tolerance': 0.0, 'combination': 'or'}
+    cost_functions = simulation.optimization.cost_function.cost_functions_for_all_measurements(max_box_distance_to_water_list=max_box_distance_to_water_list, min_standard_deviation_list=min_standard_deviation_list, min_measurements_correlation_list=min_measurements_correlation_list, cost_function_classes=cost_function_classes, model_options=model_options)
     return all_values_for_min_values(cost_functions, model_names=model_names, filter_function=filter_function, normalize=normalize)
 
 
+# *** main function for script call *** #
 
-## main
+def _main():
 
-if __name__ == "__main__":
-    ## parse args
+    # parse arguments
+    import argparse
+
     parser = argparse.ArgumentParser(description='Getting minimal cost function values.')
     parser.add_argument('--max_box_distance_to_water_list', type=int, default=None, nargs='+', help='The maximal distances to water boxes to accept measurements.')
+    parser.add_argument('--min_standard_deviation_list', type=float, default=None, nargs='+', help='The minimal standard deviation of measurements.')
     parser.add_argument('--min_measurements_correlation_list', type=int, default=None, nargs='+', help='The minimal number of measurements used to calculate correlations.')
-    parser.add_argument('--cost_function_list', default=None, nargs='+', help='The cost functions to use.')
+    parser.add_argument('--cost_function_list', type=str, default=None, nargs='+', help='The cost function to evaluate.')
+    parser.add_argument('--model_list', type=str, default=None, choices=simulation.model.constants.MODEL_NAMES, nargs='+', help='The models to evaluate.')
     parser.add_argument('-a', '--all', action='store_true', help='Return all cost function values for each parameter set.')
     parser.add_argument('-d', '--debug_level', choices=util.logging.LEVELS, default='INFO', help='Print debug infos low to passed level.')
     args = parser.parse_args()
 
-    ## max_box_distance_to_water
-    max_box_distance_to_water = np.array(args.max_box_distance_to_water_list)
-    add_float = np.any(max_box_distance_to_water < 0)
-    max_box_distance_to_water = max_box_distance_to_water[max_box_distance_to_water >= 0]
-    max_box_distance_to_water = np.unique(max_box_distance_to_water)
-    max_box_distance_to_water_list = max_box_distance_to_water.tolist()
-    if add_float:
-        max_box_distance_to_water_list = max_box_distance_to_water_list + [float('inf')]
+    # max_box_distance_to_water
+    max_box_distance_to_water_list = args.max_box_distance_to_water_list
+    if args.max_box_distance_to_water_list is not None:
+        max_box_distance_to_water = np.array(max_box_distance_to_water_list)
+        add_float = np.any(max_box_distance_to_water < 0)
+        max_box_distance_to_water = max_box_distance_to_water[max_box_distance_to_water >= 0]
+        max_box_distance_to_water = np.unique(max_box_distance_to_water)
+        max_box_distance_to_water_list = max_box_distance_to_water.tolist()
+        if add_float:
+            max_box_distance_to_water_list = max_box_distance_to_water_list + [float('inf')]
 
-    ## cost_function_classes
+    # cost_function_classes
     if args.cost_function_list is None:
         cost_function_classes = None
     else:
         cost_function_classes = [getattr(simulation.optimization.cost_function, cost_function_name) for cost_function_name in args.cost_function_list]
 
-    ## run
+    # run
     with util.logging.Logger(level=args.debug_level):
         if args.all:
-            results = all_values_for_min_values_for_all_measurements(max_box_distance_to_water_list=max_box_distance_to_water_list, min_measurements_correlation_list=args.min_measurements_correlation_list, cost_function_classes=cost_function_classes, normalize=True)
+            results = all_values_for_min_values_for_all_measurements(max_box_distance_to_water_list=max_box_distance_to_water_list, min_standard_deviation_list=args.min_standard_deviation_list, min_measurements_correlation_list=args.min_measurements_correlation_list, cost_function_classes=cost_function_classes, model_names=args.model_list, normalize=True)
         else:
-            results = min_values_for_all_measurements(max_box_distance_to_water_list=max_box_distance_to_water_list, min_measurements_correlation_list=args.min_measurements_correlation_list, cost_function_classes=cost_function_classes)
+            results = min_values_for_all_measurements(max_box_distance_to_water_list=max_box_distance_to_water_list, min_standard_deviation_list=args.min_standard_deviation_list, min_measurements_correlation_list=args.min_measurements_correlation_list, cost_function_classes=cost_function_classes, model_names=args.model_list)
         util.logging.info(str(results))
         util.logging.info('Finished.')
+
+
+if __name__ == "__main__":
+    _main()
