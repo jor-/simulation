@@ -173,17 +173,31 @@ class Model_Database:
     def initial_concentration_dir(self):
         index = self.initial_concentration_dir_index
         concentration_set_dir = self.initial_concentration_dir_with_index(index)
-
         util.logging.debug('Matching directory for concentrations found at {}.'.format(concentration_set_dir))
         assert concentration_set_dir is not None
         return concentration_set_dir
 
 
     @property
+    def initial_constant_concentration(self):
+        assert self.model_options.initial_concentration_options.use_constant_concentrations
+
+        concentrations = self.model_options.initial_concentration_options.concentrations
+        concentration_db = self._constant_concentrations_db
+        index = concentration_db.get_or_add_index(concentrations)
+        concentrations = concentration_db.get_value(index)
+
+        util.logging.debug('Matching constant concentrations found in db at {} with index {}.'.format(concentrations, index))
+        return concentrations
+
+
+    @property
     def initial_concentration_files(self):
         assert not self.model_options.initial_concentration_options.use_constant_concentrations
-        index = self.initial_concentration_dir_index
+
+        concentrations = self.model_options.initial_concentration_options.concentrations
         concentration_db = self._vector_concentrations_db
+        index = concentration_db.get_or_add_index(concentrations)
         concentration_files = concentration_db.value_files(index)
 
         util.logging.debug('Using concentration files {}.'.format(concentration_files))
@@ -224,6 +238,17 @@ class Model_Database:
 
         parameter_db = util.index_database.array_and_txt_file_based.Database(array_file, value_file, value_reliable_decimal_places=simulation.model.constants.DATABASE_PARAMETERS_RELIABLE_DECIMAL_PLACES, tolerance_options=parameter_tolerance_options)
         return parameter_db
+
+
+    @property
+    def parameters(self):
+        parameters = self.model_options.parameters
+        parameter_db = self._parameter_db
+        index = parameter_db.get_or_add_index(parameters)
+        parameters = parameter_db.get_value(index)
+
+        util.logging.debug('Matching model parameters found in db at {} with index {}.'.format(parameters, index))
+        return parameters
 
 
     @property
@@ -403,32 +428,30 @@ class Model_Database:
             combination = spinup_options.combination
 
             if combination == 'or':
+
                 ## create new run
                 run_dir = self.make_new_run_dir(spinup_dir)
 
-                ## calculate last years
+                ## start from another run
                 if last_run_dir is not None:
                     last_years = self.real_years(last_run_dir)
                     util.logging.debug('Found previous run(s) with total {} years.'.format(last_years))
-                else:
-                    last_years = 0
-
-                ## start new run
-                parameters = self.model_options.parameters
-                years = years - last_years
-
-                initial_concentration_options = self.model_options.initial_concentration_options
-
-                if last_run_dir is None and initial_concentration_options.use_constant_concentrations:
-                    constant_concentrations = initial_concentration_options.concentrations
-                    self.start_run(parameters, run_dir, years, tolerance=tolerance, job_options=self.job_options_for_kind('spinup'), initial_constant_concentrations=constant_concentrations, wait_until_finished=True)
-                else:
-                    if last_run_dir is None:
-                        concentration_files = self.initial_concentration_files
-                    else:
-                        with simulation.model.job.Metos3D_Job(last_run_dir, force_load=True) as job:
-                            concentration_files = job.tracer_output_files
+                    years = years - last_years
+                    parameters = self.parameters
+                    with simulation.model.job.Metos3D_Job(last_run_dir, force_load=True) as job:
+                        concentration_files = job.tracer_output_files
                     self.start_run(parameters, run_dir, years, tolerance=tolerance, job_options=self.job_options_for_kind('spinup'), tracer_input_files=concentration_files, wait_until_finished=True)
+                ## make first run
+                else:
+                    parameters = self.model_options.parameters
+                    initial_concentration_options = self.model_options.initial_concentration_options
+
+                    if initial_concentration_options.use_constant_concentrations:
+                        constant_concentrations = self.initial_constant_concentration
+                        self.start_run(parameters, run_dir, years, tolerance=tolerance, job_options=self.job_options_for_kind('spinup'), initial_constant_concentrations=constant_concentrations, wait_until_finished=True)
+                    else:
+                        concentration_files = self.initial_concentration_files
+                        self.start_run(parameters, run_dir, years, tolerance=tolerance, job_options=self.job_options_for_kind('spinup'), tracer_input_files=concentration_files, wait_until_finished=True)
 
             else:
                 assert combination == 'and'
@@ -880,7 +903,10 @@ class Model_With_F_And_DF(Model_With_F):
         if len(tracers) == 0:
             return {}
 
-        ## apply partial_derivative_kind
+        # model parameters
+        model_parameter = self.parameters
+
+        # apply partial_derivative_kind
         if partial_derivative_kind == 'model_parameters':
             def convert_partial_derivative_parameters_to_start_run_parameters(partial_derivative_parameters):
                 assert len(partial_derivative_parameters) == self.model_options.parameters_len
@@ -888,12 +914,12 @@ class Model_With_F_And_DF(Model_With_F):
 
             partial_derivative_parameters_bounds = self.model_options.parameters_bounds
             partial_derivative_parameters_typical_values =  self.model_options.derivative_options.parameters_typical_values
-            partial_derivative_parameters_undisturbed = self.model_options.parameters
+            partial_derivative_parameters_undisturbed = model_parameter
 
         elif partial_derivative_kind == 'total_concentration_factor':
             def convert_partial_derivative_parameters_to_start_run_parameters(partial_derivative_parameters):
                 assert len(partial_derivative_parameters) == 1
-                return {'model_parameters': self.model_options.parameters, 'total_concentration_factor': partial_derivative_parameters[0]}
+                return {'model_parameters': model_parameter, 'total_concentration_factor': partial_derivative_parameters[0]}
 
             partial_derivative_parameters_bounds = np.array([[0,np.inf]])
             partial_derivative_parameters_typical_values =  np.array([1])

@@ -81,6 +81,11 @@ class Metos3D_Job(util.batch.universal.system.Job):
         return time_step
 
 
+    @property
+    def model_parameters(self):
+        return self.options['/model/parameters']
+
+
     ## files
 
     @property
