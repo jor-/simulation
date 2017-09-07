@@ -556,13 +556,15 @@ def iterator(cost_functions, model_names=None):
         if model_names is None:
             model_names = simulation.model.constants.MODEL_NAMES
 
-        ## set same model and model options, store original measurements
+        ## set same model and model options, store original model and measurements
         model = cost_functions[0].model
         model_options = model.model_options
+        original_model_list = []
         original_measurements_list = []
         for cost_function in cost_functions:
-            cost_function.model = model
+            original_model_list.append(cost_function.model)
             original_measurements_list.append(cost_function.measurements)
+            cost_function.model = model
 
         ## iterate over models
         for model_name in model_names:
@@ -576,3 +578,8 @@ def iterator(cost_functions, model_names=None):
             for model_options in model.iterator(model_names=[model_name]):
                 for cost_function in cost_functions:
                     yield cost_function
+
+        ## reset to original model and measurements
+        for cost_function, original_model, original_measurements in zip(cost_functions, original_model_list, original_measurements_list):
+            cost_function.model = original_model
+            cost_function.measurements = original_measurements
