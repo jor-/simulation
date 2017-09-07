@@ -27,7 +27,7 @@ def min_values(cost_functions, model_names=None, filter_function=None):
         model_options = cost_function.model.model_options
         if filter_function(model_options) and cost_function.f_available():
             # key
-            key = (model_options.model_name, model_options.time_step, str(cost_function))
+            key = (model_options.model_name, model_options.time_step, str(cost_function.measurements), str(cost_function))
             # value dict and min value
             try:
                 values_dict = results_dict[key][0]
@@ -58,7 +58,7 @@ def all_values_for_min_values(cost_functions, model_names=None, filter_function=
     all_values_dict = util.multi_dict.MultiDict()
 
     for (key, value_list) in results_dict.iterator_keys_and_value_lists():
-        (model_name, time_step, cost_function_name) = key
+        (model_name, time_step, measurements_name, cost_function_name) = key
         assert len(value_list) == 1
         values_dict = value_list[0]
         concentrations = tuple(values_dict[concentrations_key])
@@ -71,7 +71,7 @@ def all_values_for_min_values(cost_functions, model_names=None, filter_function=
         model_options.parameters = parameters
         model_options.initial_concentration_options.concentrations = concentrations
 
-        new_key = (model_name, time_step, concentrations, parameters)
+        new_key = (model_name, time_step, measurements_name, concentrations, parameters)
 
         for cost_function in cost_functions:
             old_measurements = cost_function.measurements
