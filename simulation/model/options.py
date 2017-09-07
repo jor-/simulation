@@ -25,7 +25,7 @@ class ModelOptions(util.options.Options):
             self.parameters_check(self['parameters'])
     
     
-    ## options
+    # options
     
     def model_name_check(self, model_name):
         if not model_name in simulation.model.constants.MODEL_NAMES:
@@ -43,14 +43,14 @@ class ModelOptions(util.options.Options):
         if np.any(np.isnan(parameters)):
             raise ValueError('The model parametes {} are not allowed. Nan is not a valid value for a model parameter.'.format(parameters))
         
-        ## check if matching to model
+        # check if matching to model
         if 'model_name' in self:
             
-            ## check length
+            # check length
             if len(parameters) != self.parameters_len:
                 raise ValueError('The model parameters {} are not allowed. The length of the model parameters have to be {} but it is {}.'.format(parameters, self.parameters_len, len(parameters)))
             
-            ## check bounds
+            # check bounds
             if any(parameters < self.parameters_lower_bounds):
                 indices = np.where(parameters < self.parameters_lower_bounds)
                 raise ValueError('The model parameters {} are not allowed. The model parameters with the indices {} are below their lower bound {}.'.format(parameters, indices, self.parameters_lower_bounds[indices]))
@@ -101,7 +101,7 @@ class ModelOptions(util.options.Options):
         return initial_concentration_options
     
     
-    ## properties
+    # properties
     
     @property
     def tracers(self):
@@ -142,7 +142,7 @@ class SpinupOptions(util.options.Options):
         super().__init__(options=options, default_options=simulation.model.constants.MODEL_DEFAULT_SPINUP_OPTIONS, option_names=SpinupOptions.OPTIONS)
     
     
-    ## options methods
+    # options methods
 
     def years_check(self, years):
         if years < 0:
@@ -177,7 +177,7 @@ class DerivativeOptions(util.options.Options):
         self.__model_options = None
 
     
-    ## options
+    # options
 
     def years_check(self, years):
         if years < 0:
@@ -195,7 +195,7 @@ class DerivativeOptions(util.options.Options):
             raise ValueError('Accuracy_order "{}" unknown. Possible accuracy_orders are: {}'.format(accuracy_order, POSSIBLE_VALUES))
 
 
-    ## properties
+    # properties
     
     @property
     def _model_options(self):
@@ -226,7 +226,7 @@ class ToleranceOptions(util.options.Options):
         super().__init__(options=options, default_options=default_options, option_names=ToleranceOptions.OPTIONS)
     
 
-    ## options
+    # options
     
     @property
     def _values_len(self):
@@ -269,12 +269,12 @@ class ToleranceOptions(util.options.Options):
     def _check_value_changed(self, dependent_option, independent_option, new_value):
         assert independent_option == 'model_name'
 
-        ## check if option is set
+        # check if option is set
         try:
             value =  self._options[dependent_option]
         except KeyError:
             remove = False
-        ## check len of option value if sequence
+        # check len of option value if sequence
         else:
             try:
                 len_value = len(value)
@@ -282,7 +282,7 @@ class ToleranceOptions(util.options.Options):
                 remove = False
             else:
                 remove = len_value != self._values_len
-        ## set 0 tolerance instead of remove
+        # set 0 tolerance instead of remove
         if remove:
             self._set_option(dependent_option, 0)
             remove = False
@@ -344,7 +344,7 @@ class InitialConcentrationOptions(util.options.Options):
         self.__model_options = None
 
     
-    ## options
+    # options
     
     @property
     def _model_options(self):
@@ -379,7 +379,7 @@ class InitialConcentrationOptions(util.options.Options):
     
     
     def concentrations_check(self, concentrations):
-        ## check concentration input
+        # check concentration input
         if self._tracers_len is not None and len(concentrations) != self._tracers_len:
             raise ValueError('The concentrations must be an iterable with length {}, but its length is {}.'.format(self._tracers_len, len(concentrations)))
         
@@ -397,7 +397,7 @@ class InitialConcentrationOptions(util.options.Options):
         if concentrations.ndim == 2 and concentrations.shape[1] != simulation.model.constants.METOS_VECTOR_LEN:
             raise ValueError('The concentrations with 2 dimensions, must have {} as second dimensions, but it is {}.'.format(simulation.model.constants.METOS_VECTOR_LEN, concentrations.shape[1]))
         
-        ## return as tuple
+        # return as tuple
         if concentrations.ndim == 2:
             return tuple(map(tuple, concentrations))
         else:
@@ -428,7 +428,7 @@ class InitialConcentrationOptions(util.options.Options):
         return tolerance_options
     
     
-    ## properties
+    # properties
     
     @property
     def use_constant_concentrations(self):

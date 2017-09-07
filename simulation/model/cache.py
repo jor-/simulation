@@ -23,7 +23,7 @@ class Cache:
         self.cache_dirname = cache_dirname
 
 
-    ## file
+    # file
 
     def get_file(self, filename, derivative_used):
         assert filename is not None
@@ -48,7 +48,7 @@ class Cache:
         return file
         
     
-    ## value
+    # value
 
     def has_value(self, filename, derivative_used):
         file = self.get_file(filename, derivative_used=derivative_used)
@@ -58,18 +58,18 @@ class Cache:
     def load_value(self, filename, derivative_used, use_memmap=False, as_shared_array=False):
         file = self.get_file(filename, derivative_used=derivative_used)
         if file is not None and os.path.exists(file):
-            ## set memmap mode
+            # set memmap mode
             if use_memmap or as_shared_array:
                 mem_map_mode = 'r'
             else:
                 mem_map_mode = None
-            ## load
+            # load
             util.logging.debug('Loading value from {} with mem_map_mode {} and as_shared_array {}.'.format(file, mem_map_mode, as_shared_array))
             value = util.io.np.load(file, mmap_mode=mem_map_mode)
-            ## if scalar, get scalar value
+            # if scalar, get scalar value
             if value.ndim == 0:
                 value = value.reshape(-1)[0]
-            ## load as shared array
+            # load as shared array
             elif as_shared_array:
                 value = util.parallel.with_multiprocessing.shared_array(value)
         else:
@@ -78,13 +78,13 @@ class Cache:
 
 
     def save_value(self, filename, value, derivative_used, save_also_txt=False):
-        ## check input
+        # check input
         if value is None:
             raise ValueError('Value for {} is None!'.format(filename,))
         if filename is None:
             raise ValueError('Filename for is None!')
         
-        ## save value
+        # save value
         file = self.get_file(filename, derivative_used=derivative_used)
         assert file is not None
         
@@ -99,16 +99,16 @@ class Cache:
     def get_value(self, filename, calculate_function, derivative_used, save_also_txt=False, use_memmap=False, as_shared_array=False):
         assert callable(calculate_function)
         
-        ## if not matching calculate and save value
+        # if not matching calculate and save value
         is_matchig = self.has_value(filename, derivative_used=derivative_used)
         if not is_matchig:
             
-            ## calculating and saving value
+            # calculating and saving value
             util.logging.debug('Calculating value with {} and saving with filename {} with derivative_used {}.'.format(calculate_function, filename, derivative_used))
             value = calculate_function()
             self.save_value(filename, value, derivative_used=derivative_used, save_also_txt=save_also_txt)
 
-        ## load value if matching or memmap used
+        # load value if matching or memmap used
         if is_matchig or use_memmap or as_shared_array:
             value = self.load_value(filename, derivative_used=derivative_used, use_memmap=use_memmap, as_shared_array=as_shared_array)
 
@@ -128,7 +128,7 @@ class Model_With_F_File_and_MemoryCached(simulation.model.eval.Model_With_F_Memo
         assert callable(calculate_function_for_boxes)
         tracers = self.check_tracers(tracers)
     
-        ## load cached values from cache
+        # load cached values from cache
         data_set_name = simulation.model.constants.DATABASE_ALL_DATASET_NAME.format(time_dim=time_dim)
 
         results_dict = {}
@@ -140,16 +140,16 @@ class Model_With_F_File_and_MemoryCached(simulation.model.eval.Model_With_F_Memo
             else:
                 not_cached_tracers.append(tracer)
         
-        ## calculate not cached values
+        # calculate not cached values
         calculated_results_dict = calculate_function_for_boxes(time_dim, tracers=not_cached_tracers)
         
-        ## save calculated values and store in result
+        # save calculated values and store in result
         for tracer, tracer_values in calculated_results_dict.items():
             file = file_pattern.format(tracer=tracer, data_set_name=data_set_name)
             self._cache.save_value(file, tracer_values, derivative_used=derivative_used)
             results_dict[tracer] = tracer_values
             
-        ## return
+        # return
         assert (tracers is None and len(results_dict) == self.model_options.tracers_len) or len(results_dict) == len(tracers)
         return results_dict
     
@@ -161,7 +161,7 @@ class Model_With_F_File_and_MemoryCached(simulation.model.eval.Model_With_F_Memo
 
     
     def _cached_values_for_points(self, points, calculate_function_for_points, file_pattern, derivative_used):
-        ## load cached values and separate not cached points
+        # load cached values and separate not cached points
         not_cached_points_dict = {}
         results_dict = {}
         
@@ -179,17 +179,17 @@ class Model_With_F_File_and_MemoryCached(simulation.model.eval.Model_With_F_Memo
                         not_cached_points_dict[tracer] = {}
                     not_cached_points_dict[tracer][data_set_name] = data_set_points
         
-        ## interpolate not cached values
+        # interpolate not cached values
         calculated_results_dict = calculate_function_for_points(not_cached_points_dict)
         
-        ## save interpolated values and store in results dict
+        # save interpolated values and store in results dict
         for tracer, tracer_calculated_results_dict in calculated_results_dict.items():
             for data_set_name, data_set_results in tracer_calculated_results_dict.items():
                 file = file_pattern.format(tracer=tracer, data_set_name=data_set_name)
                 self._cache.save_value(file, data_set_results, derivative_used=derivative_used)
                 results_dict[tracer][data_set_name] = data_set_results
         
-        ## return
+        # return
         return results_dict
 
 
@@ -200,7 +200,7 @@ class Model_With_F_File_and_MemoryCached(simulation.model.eval.Model_With_F_Memo
 
     
     def _cached_values_for_measurements(self, calculate_function_for_points, *measurements_list):
-        ## get base measurements
+        # get base measurements
         not_base_measurements_list = measurements_list
         base_measurements_list = []
         
@@ -215,12 +215,12 @@ class Model_With_F_File_and_MemoryCached(simulation.model.eval.Model_With_F_Memo
                     base_measurements_list.append(current_measurements)
             not_base_measurements_list = new_not_base_measurements_list
         
-        ## calculate results for base measurements (using caching)
+        # calculate results for base measurements (using caching)
         base_measurements_collection = measurements.universal.data.MeasurementsCollection(*base_measurements_list)
         base_points_dict = base_measurements_collection.points_dict
         results_dict = calculate_function_for_points(base_points_dict)
         
-        ## convert measurements back if needed
+        # convert measurements back if needed
         def convert_back(results_dict, measurements_list):
             for current_measurements in measurements_list:
                 if isinstance(current_measurements, measurements.universal.data.MeasurementsNearWater):

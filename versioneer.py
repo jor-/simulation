@@ -25,13 +25,13 @@ release should be as easy as recording a new tag in your version-control
 system, and maybe making new tarballs.
 
 
-## Quick Install
+# Quick Install
 
 * `pip install versioneer` to somewhere to your $PATH
 * add a `[versioneer]` section to your setup.cfg (see below)
 * run `versioneer install` in your source tree, commit the results
 
-## Version Identifiers
+# Version Identifiers
 
 Source trees come from a variety of places:
 
@@ -68,7 +68,7 @@ The version identifier is used for multiple purposes:
 * to allow the module to self-identify its version: `myproject.__version__`
 * to choose a name and prefix for a 'setup.py sdist' tarball
 
-## Theory of Operation
+# Theory of Operation
 
 Versioneer works by adding a special `_version.py` file into your source
 tree, where your `__init__.py` can import it. This `_version.py` knows how to
@@ -86,11 +86,11 @@ compute the version when invoked, and changes `setup.py build` and `setup.py
 sdist` to replace `_version.py` with a small static file that contains just
 the generated version data.
 
-## Installation
+# Installation
 
 See [INSTALL.md](./INSTALL.md) for detailed installation instructions.
 
-## Version-String Flavors
+# Version-String Flavors
 
 Code which uses Versioneer can learn about its version string at runtime by
 importing `_version` from your main `__init__.py` file and running the
@@ -136,7 +136,7 @@ version in `YOURPROJECT.__version__`:
     __version__ = get_versions()['version']
     del get_versions
 
-## Styles
+# Styles
 
 The setup.cfg `style=` configuration controls how the VCS information is
 rendered into a version string.
@@ -154,7 +154,7 @@ stripped tag, e.g. "0.11".
 Other styles are available. See [details.md](details.md) in the Versioneer
 source tree for descriptions.
 
-## Debugging
+# Debugging
 
 Versioneer tries to avoid fatal errors: if something goes wrong, it will tend
 to return a version of "0+unknown". To investigate the problem, run `setup.py
@@ -162,13 +162,13 @@ version`, which will run the version-lookup code in a verbose mode, and will
 display the full contents of `get_versions()` (including the `error` string,
 which may help identify what went wrong).
 
-## Known Limitations
+# Known Limitations
 
 Some situations are known to cause problems for Versioneer. This details the
 most significant ones. More can be found on Github
 [issues page](https://github.com/warner/python-versioneer/issues).
 
-### Subprojects
+# Subprojects
 
 Versioneer has limited support for source trees in which `setup.py` is not in
 the root directory (e.g. `setup.py` and `.git/` are *not* siblings). The are
@@ -205,7 +205,7 @@ pip to let Versioneer work correctly.
 Versioneer-0.16 and earlier only looked for a `.git` directory next to the
 `setup.cfg`, so subprojects were completely unsupported with those releases.
 
-### Editable installs with setuptools <= 18.5
+# Editable installs with setuptools <= 18.5
 
 `setup.py develop` and `pip install --editable .` allow you to install a
 project into a virtualenv once, then continue editing the source code (and
@@ -228,7 +228,7 @@ a different virtualenv), so this can be surprising.
 this one, but upgrading to a newer version of setuptools should probably
 resolve it.
 
-### Unicode version strings
+# Unicode version strings
 
 While Versioneer works (and is continually tested) with both Python 2 and
 Python 3, it is not entirely consistent with bytes-vs-unicode distinctions.
@@ -241,7 +241,7 @@ APIs like cryptographic checksums.
 this question.
 
 
-## Updating Versioneer
+# Updating Versioneer
 
 To upgrade your project to a new release of Versioneer, do the following:
 
@@ -252,7 +252,7 @@ To upgrade your project to a new release of Versioneer, do the following:
   `SRC/_version.py`
 * commit any changed files
 
-## Future Directions
+# Future Directions
 
 This tool is designed to make it easily extended to other version-control
 systems: all VCS-specific components are in separate directories like
@@ -266,7 +266,7 @@ direction and include code from all supported VCS systems, reducing the
 number of intermediate scripts.
 
 
-## License
+# License
 
 To make Versioneer easier to embed, all its code is dedicated to the public
 domain. The `_version.py` that it creates is also in the public domain.

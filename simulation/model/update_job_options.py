@@ -13,7 +13,7 @@ import util.petsc.universal
 import util.logging
 
 
-## general update functions for job options
+# general update functions for job options
 
 def update_job_options(update_function, model_names=None):
     if model_names is None:
@@ -39,7 +39,7 @@ def update_job_options(update_function, model_names=None):
 
 
 
-## specific update functions for job options
+# specific update functions for job options
 
 def update_function_output_dir(job_file):
     with util.options.OptionsFile(job_file) as options:
@@ -65,7 +65,7 @@ def update_function_output_dir(job_file):
 #def update_function_option_entries(job_file):
 #    with util.options.OptionsFile(job_file) as options:
 
-        # ## change constant_concentrations name
+        # # change constant_concentrations name
         # try:
         #     options['/model/initial_concentrations']
         # except KeyError:
@@ -76,7 +76,7 @@ def update_function_output_dir(job_file):
         #     util.logging.info('Renaming /model/initial_concentrations to /model/initial_constant_concentrations in job option file {}.'.format(job_file))
         #     del options['/model/initial_concentrations']
         #
-        # ## remove concentration factor
+        # # remove concentration factor
         # try:
         #     options['/model/total_concentration_factor']
         # except KeyError:
@@ -92,11 +92,11 @@ def update_function_output_dir(job_file):
         #       del options['/model/total_concentration_factor']
         #     util.logging.info('Deleting /model/total_concentration_factor in job option file {}.'.format(job_file))
         #
-        # ## set model name
+        # # set model name
         # options['/model/name'] = 'MITgcm-PO4-DOP'
         # util.logging.info('Setting /model/name in job option file {}.'.format(job_file))
         #
-        # ## '/model/tracer_input_dir' -> '/model/tracer_input_files'
+        # # '/model/tracer_input_dir' -> '/model/tracer_input_files'
         #
         # try:
         #     tracer_input_dir = options['/model/tracer_input_dir']
@@ -109,7 +109,7 @@ def update_function_output_dir(job_file):
         #     util.logging.info('Setting /model/tracer_input_files in job option file {}.'.format(job_file))
         #
         #
-        # ## replace dirs with env
+        # # replace dirs with env
         # options.replace_all_str_options('/sfs/fs3/work-sh1/sunip229/metos3d', '${METOS3D_DIR}')
         # options.replace_all_str_options('${METOS3D_DIR}/data/Metos3DData', '${METOS3D_DIR}/data/data/TMM/2.8')
 
@@ -248,7 +248,7 @@ def update_function_output_dir(job_file):
         #         options['/model/tracer_input_dir'] = correct_model_tracer_input_dir
         #         util.logging.info('Model tracer input dir added to job option file {}.'.format(job_file))
 
-        ##   try:
+        #   try:
         #     options['/model/parameters_file']
         # except KeyError:
         #     pass
@@ -265,7 +265,7 @@ def update_function_output_dir(job_file):
         #     del options['/metos3d/data_path']
         #     util.logging.info('/metos3d/data_path renamed to /metos3d/data_dir in job option file {}.'.format(job_file))
 
-        ##   try:
+        #   try:
         #     options['/metos3d/data_path']
         # except KeyError:
         #     pass
@@ -274,7 +274,7 @@ def update_function_output_dir(job_file):
         #     del options['/metos3d/data_path']
         #     util.logging.info('/metos3d/data_path renamed to /metos3d/data_dir in job option file {}.'.format(job_file))
 
-        ##   try:
+        #   try:
         #     options['/metos3d/tracer_output_dir']
         # except KeyError:
         #     pass
@@ -283,7 +283,7 @@ def update_function_output_dir(job_file):
         #     del options['/metos3d/tracer_output_dir']
         #     util.logging.info('/metos3d/tracer_output_dir renamed to /metos3d/tracer_output_dir in job option file {}.'.format(job_file))
 
-        ##   try:
+        #   try:
         #     options['/metos3d/output_dir']
         # except KeyError:
         #     pass
@@ -292,7 +292,7 @@ def update_function_output_dir(job_file):
         #     del options['/metos3d/output_dir']
         #     util.logging.info('/metos3d/output_dir renamed to /metos3d/output_dir in job option file {}.'.format(job_file))
 
-        ##   try:
+        #   try:
         #     options['/job/unfinished_file']
         # except KeyError:
         #     options['/job/unfinished_file'] = os.path.join(job_options_dir, 'unfinished.txt')
@@ -324,7 +324,7 @@ def update_function_output_dir(job_file):
 #            files = options['/model/tracer_input_files']
 #            output_dir = options['/metos3d/output_dir']
 #
-#            ## replace
+#            # replace
 #            def remove_to_parameter_set(value):
 #                while not os.path.basename(value).startswith('parameter_set'):
 #                    assert len(value) > 0
@@ -351,20 +351,20 @@ def update_function_output_dir(job_file):
 #
 #            assert len(new_files) == 2
 #
-#            ## correct order
+#            # correct order
 #            if 'po4' in new_files[1]:
 #                new_files = new_files[::-1]
 #
-#            ## check if exist
+#            # check if exist
 #            new_files_expanded = tuple(map(os.path.expandvars, new_files))
 #            assert all(map(os.path.exists, new_files_expanded))
 #
-#            ## check if same
+#            # check if same
 #            metos_tracer_input_files = (os.path.join(output_dir, tracer_input_filename) for tracer_input_filename in options['/metos3d/input_filenames'])
 #            metos_tracer_input_files_expanded = tuple(map(os.path.expandvars, metos_tracer_input_files))
 #            assert all((np.allclose(util.petsc.universal.load_petsc_vec_to_numpy_array(a), util.petsc.universal.load_petsc_vec_to_numpy_array(b)) for a, b in zip(new_files_expanded, metos_tracer_input_files_expanded)))
 #
-#            ## set
+#            # set
 #            if any(options['/model/tracer_input_files'] != new_files):
 #                util.logging.info('/model/tracer_input_files: {} replaced by {}.'.format(files, new_files))
 #                options['/model/tracer_input_files'] = new_files
@@ -414,7 +414,7 @@ def update_tracer_input_files_in_job_options():
 
 
 
-## general update functions for parameter files
+# general update functions for parameter files
 
 def update_parameter_files(update_function):
     from simulation.model.constants import MODEL_NAMES, DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME, DATABASE_PARAMETERS_FILENAME

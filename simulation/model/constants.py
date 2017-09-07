@@ -9,7 +9,7 @@ import measurements.land_sea_mask.lsm
 from simulation.constants import METOS3D_DIR, METOS3D_DIR_ENV_NAME
 
 
-## METOS 3D
+# METOS 3D
 METOS_DATA_DIR = os.path.join(METOS3D_DIR, 'data', 'data', 'TMM', '2.8')
 METOS_DATA_DIR_ENV = os.path.join('${{{}}}'.format(METOS3D_DIR_ENV_NAME), 'data', 'data', 'TMM', '2.8')
 METOS_SIM_FILE = os.path.join(METOS3D_DIR, 'metos3d', 'metos3d-simpack-{model_name}.exe')
@@ -34,28 +34,28 @@ METOS_VECTOR_LEN = 52749
 
 METOS_TRAJECTORY_FILENAME = 'sp0000-ts{time_step:0>4d}-{tracer}_output.petsc'
 
-## METOS 3D N-DOP
+# METOS 3D N-DOP
 METOS_TRAJECTORY_FILENAMES = ('sp0000-ts{:0>4}-dop_output.petsc', 'sp0000-ts{:0>4}-po4_output.petsc')
 METOS_TRACER_DIM = len(METOS_TRAJECTORY_FILENAMES)
 
 
-## job
+# job
 JOB_OPTIONS_FILENAME = 'job_options.hdf5'
 JOB_MEMORY_GB = 4
 
 
-## model spinup
+# model spinup
 MODEL_SPINUP_MAX_YEARS = 50000
 MODEL_START_FROM_CLOSEST_PARAMETER_SET = False
 MODEL_DEFAULT_SPINUP_OPTIONS = {'years':10000, 'tolerance':0.0, 'combination':'or', 'match_type': 'best'}
 MODEL_DEFAULT_DERIVATIVE_OPTIONS = {'years': 500, 'step_size': 10**(-6), 'accuracy_order': 2}
 
 
-## model names
+# model names
 MODEL_NAMES = ['MITgcm-PO4-DOP', 'N', 'N-DOP', 'NP-DOP', 'NPZ-DOP', 'NPZD-DOP']
 
 
-## model tracer 
+# model tracer 
 MODEL_TRACER = {}
 MODEL_TRACER['MITgcm-PO4-DOP'] = ('po4', 'dop')
 MODEL_TRACER['N'] = ('po4',)
@@ -71,7 +71,7 @@ assert len(MODEL_TRACER['NPZ-DOP']) == 4
 assert len(MODEL_TRACER['NPZD-DOP']) == 5
 
 
-## model inital concentrations 
+# model inital concentrations 
 MODEL_DEFAULT_INITIAL_CONCENTRATION = {}
 MODEL_DEFAULT_INITIAL_CONCENTRATION['MITgcm-PO4-DOP'] = (2.17, 10**-4)
 MODEL_DEFAULT_INITIAL_CONCENTRATION['N'] = (2.17,)
@@ -87,7 +87,7 @@ assert len(MODEL_DEFAULT_INITIAL_CONCENTRATION['NPZ-DOP']) == len(MODEL_TRACER['
 assert len(MODEL_DEFAULT_INITIAL_CONCENTRATION['NPZD-DOP']) == len(MODEL_TRACER['NPZD-DOP'])
 
 
-## model parameter
+# model parameter
 MODEL_PARAMETER_BOUNDS = {}
 
 MODEL_PARAMETER_BOUNDS['MITgcm-PO4-DOP'] = np.array([
@@ -198,7 +198,7 @@ assert len(MODEL_PARAMETER_TYPICAL['NPZD-DOP']) ==  len(MODEL_PARAMETER_BOUNDS['
 
 
 
-## database directories and files
+# database directories and files
 from simulation.constants import SIMULATION_OUTPUT_DIR as DATABASE_OUTPUT_DIR
 DATABASE_MODEL_DIRNAME = 'model_{}'
 DATABASE_TIME_STEP_DIRNAME = 'time_step_{:0>4d}'
@@ -237,7 +237,7 @@ DATABASE_CACHE_OPTION_FILE_SUFFIX = '_options'
 DATABASE_TMP_DIR = os.path.join(util.constants.TMP_DIR, 'metos3d_simulations')
 
 
-## model interpolator
+# model interpolator
 MODEL_INTERPOLATOR_FILE = os.path.join(DATABASE_OUTPUT_DIR, 'interpolator.ppy')
 MODEL_INTERPOLATOR_AMOUNT_OF_WRAP_AROUND = (1/METOS_T_DIM, 1/METOS_X_DIM, 0, 0)
 MODEL_INTERPOLATOR_NUMBER_OF_LINEAR_INTERPOLATOR = 0

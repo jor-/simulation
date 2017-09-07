@@ -15,7 +15,7 @@ import util.logging
 
 class Metos3D_Job(util.batch.universal.system.Job):
 
-    ## run options
+    # run options
 
     @property
     def last_spinup_line(self):
@@ -86,7 +86,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
         return self.options['/model/parameters']
 
 
-    ## files
+    # files
 
     @property
     def metos3d_option_file(self):
@@ -160,20 +160,20 @@ class Metos3D_Job(util.batch.universal.system.Job):
                 util.io.fs.make_read_only(file)
 
 
-    ## exit code and is finished
+    # exit code and is finished
 
     @property
     def exit_code(self):
-        ## get metos3d exit code
+        # get metos3d exit code
         exit_code = super().exit_code
         if exit_code != 0:
             return exit_code
 
-        ## check if output file exists
+        # check if output file exists
         if self.output_file is not None and not os.path.exists(self.output_file):
             ValueError('Output file {} does not exist. The job is not finished'.format(self.output_file))
 
-        ## check output file for errors
+        # check output file for errors
         IGNORE_ERRORS = ('Error_Path = ', 'cpuinfo: error while loading shared libraries: libgcc_s.so.1: cannot open shared object file: No such file or directory')
         output = self.output
         for ingore_error in IGNORE_ERRORS:
@@ -186,19 +186,19 @@ class Metos3D_Job(util.batch.universal.system.Job):
 
 
     def is_finished(self, check_exit_code=True):
-        ## check if finished without exit code check
+        # check if finished without exit code check
         if not super().is_finished(check_exit_code=False):
             return False
 
-        ## ensure that output file exists for error check
+        # ensure that output file exists for error check
         if check_exit_code and self.output_file is not None and not os.path.exists(self.output_file):
             return False
 
-        ## check if finished with exit code check
+        # check if finished with exit code check
         if check_exit_code and not super().is_finished(check_exit_code=check_exit_code):
             return False
 
-        ## check if output file is completely written
+        # check if output file is completely written
         job_output = self.output
         if 'Metos3DFinal' in job_output:
             return True
@@ -210,13 +210,13 @@ class Metos3D_Job(util.batch.universal.system.Job):
                 raise util.batch.universal.system.JobError(self, 'The job output file is not completely written!', job_output)
 
 
-    ## write job file
+    # write job file
 
     def write_job_file(self, model_name, model_parameters, years, tolerance=None, time_step=1, initial_constant_concentrations=None, tracer_input_files=None, total_concentration_factor=1, write_trajectory=False, job_options=None):
 
         util.logging.debug('Initialising job with model {}, parameters {},  years {}, tolerance {}, time step {}, initial_constant_concentrations {}, tracer_input_files {}, total concentration factor {} and job_options {}.'.format(model_name, model_parameters, years, tolerance, time_step, initial_constant_concentrations, tracer_input_files, total_concentration_factor, job_options))
 
-        ## check input
+        # check input
         if not time_step in simulation.model.constants.METOS_TIME_STEPS:
             raise ValueError('Wrong time_step in model options. Time step has to be in {} .'.format(time_step, simulation.model.constants.METOS_TIME_STEPS))
         assert simulation.model.constants.METOS_T_DIM % time_step == 0
@@ -241,7 +241,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
                 raise ValueError('The tracer input files must be {} files for model {}, but it is {}.'.format(number_of_tracers, model_name, tracer_input_files))
 
 
-        ## unpack job setup
+        # unpack job setup
         if job_options is not None:
             try:
                 job_name = job_options['name']
@@ -255,23 +255,23 @@ class Metos3D_Job(util.batch.universal.system.Job):
             job_name = ''
             nodes_setup = None
 
-        ## prepare job name
+        # prepare job name
         if len(job_name) > 0:
             job_name += '_'
         job_name += '{}_{}_{}'.format(model_name, years, time_step)
 
-        ## use best node setup if no node setup passed
+        # use best node setup if no node setup passed
         if nodes_setup is None:
             nodes_setup = util.batch.universal.system.NodeSetup()
 
-        ## check/set memory
+        # check/set memory
         if nodes_setup.memory is None:
             nodes_setup.memory = simulation.model.constants.JOB_MEMORY_GB
         elif nodes_setup.memory < simulation.model.constants.JOB_MEMORY_GB:
             util.logging.warn('The chosen memory {} is below the needed memory {}. Changing to needed memory.'.format(nodes_setup.memory, simulation.model.constants.JOB_MEMORY_GB))
             nodes_setup.memory = simulation.model.constants.JOB_MEMORY_GB
 
-        ## check/set walltime
+        # check/set walltime
         sec_per_year = np.exp(- (nodes_setup.nodes * nodes_setup.cpus) / (6*16)) * 10 + 2.5
         sec_per_year /= time_step**(1/2)
         estimated_walltime_hours = np.ceil(years * sec_per_year / 60**2)
@@ -282,25 +282,25 @@ class Metos3D_Job(util.batch.universal.system.Job):
             if nodes_setup.walltime < estimated_walltime_hours:
                 util.logging.debug('The chosen walltime {} for the job with {} years, {} nodes and {} cpus is below the estimated walltime {}.'.format(nodes_setup.walltime, years, nodes_setup.nodes, nodes_setup.cpus, estimated_walltime_hours))
 
-        ## check/set min cpus
+        # check/set min cpus
         if nodes_setup.total_cpus_min is None:
             nodes_setup.total_cpus_min = min(int(np.ceil(years/20)), 32)
 
-        ## check/set max nodes
+        # check/set max nodes
         if nodes_setup.nodes_max is None and years <= 1:
             nodes_setup.nodes_max = 1
 
 
-        ## init job
+        # init job
         super().set_job_options(job_name, nodes_setup)
 
 
-        ## get output dir
+        # get output dir
         output_dir = self.output_dir
         output_dir_not_expanded = os.path.join(self.output_dir_not_expanded, '') # ending with separator
 
 
-        ## set model options
+        # set model options
         opt = self.options
 
         opt['/model/name'] = model_name
@@ -315,7 +315,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
         if tolerance is not None:
             opt['/model/spinup/tolerance'] = tolerance
 
-        ## set metos3d files and dirs
+        # set metos3d files and dirs
         opt['/metos3d/data_dir'] = simulation.model.constants.METOS_DATA_DIR_ENV
         opt['/metos3d/sim_file'] = simulation.model.constants.METOS_SIM_FILE_ENV.format(model_name=model_name, METOS3D_DIR='{METOS3D_DIR}')
         opt['/metos3d/write_trajectory'] = write_trajectory
@@ -333,7 +333,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
         opt['/metos3d/debuglevel'] = 1
         opt['/metos3d/tracer_output_filenames'] = ['{}_output.petsc'.format(tracer) for tracer in opt['/model/tracer']]
 
-        ## tracer_input_files
+        # tracer_input_files
         if tracer_input_files is not None:
             opt['/model/tracer_input_files'] = tracer_input_files
 
@@ -352,7 +352,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
                     tracer_input = tracer_input * total_concentration_factor
                     util.petsc.universal.save_numpy_array_to_petsc_vec(tracer_input_result_file, tracer_input)
 
-        ## initial_constant_concentrations
+        # initial_constant_concentrations
         else:
             if initial_constant_concentrations is None:
                 initial_constant_concentrations = simulation.model.constants.MODEL_DEFAULT_INITIAL_CONCENTRATION[model_name]
@@ -362,14 +362,14 @@ class Metos3D_Job(util.batch.universal.system.Job):
             initial_constant_concentrations_string = ','.join(map(str, initial_constant_concentrations))
             opt['/metos3d/initial_constant_concentrations_string'] = initial_constant_concentrations_string
 
-        ## model parameter
+        # model parameter
         model_parameters = np.asarray(model_parameters, dtype=np.float64)
         opt['/model/parameters'] = model_parameters
 
         model_parameters_string = ','.join(map(lambda f: simulation.model.constants.DATABASE_PARAMETERS_FORMAT_STRING.format(f), model_parameters))
         opt['/metos3d/parameters_string'] = model_parameters_string
 
-        ## prepare metos3d options
+        # prepare metos3d options
         linesep = os.linesep
 
         metos3d_options = []
@@ -450,13 +450,13 @@ class Metos3D_Job(util.batch.universal.system.Job):
 
         metos3d_options = linesep.join(metos3d_options)
 
-        ## write metos3d option file
+        # write metos3d option file
         with open(opt['/metos3d/option_file'], mode='w') as f:
             f.write(metos3d_options)
             f.flush()
             os.fsync(f.fileno())
 
-        ## write job file
+        # write job file
         batch_system = util.batch.universal.system.BATCH_SYSTEM
         pre_command = batch_system.pre_command('metos3d')
         pre_command += linesep + 'export OMP_NUM_THREADS=1' + linesep
@@ -467,13 +467,13 @@ class Metos3D_Job(util.batch.universal.system.Job):
 
 
 
-    ## check integrity
+    # check integrity
 
     def check_integrity(self, should_be_started=False, should_be_readonly=False):
-        ## super check
+        # super check
         super().check_integrity(should_be_started=should_be_started, should_be_readonly=should_be_readonly)
 
-        ## check output
+        # check output
         if self.is_started():
             self.time_step
 
@@ -481,7 +481,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
             self.last_year
             self.last_tolerance
 
-        ## check functions
+        # check functions
         options = self.options
 
         def option_exists(option):
@@ -517,7 +517,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
             else:
                 check_if_file_exists(file, should_exists=should_exists, should_be_in_output_dir=should_be_in_output_dir)
 
-        ## options should always exist
+        # options should always exist
         for option in ['/model/name', '/model/tracer', '/model/time_step', '/model/time_steps_per_year', '/model/time_step_multiplier', '/model/spinup/years', '/model/parameters', '/metos3d/parameters_string', '/metos3d/debuglevel', '/metos3d/write_trajectory', '/metos3d/tracer_output_filenames']:
             check_if_option_exists(option)
 
@@ -528,7 +528,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
             check_if_file_option_exists(option, should_be_in_output_dir=True)
 
 
-        ## tracer input files
+        # tracer input files
         tracer_input_options = ['/model/tracer_input_files', '/metos3d/tracer_input_dir', '/metos3d/tracer_input_filenames']
         tracer_input_options_exist = tuple(map(option_exists, tracer_input_options))
 
@@ -540,11 +540,11 @@ class Metos3D_Job(util.batch.universal.system.Job):
             tuple(map(lambda file: check_if_file_exists(file, should_be_in_output_dir=False), options['/model/tracer_input_files']))
             tuple(map(lambda file: check_if_file_exists(file, should_be_in_output_dir=True), [os.path.join(options['/metos3d/tracer_input_dir'], filename) for filename in options['/metos3d/tracer_input_filenames']]))
 
-        ## concentrations
+        # concentrations
         check_if_option_exists('/model/initial_constant_concentrations', should_exists=not tracer_input_use)
         check_if_option_exists('/metos3d/initial_constant_concentrations_string', should_exists=not tracer_input_use)
 
-        ## tracer dirs
+        # tracer dirs
         if options['/metos3d/output_dir'] != options['/metos3d/tracer_output_dir']:
             raise util.batch.universal.system.JobError(self, 'Metos3D output dir {} and tracer output dir in job file in {} are not the same.'.format(options['/metos3d/output_dir'], options['/metos3d/tracer_output_dir']))
 
@@ -552,6 +552,6 @@ class Metos3D_Job(util.batch.universal.system.Job):
             if options['/metos3d/tracer_input_dir'] != options['/metos3d/tracer_output_dir']:
                 raise util.batch.universal.system.JobError(self, 'Metos3D tracer input dir {} and tracer output dir in job file in {} are not the same.'.format(options['/metos3d/tracer_input_dir'], options['/metos3d/tracer_output_dir']))
 
-        ## tracer output files
+        # tracer output files
         tracer_output_files = tuple(map(lambda filename: os.path.join(options['/metos3d/tracer_output_dir'], filename), options['/metos3d/tracer_output_filenames']))
         tuple(map(lambda file: check_if_file_exists(file, should_exists=not self.is_running(), should_be_in_output_dir=True), tracer_output_files))

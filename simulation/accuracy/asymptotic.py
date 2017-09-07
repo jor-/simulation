@@ -123,7 +123,7 @@ class Base():
 
     def model_confidence_calculate_for_index(self, confidence_index, C, df_boxes, time_step_size, gamma, mask_is_sea, value_mask=None):
         if mask_is_sea[confidence_index[2:]] and (value_mask is None or value_mask[confidence_index]):
-            ## average
+            # average
             confidence = 0
             for df_time_index in range(time_step_size):
                 df_i = df_boxes[confidence_index[0]][confidence_index[1]*time_step_size + df_time_index][confidence_index[2:]]
@@ -143,24 +143,24 @@ class Base():
     def model_confidence_calculate(self, parameters, information_matrix=None, alpha=0.99, time_dim_confidence=12, time_dim_df=2880, value_mask=None, use_mem_map=False, parallel_mode=util.parallel.universal.max_parallel_mode()):
         util.logging.debug('Calculating model confidence with confidence level {}, desired time dim {} of the confidence and time dim {} of df in parallel mode {}.'.format(alpha, time_dim_confidence, time_dim_df, parallel_mode))
 
-        ## calculate time step size
+        # calculate time step size
         if time_dim_df % time_dim_confidence == 0:
             time_step_size = int(time_dim_df / time_dim_confidence)
         else:
             raise ValueError('The desired time dimension {0} of the confidence can not be satisfied because the time dimension of df {1} is not divisible by {0}.'.format(time_dim_confidence, time_dim_df))
 
-        ## calculate covariance matrix
+        # calculate covariance matrix
         if information_matrix is not None:
             covariance_matrix = self.covariance_matrix(information_matrix)
         else:
             covariance_matrix = self.covariance_matrix(parameters)
         C = np.asmatrix(covariance_matrix)
 
-        ## calculate confidence level
+        # calculate confidence level
         n = C.shape[0]
         gamma = scipy.stats.chi2.ppf(alpha, n)
 
-        ## calculate df_boxes, value_mask and mask_is_sea
+        # calculate df_boxes, value_mask and mask_is_sea
         as_shared_array = parallel_mode == util.parallel.universal.MODES['multiprocessing']
         df_boxes = self.data_base.df_boxes(parameters, time_dim=time_dim_df, use_memmap=use_mem_map, as_shared_array=as_shared_array)
         mask_is_sea = ~ np.isnan(df_boxes[0,0,:,:,:,0])
@@ -168,11 +168,11 @@ class Base():
             value_mask = util.parallel.with_multiprocessing.shared_array(value_mask)
             mask_is_sea = util.parallel.with_multiprocessing.shared_array(mask_is_sea)
 
-        ## calculate confidence shape
+        # calculate confidence shape
         confidence_shape = (df_boxes.shape[0], time_dim_confidence) + df_boxes.shape[2:-1]
         assert value_mask is None or confidence_shape == value_mask.shape
 
-        ## calculate confidence
+        # calculate confidence
         confidence = util.parallel.universal.create_array(confidence_shape, self.model_confidence_calculate_for_index, C, df_boxes, time_step_size, gamma, mask_is_sea, value_mask, parallel_mode=parallel_mode, chunksize=2*128)
 
         return confidence
@@ -219,11 +219,11 @@ class Base():
 
 
     def average_model_confidence_increase_calculate_for_index(self, index, parameters, number_of_measurements=1, time_dim_confidence_increase=12, time_dim_df=2880, value_mask=None, use_mem_map=False, parallel_mode=util.parallel.universal.max_parallel_mode()):
-        ## get necessary values
+        # get necessary values
         df_boxes_increase = self.data_base.df_boxes(parameters, time_dim=time_dim_confidence_increase)
         inverse_deviation_boxes_increase = self.data_base.inverse_deviations_boxes(time_dim=time_dim_confidence_increase)
 
-        ## compute increse for index
+        # compute increse for index
         if not any(np.isnan(df_boxes_increase[index])):
             additional_DF = np.tile(df_boxes_increase[index][np.newaxis].T, number_of_measurements).T
             additional_inverse_deviations = np.tile(inverse_deviation_boxes_increase[index], number_of_measurements)
@@ -241,28 +241,28 @@ class Base():
     def average_model_confidence_increase_calculate(self, parameters, number_of_measurements=1, time_dim_confidence_increase=12, time_dim_df=2880, value_mask=None, use_mem_map=False, parallel_mode=util.parallel.universal.max_parallel_mode()):
         util.logging.debug('Calculating average model confidence increase for parameters {} with {} additional measurements, time dim {} and df time dim {} in parallel mode {}.'.format(parameters, number_of_measurements, time_dim_confidence_increase, time_dim_df, parallel_mode))
 
-        ## set parallel modes
+        # set parallel modes
         parallel_mode_average_model_confidence_increase = parallel_mode
         parallel_mode_average_model_confidence = max([parallel_mode - 1, 0])
         parallel_mode_average_model_confidence_last = min([parallel_mode, 1])
 
-        ## create shared arrays
+        # create shared arrays
         if parallel_mode == util.parallel.universal.MODES['multiprocessing']:
             value_mask = util.parallel.with_multiprocessing.shared_array(value_mask)
             self.data_base.df_boxes(parameters, time_dim=time_dim_df, as_shared_array=True)
             self.data_base.df_boxes(parameters, time_dim=time_dim_confidence_increase, as_shared_array=True)
             self.data_base.inverse_deviations_boxes(time_dim=time_dim_confidence_increase, as_shared_array=True)
 
-        ## calculate needed dfs
+        # calculate needed dfs
         self.data_base.df_boxes(parameters, time_dim=time_dim_df)
         df_boxes_increase = self.data_base.df_boxes(parameters, time_dim=time_dim_confidence_increase)
         assert df_boxes_increase.ndim == 6
 
-        ## calculate confidence increase shape
+        # calculate confidence increase shape
         confidence_increase_shape = (df_boxes_increase.shape[0], time_dim_confidence_increase) + df_boxes_increase.shape[2:-1]
         assert value_mask is None or confidence_increase_shape == value_mask.shape
 
-        ## calculate average model confidence increase
+        # calculate average model confidence increase
         util.logging.debug('Calculating average model confidence increase for {} values.'.format(np.sum(~ np.isnan(df_boxes_increase))))
 
         average_model_confidence_increase = util.parallel.universal.create_array(confidence_increase_shape, self.average_model_confidence_increase_calculate_for_index, parameters, number_of_measurements, time_dim_confidence_increase, time_dim_df, value_mask, use_mem_map, parallel_mode_average_model_confidence, parallel_mode=parallel_mode_average_model_confidence_increase)
@@ -354,14 +354,14 @@ class WLS(Base):
 class GLS(Base):
 
     def __init__(self, *args, correlation_min_values=10, correlation_max_year_diff=float('inf'), positive_definite_approximation_min_diag_value=0.1, **kargs):
-        ## save additional kargs
+        # save additional kargs
         self.correlation_min_values = correlation_min_values
         if correlation_max_year_diff is None or correlation_max_year_diff < 0:
             correlation_max_year_diff = float('inf')
         self.correlation_max_year_diff = correlation_max_year_diff
         self.positive_definite_approximation_min_diag_value = positive_definite_approximation_min_diag_value
 
-        ## super init
+        # super init
         super().__init__(*args, **kargs)
 
 

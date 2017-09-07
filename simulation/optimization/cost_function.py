@@ -21,15 +21,15 @@ import util.logging
 
 
 
-## Base
+# Base
 
 class Base():
 
     def __init__(self, measurements_collection, model_options=None, job_options=None):
-        ## set measurements
+        # set measurements
         self.measurements = measurements.universal.data.as_measurements_collection(measurements_collection)
 
-        ## prepare job options
+        # prepare job options
         if job_options is None:
             job_options = {}
         try:
@@ -74,11 +74,11 @@ class Base():
                 except AttributeError:
                     pass
 
-        ## set model and initial_base_concentrations
+        # set model and initial_base_concentrations
         self.model = simulation.model.cache.Model(model_options=model_options, job_options=job_options)
         self.initial_base_concentrations = np.asanyarray(self.model.model_options.initial_concentration_options.concentrations)
 
-    ## cache, measurements, parameters
+    # cache, measurements, parameters
 
     @property
     def cache(self):
@@ -119,7 +119,7 @@ class Base():
     def parameters_include_initial_concentrations_factor(self):
         return len(self.parameters) == self.model.model_options.parameters_len + 1
 
-    ## names
+    # names
 
     @property
     def name(self):
@@ -144,7 +144,7 @@ class Base():
         return os.path.join(self._cache_dirname, filename)
 
 
-    ## cost function values
+    # cost function values
 
     def f_calculate(self):
         raise NotImplementedError("Please implement this method.")
@@ -174,41 +174,41 @@ class Base():
         raise NotImplementedError("Please implement this method.")
 
     def df(self):
-        ## get needed derivative kinds
+        # get needed derivative kinds
         derivative_kinds = ['model_parameters']
         if self.parameters_include_initial_concentrations_factor:
             derivative_kinds.append('total_concentration_factor')
 
         filename_pattern = self._filename(simulation.optimization.constants.COST_FUNCTION_DF_FILENAME.format(derivative_kind='{derivative_kind}'))
 
-        ## calculate and cache derivative for each kind
+        # calculate and cache derivative for each kind
         df = []
         for derivative_kind in derivative_kinds:
             filename = filename_pattern.format(derivative_kind=derivative_kind)
             df_i = self.cache.get_value(filename, lambda: self.df_calculate(derivative_kind), derivative_used=True, save_also_txt=True)
             df.append(df_i)
 
-        ## concatenate to one df
+        # concatenate to one df
         df = np.concatenate(df, axis=-1)
 
-        ## return
+        # return
         assert df.shape[-1] == len(self.parameters)
         return df
 
 
     def df_available(self):
-        ## get needed derivative kinds
+        # get needed derivative kinds
         derivative_kinds = ['model_parameters']
         if self.parameters_include_initial_concentrations_factor:
             derivative_kinds.append('total_concentration_factor')
 
         filename_pattern = self._filename(simulation.optimization.constants.COST_FUNCTION_DF_FILENAME.format(derivative_kind='{derivative_kind}'))
 
-        ## check cache derivative for each kind
+        # check cache derivative for each kind
         return all(self.cache.has_value(filename_pattern.format(derivative_kind=derivative_kind), derivative_used=True) for derivative_kind in derivative_kinds)
 
 
-    ## model and data values
+    # model and data values
 
     def model_f(self):
         f = self.model.f_measurements(*self.measurements)
@@ -253,7 +253,7 @@ class BaseUsingCorrelation(Base):
 
 
 
-## Normal distribution
+# Normal distribution
 
 class OLS(Base):
 
@@ -337,7 +337,7 @@ class GLS(BaseUsingCorrelation):
 
 
 
-## Log normal distribution
+# Log normal distribution
 
 class BaseLog(Base):
 
@@ -490,7 +490,7 @@ class LGLS(BaseUsingCorrelation, BaseLog):
 
 
 
-## class lists
+# class lists
 
 ALL_COST_FUNCTION_CLASSES_WITHOUT_STANDARD_DEVIATION = [OLS,]
 ALL_COST_FUNCTION_CLASSES_ONLY_WITH_STANDARD_DEVIATION = [WLS, LOLS, LWLS]
@@ -499,10 +499,10 @@ ALL_COST_FUNCTION_CLASSES = ALL_COST_FUNCTION_CLASSES_WITHOUT_STANDARD_DEVIATION
 
 
 
-## iterator
+# iterator
 
 def cost_functions_for_all_measurements(max_box_distance_to_water_list=None, min_standard_deviation_list=None, min_measurements_correlation_list=None, cost_function_classes=None, model_options=None):
-    ## default values
+    # default values
     if max_box_distance_to_water_list is None:
         max_box_distance_to_water_list = [0, 1, float('inf')]
     if min_standard_deviation_list is None:
@@ -514,13 +514,13 @@ def cost_functions_for_all_measurements(max_box_distance_to_water_list=None, min
     if model_options is None:
         model_options = simulation.model.options.ModelOptions()
 
-    ## split cost function classes
+    # split cost function classes
     cost_function_classes = set(cost_function_classes)
     cost_function_classes_without_standard_deviation = cost_function_classes & set(ALL_COST_FUNCTION_CLASSES_WITHOUT_STANDARD_DEVIATION)
     cost_function_classes_only_with_standard_deviation = cost_function_classes & set(ALL_COST_FUNCTION_CLASSES_ONLY_WITH_STANDARD_DEVIATION)
     cost_function_classes_with_correlation = cost_function_classes & set(ALL_COST_FUNCTION_CLASSES_WITH_CORRELATION)
 
-    ## init all cost functions
+    # init all cost functions
     cost_functions = []
     for max_box_distance_to_water in max_box_distance_to_water_list:
         for i, min_standard_deviation in enumerate(min_standard_deviation_list):
@@ -536,7 +536,7 @@ def cost_functions_for_all_measurements(max_box_distance_to_water_list=None, min
                 if len(cost_function_classes_with_correlation) > 0 and min_measurements_correlation != float('inf'):
                     cost_functions.extend([cost_functions_class(measurements_collection) for cost_functions_class in cost_function_classes_with_correlation])
 
-    ## set same model and model options
+    # set same model and model options
     if len(cost_functions) > 0:
         model = cost_functions[0].model
         model.model_options = model_options
@@ -552,11 +552,11 @@ def iterator(cost_functions, model_names=None):
         cost_functions = []
 
     if len(cost_functions) > 0:
-        ## default values
+        # default values
         if model_names is None:
             model_names = simulation.model.constants.MODEL_NAMES
 
-        ## set same model and model options, store original model and measurements
+        # set same model and model options, store original model and measurements
         model = cost_functions[0].model
         model_options = model.model_options
         original_model_list = []
@@ -566,20 +566,20 @@ def iterator(cost_functions, model_names=None):
             original_measurements_list.append(cost_function.measurements)
             cost_function.model = model
 
-        ## iterate over models
+        # iterate over models
         for model_name in model_names:
-            ## set model name
+            # set model name
             model_options.model_name = model_name
-            ## set measurements
+            # set measurements
             for cost_function, original_measurements in zip(cost_functions, original_measurements_list):
                 measurements_for_model = original_measurements.subset(model_options.tracers)
                 cost_function.measurements = measurements_for_model
-            ## iterate over other options
+            # iterate over other options
             for model_options in model.iterator(model_names=[model_name]):
                 for cost_function in cost_functions:
                     yield cost_function
 
-        ## reset to original model and measurements
+        # reset to original model and measurements
         for cost_function, original_model, original_measurements in zip(cost_functions, original_model_list, original_measurements_list):
             cost_function.model = original_model
             cost_function.measurements = original_measurements

@@ -37,11 +37,11 @@ def get_label(kind):
     return kind
 
 
-## optimization results
+# optimization results
 
 def optimization_cost_function_for_data_kind(data_kind='WOD', path='/tmp', y_max=None, with_line_search_steps=True, number_of_function_evals_max=-1):
 
-    ## init
+    # init
     kind_of_cost_functions = get_kind(data_kind)
 
     file = os.path.join(path, 'optimization_cost_function_-_{}.png'.format(data_kind))
@@ -55,7 +55,7 @@ def optimization_cost_function_for_data_kind(data_kind='WOD', path='/tmp', y_max
     line_colors = []
     line_widths = []
     
-    ## get data
+    # get data
     def get_data(kind_of_cost_functions):
         f_all = simulation.optimization.results.all_f(kind_of_cost_functions)
         
@@ -69,7 +69,7 @@ def optimization_cost_function_for_data_kind(data_kind='WOD', path='/tmp', y_max
         return x_all, f_all
     
 
-    ## plot each function call
+    # plot each function call
     if with_line_search_steps:
         for i in range(n):
             x_all, f_all = get_data(kind_of_cost_functions[i])
@@ -81,7 +81,7 @@ def optimization_cost_function_for_data_kind(data_kind='WOD', path='/tmp', y_max
                 line_colors.append(line_colors_all[i])
                 line_widths.append(2)
 
-    ## plot each iteration step
+    # plot each iteration step
     for i in range(n):
         x_all, f_all = get_data(kind_of_cost_functions[i])
         if len(f_all) > 0:
@@ -113,7 +113,7 @@ def optimization_parameters_for_kind(kind, path='/tmp', all_parameters_in_one_pl
     p_labels = [r'$\lambda}$', r'$\alpha$', r'$\sigma$', r'$K_{phy}$', r'$I_{C}$', r'$K_{w}$', r'$b$']
     kind_label = get_label(kind)
 
-    ## get values
+    # get values
     all_p = simulation.optimization.results.all_p(kind)
     if number_of_function_evals_max > 0 and len(all_p) > number_of_function_evals_max:
         all_p = all_p[:number_of_function_evals_max]
@@ -127,21 +127,21 @@ def optimization_parameters_for_kind(kind, path='/tmp', all_parameters_in_one_pl
         p_bounds =  np.ones([2, n])
         p_bounds[0] = - p_bounds[0]
 
-        ## plot all normalized parameters in one plot
+        # plot all normalized parameters in one plot
         if all_parameters_in_one_plot:
 
-            ## prepare parameter values
+            # prepare parameter values
             p_lb = p_bounds[0][:, np.newaxis]
             p_ub = p_bounds[1][:, np.newaxis]
 
             def normalize(values):
-                ## normalize values to range [0, 1]
+                # normalize values to range [0, 1]
                 values = (values - p_lb) / (p_ub - p_lb)
                 return values
 
             all_p = normalize(all_p)
 
-            ## prepare plot all values
+            # prepare plot all values
             if with_line_search_steps:
                 xs = [all_x]*n
                 ys = all_p.tolist()
@@ -157,7 +157,7 @@ def optimization_parameters_for_kind(kind, path='/tmp', all_parameters_in_one_pl
                 line_colors = []
                 line_widths = []
 
-            ## prepare plot local solver line
+            # prepare plot local solver line
             local_solver_runs_list = simulation.optimization.results.local_solver_runs_list(kind)
             for j in range(len(local_solver_runs_list)):
                 local_solver_run = local_solver_runs_list[j]
@@ -174,14 +174,14 @@ def optimization_parameters_for_kind(kind, path='/tmp', all_parameters_in_one_pl
                     line_labels.extend([None]*n)
 
 
-            ## prepare rest
+            # prepare rest
             file = os.path.join(path, 'optimization_normalized_parameters_-_{}.png'.format(kind_label))
             [y_min, y_max] = [0, 1]
 
-            ## plot
+            # plot
             util.plot.line(xs, ys, file, line_style=line_styles, line_label=line_labels, line_color=line_colors, line_width=line_widths, tick_font_size=20, legend_font_size=16, y_min=y_min, y_max=y_max)
 
-        ## plot each parameter
+        # plot each parameter
         else:
             solver_x = simulation.optimization.results.solver_f_indices(kind)
             solver_p = simulation.optimization.results.solver_p(kind).swapaxes(0,1)
@@ -212,7 +212,7 @@ def optimization(path='/tmp', with_line_search_steps=True):
 
 
 
-## model output
+# model output
 
 
 def model_output(parameter_set_nr, kind='BOXES', path='/tmp', y_max=(None, None), average_in_time=False):
@@ -221,12 +221,12 @@ def model_output(parameter_set_nr, kind='BOXES', path='/tmp', y_max=(None, None)
 
     util.logging.debug('Plotting model output for parameter set {}'.format(parameter_set_nr))
 
-    ## load parameters
+    # load parameters
     parameter_set_dirname = DATABASE_PARAMETERS_DIRNAME.format(parameter_set_nr)
     p_file = os.path.join(DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME.format('dop_po4'), DATABASE_TIME_STEP_DIRNAME.format(1), parameter_set_dirname, DATABASE_PARAMETERS_FILENAME)
     p = np.loadtxt(p_file)
 
-    ## init data base
+    # init data base
     if kind.upper() == 'BOXES':
         data_base = simulation.util.data_base.init_data_base('WOA')
         f = data_base.f_boxes(p)
@@ -251,7 +251,7 @@ def relative_parameter_confidence(parameter_set_nr, kind='WOA_WLS', path='/tmp')
 
     util.logging.debug('Plotting parameter confidence for parameter set {}'.format(parameter_set_nr))
 
-    ## load value
+    # load value
     parameter_dirname = DATABASE_PARAMETERS_DIRNAME.format(parameter_set_nr)
     parameter_dir = os.path.join(DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME.format('dop_po4'), DATABASE_TIME_STEP_DIRNAME.format(1), parameter_dirname)
     parameter_value_file = os.path.join(parameter_dir, DATABASE_PARAMETERS_FILENAME)
@@ -262,7 +262,7 @@ def relative_parameter_confidence(parameter_set_nr, kind='WOA_WLS', path='/tmp')
     relative_parameter_confidence_percent = 100 * parameter_confidence / parameter_value
     relative_parameter_confidence_percent_interval = [relative_parameter_confidence_percent, - relative_parameter_confidence_percent]
     
-    ## plot
+    # plot
     file = os.path.join(path, 'relative_parameter_confidence_-_' + parameter_dirname + '_-_' + get_label(kind) + '.png')
     util.plot.intervals(relative_parameter_confidence_percent_interval, file, use_percent_ticks=True)
 
@@ -274,7 +274,7 @@ def model_confidence(parameter_set_nr, kind='WOA_WLS', path='/tmp', v_max=[None,
 
     util.logging.debug('Plotting model confidence for parameter set {}'.format(parameter_set_nr))
 
-    ## load value
+    # load value
     parameter_set_dirname = DATABASE_PARAMETERS_DIRNAME.format(parameter_set_nr)
     f_file = os.path.join(DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME.format('dop_po4'), DATABASE_TIME_STEP_DIRNAME.format(1), parameter_set_dirname, CACHE_DIRNAME, kind, MODEL_CONFIDENCE_FILENAME.format(time_dim_confidence=time_dim_confidence, time_dim_df=time_dim_df))
     f = np.load(f_file)
@@ -282,14 +282,14 @@ def model_confidence(parameter_set_nr, kind='WOA_WLS', path='/tmp', v_max=[None,
         f = f.mean(axis=1)
     assert len(f) == 2
     
-    ## set v_max
+    # set v_max
     for i in range(len(f)):
         if v_max[i] is None:
             v_max[i] = np.nanmax(f[i])
             rounding_exponent = np.sign(np.log10(v_max[i])) * np.ceil(np.abs(np.log10(v_max[i])))
             v_max[i] = np.floor(v_max[i] * 10**(-rounding_exponent)) * 10**rounding_exponent
     
-    ## plot
+    # plot
     file = os.path.join(path, 'model_confidence_-_' + parameter_set_dirname + '_-_' + get_label(kind) + '_-_time_dim_df_{}'.format(time_dim_df) + '_-_{tracer}.png')
     tracers = ('dop', 'po4')
     for i in range(len(tracers)):
@@ -328,22 +328,22 @@ def model_diff(parameter_set_nr, data_kind='WOA', path='/tmp', normalize_with_de
 
     util.logging.debug('Plotting model output for parameter set {}'.format(parameter_set_nr))
 
-    ## load parameters
+    # load parameters
     parameter_set_dirname = DATABASE_PARAMETERS_DIRNAME.format(parameter_set_nr)
     p_file = os.path.join(DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME.format('dop_po4'), DATABASE_TIME_STEP_DIRNAME.format(1), parameter_set_dirname, DATABASE_PARAMETERS_FILENAME)
     p = np.loadtxt(p_file)
 
-    ## init data base
+    # init data base
     data_base = simulation.util.data_base.init_data_base(data_kind)
     if not normalize_with_deviation:
         file = os.path.join(path, 'model_diff_-_{}_-_' + parameter_set_dirname + '_-_{}.png')
     else:
         file = os.path.join(path, 'model_diff_normalized_with_deviation_-_{}_-_' + parameter_set_dirname + '_-_{}.png')
 
-    ## print for WOA
+    # print for WOA
     if data_kind.upper() == 'WOA':
         diff_boxes = np.abs(data_base.diff_boxes(p, normalize_with_deviation=normalize_with_deviation))
-    ## print for WOD
+    # print for WOD
     elif data_kind.upper() == 'WOD':
         diff = np.abs(data_base.diff(p, normalize_with_deviation=normalize_with_deviation))
         diff_boxes = data_base.convert_to_boxes(diff, no_data_value=np.inf)

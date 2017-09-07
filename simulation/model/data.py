@@ -9,18 +9,18 @@ import util.petsc.universal
 import util.logging
 
 
-## convert Metos vector to 3D vector
+# convert Metos vector to 3D vector
 
 def convert_metos_1D_to_3D(metos_vec):
     assert len(metos_vec) == simulation.model.constants.METOS_VECTOR_LEN
     
     METOS_LSM = simulation.model.constants.METOS_LSM
 
-    ## init array
+    # init array
     array = np.empty([METOS_LSM.x_dim, METOS_LSM.y_dim, METOS_LSM.z_dim], dtype=np.float64)
     array.fill(np.nan)
 
-    ## fill array
+    # fill array
     util.logging.debug('Converting metos {} vector to {} matrix.'.format(metos_vec.shape, array.shape))
 
     offset = 0
@@ -54,12 +54,12 @@ def convert_3D_to_metos_1D(data):
     return metos_vec
 
 
-## load trajectory
+# load trajectory
 
 def load_trajectories_to_universal(path, convert_function=None, converted_result_shape=None, tracers=None, time_dim_desired=None, set_negative_values_to_zero=False):
     util.logging.debug('Loading trajectories with tracers {}, desired time dim {}, set_negative_values_to_zero {} and convert function {} with result shape {} from {}.'.format(tracers, time_dim_desired, set_negative_values_to_zero, convert_function, converted_result_shape, path))
 
-    ## check input
+    # check input
     if isinstance(tracers, str):
         tracers = [tracers]
 
@@ -73,7 +73,7 @@ def load_trajectories_to_universal(path, convert_function=None, converted_result
 
     assert callable(convert_function)
 
-    ## calculate tracer_time_dim
+    # calculate tracer_time_dim
     tracer_time_dim = simulation.model.constants.METOS_T_DIM
     tracer_time_dim_found = False
     while not tracer_time_dim_found:
@@ -89,7 +89,7 @@ def load_trajectories_to_universal(path, convert_function=None, converted_result
 
     util.logging.debug('{} petsc vectors were found for each tracer.'.format(tracer_time_dim_found))
 
-    ## calculate time_step, check time_dim_desired
+    # calculate time_step, check time_dim_desired
     if time_dim_desired is not None:
         if tracer_time_dim % time_dim_desired == 0:
             time_step = int(tracer_time_dim / time_dim_desired)
@@ -101,7 +101,7 @@ def load_trajectories_to_universal(path, convert_function=None, converted_result
 
     assert tracer_time_dim % time_dim_desired == 0
 
-    ## init trajectory
+    # init trajectory
     if converted_result_shape is None:
         filename = simulation.model.constants.METOS_TRAJECTORY_FILENAME.format(tracer=tracers[0], time_step=0)
         file = os.path.join(path, filename)
@@ -112,7 +112,7 @@ def load_trajectories_to_universal(path, convert_function=None, converted_result
     trajectory_shape = (tracers_len, time_dim_desired) + converted_result_shape
     trajectory = np.zeros(trajectory_shape, dtype=np.float64)
 
-    ## load and calculate trajectory
+    # load and calculate trajectory
     util.logging.debug('Loading trajectories from {} to array of size {}.'.format(path, trajectory.shape))
 
     for tracers_index in range(tracers_len):
@@ -120,14 +120,14 @@ def load_trajectories_to_universal(path, convert_function=None, converted_result
 
         util.logging.debug('Loading trajectory for tracer {}.'.format(tracer))
         for time_index in range(time_dim_desired):
-            ## average trajectory
+            # average trajectory
             for k in range(time_step):
-                ## prepare filename
+                # prepare filename
                 file_nr = time_index * time_step + k
                 filename = simulation.model.constants.METOS_TRAJECTORY_FILENAME.format(tracer=tracer, time_step=file_nr)
                 file = os.path.join(path, filename)
 
-                ## load vector and average
+                # load vector and average
                 vec = util.petsc.universal.load_petsc_vec_to_numpy_array(file)
                 if set_negative_values_to_zero:
                     vec[vec < 0] = 0
@@ -138,7 +138,7 @@ def load_trajectories_to_universal(path, convert_function=None, converted_result
 
             trajectory_averaged /= time_step
 
-            ## convert trajectory
+            # convert trajectory
             trajectory_averaged = convert_function(trajectory_averaged)
             assert trajectory_averaged.shape == converted_result_shape
 
@@ -150,7 +150,7 @@ def load_trajectories_to_universal(path, convert_function=None, converted_result
 
 
 def load_trajectories_to_map(path, tracers, time_dim_desired=None):
-    ## load trajectory
+    # load trajectory
     convert_function = lambda metos_vec: convert_metos_1D_to_3D(metos_vec)
     trajectory = load_trajectories_to_universal(path, convert_function=convert_function, converted_result_shape=simulation.model.constants.METOS_SPACE_DIM, tracers=tracers, time_dim_desired=time_dim_desired)
     trajectory = trajectory[0]
@@ -160,7 +160,7 @@ def load_trajectories_to_map(path, tracers, time_dim_desired=None):
 
 
 def load_trajectories_to_map_index_array(path, tracers, time_dim_desired=None):
-    ## load trajectory with universal function
+    # load trajectory with universal function
     def convert_function(metos_vec):
         trajectory = convert_metos_1D_to_3D(metos_vec)
         data_mask = np.logical_not(np.isnan(trajectory))
@@ -185,7 +185,7 @@ def load_trajectories_to_map_index_array(path, tracers, time_dim_desired=None):
     assert trajectory.ndim == 3
     assert np.all(trajectory[:, :, :3] % 1 == 0)
 
-    ## convert time index to point value
+    # convert time index to point value
     t_dim, point_len_per_t, point_dim  = trajectory.shape
     trajectory_point_array = np.empty((t_dim * point_len_per_t, point_dim + 1))
     for t_index in range(t_dim):

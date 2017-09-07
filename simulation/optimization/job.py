@@ -28,18 +28,18 @@ class CostFunctionJob(util.batch.universal.system.Job):
 
         super().__init__(output_dir)
 
-        ## save CF options
+        # save CF options
         self.options['/cf/kind'] = cf_kind
         self.options['/cf/model_options'] = repr(model_options)
         self.options['/cf/model_job_options'] = repr(model_job_options)
         self.options['/cf/max_box_distance_to_water'] = max_box_distance_to_water
         self.options['/cf/min_measurements_correlation'] = min_measurements_correlation
 
-        ## prepare job options
+        # prepare job options
         if job_options is None:
             job_options = {}
 
-        ## prepare job name
+        # prepare job name
         try:
             job_name = job_options['name']
         except KeyError:
@@ -50,7 +50,7 @@ class CostFunctionJob(util.batch.universal.system.Job):
             if max_box_distance_to_water is not None and max_box_distance_to_water != float('inf'):
                 job_name = job_name + '_N{max_box_distance_to_water:d}'.format(max_box_distance_to_water=max_box_distance_to_water)
 
-        ## prepare node setup
+        # prepare node setup
         try:
             nodes_setup = job_options['nodes_setup']
         except KeyError:
@@ -60,11 +60,11 @@ class CostFunctionJob(util.batch.universal.system.Job):
             if cf_kind == 'GLS':
                 nodes_setup['memory'] = nodes_setup['memory'] + 20
 
-        ## init job file
+        # init job file
         queue = None
         super().set_job_options(job_name, nodes_setup, queue=queue)
 
-        ## write python script
+        # write python script
         commands = ['import numpy as np']
         commands += ['import simulation.model.options']
         commands += ['import simulation.optimization.cost_function']
@@ -103,7 +103,7 @@ class CostFunctionJob(util.batch.universal.system.Job):
             f.write(script_str)
             f.flush()
 
-        ## prepare run command and write job file
+        # prepare run command and write job file
         def export_env_command(env_name):
             try:
                 env_value = util.io.env.load(env_name)

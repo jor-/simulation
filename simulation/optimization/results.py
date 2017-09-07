@@ -16,12 +16,12 @@ def p_bounds(cf_kind):
 
 
 def get_values(cf_kind, value_kind, dtype=np.float64):
-    ## get files
+    # get files
     dir = os.path.join(PARAMETER_OPTIMIZATION_DIR, cf_kind, ITERATIONS_DIRNAME)
     pattern = '.*' + value_kind + '_[0-9]{3}.txt'
     files = util.io.fs.get_files(dir, pattern, use_absolute_filenames=True)
 
-    ## load indices and values
+    # load indices and values
     indices = []
     values = []
 
@@ -33,7 +33,7 @@ def get_values(cf_kind, value_kind, dtype=np.float64):
         value = np.loadtxt(file)
         values.append(value)
 
-    ## make array
+    # make array
     if len(indices) > 0:
         n = max(indices) + 1
         shape = (n,) + values[0].shape
@@ -43,7 +43,7 @@ def get_values(cf_kind, value_kind, dtype=np.float64):
         value_array = np.ma.masked_all((0,0), dtype)
 
     value_array = np.ma.masked_invalid(value_array)
-    ## return
+    # return
     return value_array
 
 
@@ -73,13 +73,13 @@ def solver_f_indices(cf_kind):
 
 
 def local_solver_runs_list(cf_kind):
-    ## get solver stop mask
+    # get solver stop mask
     all_df_array = all_df(cf_kind)
     solver_f_indices_array = solver_f_indices(cf_kind)
     solver_f_indices_array = solver_f_indices_array[solver_f_indices_array < len(all_df_array)]
     stop_mask = np.any(all_df_array.mask[solver_f_indices_array], axis=1)
     
-    ## prepare run list
+    # prepare run list
     all_runs = []
     current_run = []
     for i in range(len(stop_mask)):
@@ -90,7 +90,7 @@ def local_solver_runs_list(cf_kind):
     if len(current_run) > 0:
         all_runs.append(np.asarray(current_run))
 
-    ## return
+    # return
     return all_runs
 
 

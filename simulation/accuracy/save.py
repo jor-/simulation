@@ -35,7 +35,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     with Logger():
-        ## extract infos from kind
+        # extract infos from kind
         kind_splitted = args.kind.split('_')
         assert len(kind_splitted) == 2
         data_kind = kind_splitted[0]
@@ -68,16 +68,16 @@ if __name__ == "__main__":
         else:
             raise ValueError('Unknown cf kind {}.'.format(cf_kind))
         
-        ## init asymptotic
+        # init asymptotic
         asymptotic = asymptotic_class(**asymptotic_kargs)
         
-        ## parallel mode
+        # parallel mode
         if not args.not_parallel:
             parallel_mode = util.parallel.universal.MODES['serial']
         else:
             parallel_mode = util.parallel.universal.max_parallel_mode()
         
-        ## calculate
+        # calculate
         p = np.loadtxt(SIMULATION_OUTPUT_DIR+'/model_dop_po4/time_step_0001/parameter_set_{:0>5}/parameters.txt'.format(args.parameter_set_nr))
         asymptotic.parameter_confidence(p)
         asymptotic.model_confidence(p, time_dim_df=args.time_dim_df, use_mem_map=args.use_mem_map, parallel_mode=parallel_mode)
