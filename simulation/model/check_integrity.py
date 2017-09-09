@@ -65,22 +65,50 @@ def check_job_options(model_names=None):
         check_job_options_in_dir(base_dir)
 
 
-def check_permissions(model_names=None):
-    util.logging.info('Checking permissions.')
+def check_file_stats(model_names=None, owner=True, user=True, group=False, other=False):
+    util.logging.info('Checking file stats with owner={owner}, user={user}, group={group}, other={other}.'.format(
+        owner=owner, user=user, group=group, other=other))
 
-    base_dirs = get_base_dirs(model_names=model_names)
+    if owner:
+        owner_uid = os.getuid()
 
+    # check files
     def check_file(file):
-        permissions = os.stat(file)[stat.ST_MODE]
-        if not (permissions & stat.S_IRUSR and permissions & stat.S_IRGRP):
-            util.logging.error('File {} is not readable!'.format(file))
+        file_stat = os.stat(file)
 
+        if owner and file_stat[stat.ST_UID] != owner_uid:
+            util.logging.error('File {} has wrong owner!'.format(file))
+
+        permissions = file_stat[stat.ST_MODE]
+        if user is not None:
+            if bool(permissions & stat.S_IRUSR) != user:
+                util.logging.error('File {} should be readable {} for user, but it is not!'.format(file, user))
+        if group is not None:
+            if bool(permissions & stat.S_IRGRP) != group:
+                util.logging.error('File {} should be readable {} for group, but it is not!'.format(file, group))
+        if other is not None:
+            if bool(permissions & stat.S_IROTH) != other:
+                util.logging.error('File {} should be readable {} for other, but it is not!'.format(file, other))
+
+    # check directory
     def check_dir(file):
-        permissions = os.stat(file)[stat.ST_MODE]
-        if not (permissions & stat.S_IRUSR and permissions & stat.S_IXUSR and permissions & stat.S_IRGRP and permissions & stat.S_IXGRP):
-            util.logging.error('Dir {} is not readable!'.format(file))
+        file_stat = os.stat(file)
 
-    for base_dir in base_dirs:
+        if owner and file_stat[stat.ST_UID] != owner_uid:
+            util.logging.error('Directory {} has wrong owner!'.format(file))
+
+        permissions = file_stat[stat.ST_MODE]
+        if user is not None:
+            if bool(permissions & stat.S_IRUSR) and bool(permissions & stat.S_IXUSR) != user:
+                util.logging.error('Directory {} should be readable {} for user, but it is not!'.format(file, user))
+        if group is not None:
+            if bool(permissions & stat.S_IRGRP) and bool(permissions & stat.S_IXGRP) != group:
+                util.logging.error('Directory {} should be readable {} for group, but it is not!'.format(file, group))
+        if group is not None:
+            if bool(permissions & stat.S_IROTH) and bool(permissions & stat.S_IXOTH) != other:
+                util.logging.error('Directory {} should be readable {} for other, but it is not!'.format(file, other))
+
+    for base_dir in get_base_dirs(model_names=model_names):
         util.io.fs.walk_all_in_dir(base_dir, check_file, check_dir, exclude_dir=False, topdown=True)
 
 
@@ -102,8 +130,9 @@ def _main():
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('-j', '--check_job_options', action='store_true')
-    parser.add_argument('-p', '--check_permissions', action='store_true')
     parser.add_argument('-d', '--check_database', action='store_true')
+    parser.add_argument('-o', '--check_owner', action='store_true')
+    parser.add_argument('-p', '--check_permissions', default=None, type=int, nargs='*')
     parser.add_argument('-m', '--model_names', default=None, nargs='+', help='The models to check. If not specified all models are checked')
     parser.add_argument('-f', '--check_job_options_in_dir', default=None, nargs='+', help='The directories where to check job options files. If not specified no special directories are checked')
     parser.add_argument('-D', '--debug_level', choices=util.logging.LEVELS, default='INFO', help='Print debug infos low to passed level.')
@@ -114,8 +143,22 @@ def _main():
     with util.logging.Logger(level=args.debug_level):
         if args.check_job_options:
             check_job_options(model_names=args.model_names)
-        if args.check_permissions:
-            check_permissions(model_names=args.model_names)
+        if args.check_owner or args.check_permissions:
+            user = None
+            group = None
+            other = None
+            check_permissions = args.check_permissions
+            if check_permissions is not None:
+                check_permissions = tuple(bool(p) for p in check_permissions)
+                if len(check_permissions) == 0:
+                    user = True
+                else:
+                    user = check_permissions[0]
+                if len(check_permissions) >= 2:
+                    group = check_permissions[1]
+                if len(check_permissions) >= 3:
+                    other = check_permissions[2]
+            check_file_stats(model_names=args.model_names, owner=args.check_owner, user=user, group=group, other=other)
         if args.check_database:
             check_db(model_names=args.model_names)
         util.logging.info('Check completed.')
