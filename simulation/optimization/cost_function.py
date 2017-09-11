@@ -3,7 +3,7 @@ import os.path
 import numpy as np
 import scipy.sparse
 import scipy.sparse.linalg
-import matrix
+import matrix.calculate
 
 import simulation.model.cache
 import simulation.model.constants
@@ -463,7 +463,7 @@ class LGLS(BaseUsingCorrelation, BaseLog):
 
         correlation_matrix.data[correlation_matrix.data < 0] = 0        # set negative correlations to zero (since it must hold C_ij >= - E_i E_j)
         correlation_matrix.eliminate_zeros()
-        correlation_matrix = matrix.approximate(correlation_matrix, min_diag_value=self.measurements.min_diag_value_decomposition_correlation, min_abs_value=self.measurements.min_abs_correlation, permutation_method=self.measurements.permutation_method_decomposition_correlation, check_finite=False, return_type=matrix.constants.LDL_DECOMPOSITION_TYPE, overwrite_A=True)
+        correlation_matrix = matrix.calculate.approximate_decomposition(correlation_matrix, min_diag_value=self.measurements.min_diag_value_decomposition_correlation, min_abs_value=self.measurements.min_abs_correlation, permutation_method=self.measurements.permutation_method_decomposition_correlation, check_finite=False, return_type=matrix.constants.LDL_DECOMPOSITION_TYPE, overwrite_A=True)
 
         covariance_matrix = standard_deviations_diag_matrix * correlation_matrix * standard_deviations_diag_matrix
 
