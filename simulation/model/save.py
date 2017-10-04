@@ -5,12 +5,12 @@ import simulation.model.cache
 import simulation.model.options
 import simulation.model.constants
 
-import measurements.all.pw.data
+import measurements.all.data
 
 import util.logging
 
 
-def save(model_name, time_step=1, spinup_years=10000, spinup_tolerance=0, spinup_satisfy_years_and_tolerance=False, concentrations=None, concentrations_index=None, parameters=None, parameter_set_index=None, derivative_years=None, derivative_step_size=None, derivative_accuracy_order=None, eval_function_value=True, eval_grad_value=True, all_values_time_dim=None, debug_output=True):
+def save(model_name, time_step=1, spinup_years=10000, spinup_tolerance=0, spinup_satisfy_years_and_tolerance=False, concentrations=None, concentrations_index=None, parameters=None, parameter_set_index=None, derivative_years=None, derivative_step_size=None, derivative_accuracy_order=None, eval_function_value=True, eval_grad_value=True, all_values_time_dim=None, min_standard_deviations=None, min_measurements_correlations=None, max_box_distance_to_water=None, debug_output=True):
 
     # prepare model options
     model_options = simulation.model.options.ModelOptions()
@@ -68,17 +68,22 @@ def save(model_name, time_step=1, spinup_years=10000, spinup_tolerance=0, spinup
                 model.df_all(all_values_time_dim)
         # eval measurement values
         else:
+            measurements_object = measurements.all.data.all_measurements(
+                tracers=model_options.tracers,
+                min_standard_deviations=min_standard_deviations,
+                min_measurements_correlations=min_measurements_correlations,
+                max_box_distance_to_water=max_box_distance_to_water)
             if eval_function_value:
-                model.f_measurements(*measurements.all.pw.data.all_measurements())
+                model.f_measurements(*measurements_object)
             if eval_grad_value:
-                model.df_measurements(*measurements.all.pw.data.all_measurements())
+                model.df_measurements(*measurements_object)
 
 
 def save_all(concentration_indices=None, time_steps=None, parameter_set_indices=None):
     if time_steps is None:
         time_steps = simulation.model.constants.METOS_TIME_STEPS
     use_fix_parameter_sets = parameter_set_indices is not None
-    measurements_list = measurements.all.pw.data.all_measurements()
+    measurements_list = measurements.all.data.all_measurements()
 
     model = simulation.model.cache.Model()
 
@@ -135,6 +140,10 @@ def _main():
 
     parser.add_argument('--all_values_time_dim', type=int, help='Set time dim for box values. If None, eval measurement values.')
 
+    parser.add_argument('--min_standard_deviations', nargs='+', type=float, default=None, help='The minimal standard deviations assumed for the measurement errors applied to each dataset.')
+    parser.add_argument('--min_measurements_correlations', nargs='+', type=int, default=float('inf'), help='The minimal number of measurements used to calculate correlations applied to each dataset.')
+    parser.add_argument('--max_box_distance_to_water', type=int, default=float('inf'), help='The maximal distance to water boxes to accept measurements.')
+
     parser.add_argument('-d', '--debug', action='store_true', help='Print debug infos.')
 
     parser.add_argument('--version', action='version', version='%(prog)s {}'.format(simulation.__version__))
@@ -148,7 +157,25 @@ def _main():
 
     # call function
     with util.logging.Logger():
-        save(args.model_name, time_step=args.time_step, spinup_years=args.spinup_years, spinup_tolerance=args.spinup_tolerance, spinup_satisfy_years_and_tolerance=args.spinup_satisfy_years_and_tolerance, concentrations=args.concentrations, concentrations_index=args.concentrations_index, parameters=args.parameters, parameter_set_index=args.parameter_set_index, derivative_years=args.derivative_years, derivative_step_size=args.derivative_step_size, derivative_accuracy_order=args.derivative_accuracy_order, eval_function_value=args.eval_function_value, eval_grad_value=args.eval_grad_value, all_values_time_dim=args.all_values_time_dim, debug_output=args.debug)
+        save(args.model_name,
+             time_step=args.time_step,
+             spinup_years=args.spinup_years,
+             spinup_tolerance=args.spinup_tolerance,
+             spinup_satisfy_years_and_tolerance=args.spinup_satisfy_years_and_tolerance,
+             concentrations=args.concentrations,
+             concentrations_index=args.concentrations_index,
+             parameters=args.parameters,
+             parameter_set_index=args.parameter_set_index,
+             derivative_years=args.derivative_years,
+             derivative_step_size=args.derivative_step_size,
+             derivative_accuracy_order=args.derivative_accuracy_order,
+             eval_function_value=args.eval_function_value,
+             eval_grad_value=args.eval_grad_value,
+             all_values_time_dim=args.all_values_time_dim,
+             min_standard_deviations=args.min_standard_deviations,
+             min_measurements_correlations=args.min_measurements_correlations,
+             max_box_distance_to_water=args.max_box_distance_to_water,
+             debug_output=args.debug)
 
 
 if __name__ == "__main__":

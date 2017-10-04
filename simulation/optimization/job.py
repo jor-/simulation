@@ -1,7 +1,5 @@
 import os
 
-import numpy as np
-
 import simulation.constants
 import simulation.model.constants
 import simulation.model.options
@@ -16,10 +14,9 @@ import util.io.env
 import util.logging
 
 
-
 class CostFunctionJob(util.batch.universal.system.Job):
 
-    def __init__(self, output_dir, cf_kind, model_options, model_job_options=None, max_box_distance_to_water=float('inf'), min_measurements_correlation=float('inf'), eval_f=True, eval_df=True, job_options=None):
+    def __init__(self, output_dir, cf_kind, model_options, model_job_options=None, min_standard_deviations=None, min_measurements_correlations=None, max_box_distance_to_water=None, eval_f=True, eval_df=True, job_options=None):
         from simulation.optimization.constants import COST_FUNCTION_NODES_SETUP_JOB
 
         util.logging.debug('Initiating cost function job with cf_kind {}, eval_f {} and eval_df {}.'.format(cf_kind, eval_f, eval_df))
@@ -33,7 +30,8 @@ class CostFunctionJob(util.batch.universal.system.Job):
         self.options['/cf/model_options'] = repr(model_options)
         self.options['/cf/model_job_options'] = repr(model_job_options)
         self.options['/cf/max_box_distance_to_water'] = max_box_distance_to_water
-        self.options['/cf/min_measurements_correlation'] = min_measurements_correlation
+        self.options['/cf/min_standard_deviations'] = min_standard_deviations
+        self.options['/cf/min_measurements_correlations'] = min_measurements_correlations
 
         # prepare job options
         if job_options is None:
@@ -45,7 +43,7 @@ class CostFunctionJob(util.batch.universal.system.Job):
         except KeyError:
             job_name = cf_kind
             if cf_kind == 'GLS':
-                job_name = job_name + '_{min_measurements_correlation}'.format(min_measurements_correlation=min_measurements_correlation)
+                job_name = job_name + '_{min_measurements_correlations}'.format(min_measurements_correlations=min_measurements_correlations)
             job_name = job_name + '_' + model_options.model_name
             if max_box_distance_to_water is not None and max_box_distance_to_water != float('inf'):
                 job_name = job_name + '_N{max_box_distance_to_water:d}'.format(max_box_distance_to_water=max_box_distance_to_water)
@@ -68,27 +66,28 @@ class CostFunctionJob(util.batch.universal.system.Job):
         commands = ['import numpy as np']
         commands += ['import simulation.model.options']
         commands += ['import simulation.optimization.cost_function']
-        commands += ['import measurements.all.pw.data']
+        commands += ['import measurements.all.data']
         commands += ['import util.batch.universal.system']
         commands += ['import util.logging']
 
         if max_box_distance_to_water == float('inf'):
             max_box_distance_to_water = None
-        if min_measurements_correlation == float('inf'):
-            min_measurements_correlation = None
+        if min_measurements_correlations == float('inf'):
+            min_measurements_correlations = None
 
         commands += ['with util.logging.Logger():']
         commands += ['    model_options = {model_options!r}'.format(model_options=model_options)]
-        commands += ['    measurements_collection = measurements.all.pw.data.all_measurements(max_box_distance_to_water={max_box_distance_to_water}, min_measurements_correlation={min_measurements_correlation}, tracers=model_options.tracers)'.format(max_box_distance_to_water=max_box_distance_to_water, min_measurements_correlation=min_measurements_correlation)]
+        commands += ['    measurements_object = measurements.all.data.all_measurements(tracers=model_options.tracers, min_standard_deviations={min_standard_deviations}, min_measurements_correlations={min_measurements_correlations}, max_box_distance_to_water={max_box_distance_to_water})'.format(
+            min_standard_deviations=min_standard_deviations,
+            min_measurements_correlations=min_measurements_correlations,
+            max_box_distance_to_water=max_box_distance_to_water)]
 
         if model_job_options is not None:
-            commands += ['    job_options = {model_job_options!r}'.format(model_job_options=model_job_options)]
+            commands += ['    model_job_options = {model_job_options!r}'.format(model_job_options=model_job_options)]
         else:
-            commands += ['    job_options = None']
-        commands += ['    cf = simulation.optimization.cost_function.{cf_kind}(measurements_collection=measurements_collection, model_options=model_options, job_options=job_options)'.format(cf_kind=cf_kind)]
+            commands += ['    model_job_options = None']
+        commands += ['    cf = simulation.optimization.cost_function.{cf_kind}(measurements_object=measurements_object, model_options=model_options, model_job_options=model_job_options)'.format(cf_kind=cf_kind)]
 
-        parameters_str = ','.join(map(lambda f: simulation.model.constants.DATABASE_PARAMETERS_FORMAT_STRING.format(f), model_options.parameters))
-        commands += ['    cf.parameters = ({})'.format(parameters_str)]
         if eval_f:
             commands += ['    cf.f()']
         if eval_df:
@@ -124,4 +123,3 @@ class CostFunctionJob(util.batch.universal.system.Job):
         command = '{python_command} {python_script_file}'.format(python_command=python_command, python_script_file=python_script_file)
 
         super().write_job_file(command, pre_command=pre_command)
-

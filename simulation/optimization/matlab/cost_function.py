@@ -5,7 +5,6 @@ def _main():
 
     import argparse
     import os
-    import tempfile
 
     import numpy as np
 
@@ -15,7 +14,7 @@ def _main():
     import simulation.optimization.cost_function
     import simulation.optimization.job
 
-    import measurements.all.pw.data
+    import measurements.all.data
 
     import util.batch.universal.system
     import util.io.matlab
@@ -29,9 +28,9 @@ def _main():
     parser = argparse.ArgumentParser(description='Evaluating a cost function for matlab.')
 
     parser.add_argument('--cost_function_name', required=True, choices=COST_FUNCTION_NAMES, help='The cost function which should be evaluated.')
+    parser.add_argument('--min_standard_deviations', nargs='+', type=float, default=None, help='The minimal standard deviations assumed for the measurement errors applied for each dataset.')
+    parser.add_argument('--min_measurements_correlations', nargs='+', type=int, default=float('inf'), help='The minimal number of measurements used to calculate correlations applied to each dataset.')
     parser.add_argument('--max_box_distance_to_water', type=int, default=float('inf'), help='The maximal distance to water boxes to accept measurements.')
-    parser.add_argument('--min_standard_deviation', type=float, default=None, help='The minimal standard deviation assumed for the measurement error.')
-    parser.add_argument('--min_measurements_correlation', type=int, default=float('inf'), help='The minimal number of measurements used to calculate correlations.')
 
     parser.add_argument('--exchange_dir', required=True, help='The directory from where to load the parameters and where to save the cost function values.')
     parser.add_argument('--debug_logging_file', default=None, help='File to store debug informations.')
@@ -113,7 +112,7 @@ def _main():
             tolerance_options['absolute'] = args.initial_concentrations_absolute_tolerance
 
     # set job setup
-    def prepare_job_options():
+    def prepare_model_job_options():
         if args.nodes_setup_node_kind is not None:
             from simulation.optimization.constants import COST_FUNCTION_NODES_SETUP_SPINUP
             nodes_setup = COST_FUNCTION_NODES_SETUP_SPINUP.copy()
@@ -147,12 +146,16 @@ def _main():
 
         # choose measurements
         max_box_distance_to_water = args.max_box_distance_to_water
-        min_standard_deviation = args.min_standard_deviation
-        min_measurements_correlation = args.min_measurements_correlation
-        measurements = measurements.all.pw.data.all_measurements(max_box_distance_to_water=max_box_distance_to_water, min_standard_deviation=min_standard_deviation, min_measurements_correlation=min_measurements_correlation, tracers=model_options.tracers)
+        min_standard_deviations = args.min_standard_deviations
+        min_measurements_correlations = args.min_measurements_correlations
+        measurements_object = measurements.all.data.all_measurements(
+            tracers=model_options.tracers,
+            min_standard_deviations=min_standard_deviations,
+            min_measurements_correlations=min_measurements_correlations,
+            max_box_distance_to_water=max_box_distance_to_water)
 
         # init cost function
-        cf = cf_class(measurements_collection=measurements, model_options=model_options, job_options=prepare_job_options())
+        cf = cf_class(measurements_object=measurements_object, model_options=model_options, model_job_options=prepare_model_job_options())
         cf.parameters = parameters
 
         # if necessary start calculation job
@@ -169,7 +172,14 @@ def _main():
             output_dir = tempfile.mkdtemp(dir=output_dir, prefix='cost_function_tmp_')
             util.io.fs.add_group_permissions(output_dir)
 
-            with simulation.optimization.job.CostFunctionJob(output_dir, cost_function_name, model_options, job_options=prepare_job_options(), max_box_distance_to_water=max_box_distance_to_water, min_measurements_correlation=min_measurements_correlation, eval_f=eval_function_value, eval_df=eval_grad_value) as cf_job:
+            with simulation.optimization.job.CostFunctionJob(
+                    output_dir, cost_function_name, model_options,
+                    model_job_options=prepare_model_job_options(),
+                    min_standard_deviations=min_standard_deviations,
+                    min_measurements_correlations=min_measurements_correlations,
+                    max_box_distance_to_water=max_box_distance_to_water,
+                    eval_f=eval_function_value,
+                    eval_df=eval_grad_value) as cf_job:
                 cf_job.start()
                 cf_job.wait_until_finished()
             try:
