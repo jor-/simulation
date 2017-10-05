@@ -107,7 +107,12 @@ class Base():
 
     @property
     def parameters_include_initial_concentrations_factor(self):
-        return len(self.parameters) == self.model.model_options.parameters_len + 1
+        try:
+            model_parameters = self.parameters
+        except AttributeError:
+            return True
+        else:
+            return len(model_parameters) == self.model.model_options.parameters_len + 1
 
     # names
 
