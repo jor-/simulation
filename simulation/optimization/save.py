@@ -1,5 +1,3 @@
-import numpy as np
-
 import simulation
 import simulation.optimization.cost_function
 import simulation.optimization.job
@@ -18,26 +16,90 @@ def save(cost_functions, model_names=None, eval_f=True, eval_df=False):
             except Exception:
                 util.logging.error('Model function could not be evaluated.', exc_info=True)
             else:
-                util.logging.info('Saving cost function {} f value in {}'.format(cost_function, cost_function.model.parameter_set_dir))
+                util.logging.info('Saving cost function {} f value in {}.'.format(cost_function, cost_function.model.parameter_set_dir))
         if eval_df and not cost_function.df_available():
             try:
                 cost_function.df()
             except Exception:
                 util.logging.error('Model function derivative could not be evaluated.', exc_info=True)
             else:
-                util.logging.info('Saving cost function {} df value in {}'.format(cost_function, cost_function.model.parameter_set_dir))
+                util.logging.info('Saving cost function {} df value in {}.'.format(cost_function, cost_function.model.parameter_set_dir))
 
 
-def save_for_all_measurements(min_standard_deviations_list=None, min_measurements_correlations_list=None, max_box_distance_to_water_list=None, cost_function_classes=None, model_names=None, eval_f=True, eval_df=False):
+def save_for_all_measurements_serial(cost_function_names=None, model_names=None, min_standard_deviations=None, min_measurements_correlations=None, max_box_distance_to_water=None, eval_f=True, eval_df=False):
+    # get cost_function_classes
+    if cost_function_names is None:
+        cost_function_classes = None
+    else:
+        cost_function_classes = [getattr(simulation.optimization.cost_function, cost_function_name) for cost_function_name in cost_function_names]
+    # init cost functions
     model_options = simulation.model.options.ModelOptions()
     model_options.spinup_options = {'years': 1, 'tolerance': 0.0, 'combination': 'or'}
     cost_functions = simulation.optimization.cost_function.cost_functions_for_all_measurements(
-        min_standard_deviations_list=min_standard_deviations_list,
-        min_measurements_correlations_list=min_measurements_correlations_list,
-        max_box_distance_to_water_list=max_box_distance_to_water_list,
+        min_standard_deviations=min_standard_deviations,
+        min_measurements_correlations=min_measurements_correlations,
+        max_box_distance_to_water=max_box_distance_to_water,
         cost_function_classes=cost_function_classes,
         model_options=model_options)
+    # save values
     save(cost_functions, model_names=model_names, eval_f=eval_f, eval_df=eval_df)
+
+
+def save_for_all_measurements_as_jobs(cost_function_names=None, model_names=None, min_standard_deviations=None, min_measurements_correlations=None, max_box_distance_to_water=None, eval_f=True, eval_df=False, node_kind=None):
+    if eval_f or eval_df:
+        model_job_options = None
+
+        nodes_setup = simulation.optimization.constants.COST_FUNCTION_NODES_SETUP_JOB.copy()
+        if node_kind is not None:
+            nodes_setup.node_kind = node_kind
+        cost_function_job_options = {'nodes_setup': nodes_setup}
+
+        for cost_function_name in cost_function_names:
+            for model_name in model_names:
+                model_options = simulation.model.options.ModelOptions()
+                model_options.model_name = model_name
+                model_options.spinup_options = {'years': 1, 'tolerance': 0.0, 'combination': 'or'}
+                model = simulation.model.cache.Model(model_options=model_options, job_options=model_job_options)
+                for model_options in model.iterator(model_names=[model_name]):
+                    with simulation.optimization.job.CostFunctionJob(
+                            cost_function_name,
+                            model_options,
+                            model_job_options=model_job_options,
+                            min_standard_deviations=min_standard_deviations,
+                            min_measurements_correlations=min_measurements_correlations,
+                            max_box_distance_to_water=max_box_distance_to_water,
+                            eval_f=eval_f,
+                            eval_df=eval_df,
+                            cost_function_job_options=cost_function_job_options) as cf_job:
+                        cf_job.start()
+
+                        util.logging.info('Starting cost function job {cost_function_name} for values in {model_parameter_dir} with eval_f={eval_f} and eval_df={eval_df}.'.format(
+                            cost_function_name=cost_function_name,
+                            model_parameter_dir=model.parameter_set_dir,
+                            eval_f=eval_f,
+                            eval_df=eval_df))
+
+
+def save_for_all_measurements(cost_function_names=None, model_names=None, min_standard_deviations=None, min_measurements_correlations=None, max_box_distance_to_water=None, eval_f=True, eval_df=False, as_jobs=False, node_kind=None):
+    if as_jobs:
+        save_for_all_measurements_as_jobs(
+            cost_function_names=cost_function_names,
+            model_names=model_names,
+            min_standard_deviations=min_standard_deviations,
+            min_measurements_correlations=min_measurements_correlations,
+            max_box_distance_to_water=max_box_distance_to_water,
+            eval_f=eval_f,
+            eval_df=eval_df,
+            node_kind=node_kind)
+    else:
+        save_for_all_measurements_serial(
+            cost_function_names=cost_function_names,
+            model_names=model_names,
+            min_standard_deviations=min_standard_deviations,
+            min_measurements_correlations=min_measurements_correlations,
+            max_box_distance_to_water=max_box_distance_to_water,
+            eval_f=eval_f,
+            eval_df=eval_df)
 
 
 # *** main function for script call *** #
@@ -48,43 +110,30 @@ def _main():
     import argparse
 
     parser = argparse.ArgumentParser(description='Calculating cost function values.')
-    parser.add_argument('--min_standard_deviations_list', nargs='+', type=float, default=None, help='The minimal standard deviations assumed for the measurement errors applied for each dataset.')
-    parser.add_argument('--min_measurements_correlations_list', nargs='+', type=int, default=float('inf'), help='The minimal number of measurements used to calculate correlations applied to each dataset.')
-    parser.add_argument('--max_box_distance_to_water_list', type=int, default=None, nargs='+', help='The maximal distances to water boxes to accept measurements.')
-    parser.add_argument('--cost_function_list', type=str, default=None, nargs='+', help='The cost function to evaluate.')
-    parser.add_argument('--model_list', type=str, default=None, choices=simulation.model.constants.MODEL_NAMES, nargs='+', help='The models to evaluate.')
+    parser.add_argument('--min_standard_deviations', nargs='+', type=float, default=None, help='The minimal standard deviations assumed for the measurement errors applied for each dataset.')
+    parser.add_argument('--min_measurements_correlations', nargs='+', type=int, default=float('inf'), help='The minimal number of measurements used to calculate correlations applied to each dataset.')
+    parser.add_argument('--max_box_distance_to_water', type=int, default=None, help='The maximal distances to water boxes to accept measurements.')
+    parser.add_argument('--cost_functions', type=str, default=None, nargs='+', help='The cost functions to evaluate.')
+    parser.add_argument('--model_names', type=str, default=None, choices=simulation.model.constants.MODEL_NAMES, nargs='+', help='The models to evaluate.')
     parser.add_argument('--DF', action='store_true', help='Eval (also) DF.')
+    parser.add_argument('--as_jobs', action='store_true', help='Eval as batch jobs.')
+    parser.add_argument('--node_kind', default=None, help='The kind of nodes to use for the batch jobs.')
     parser.add_argument('--debug_level', choices=util.logging.LEVELS, default='INFO', help='Print debug infos low to passed level.')
     parser.add_argument('--version', action='version', version='%(prog)s {}'.format(simulation.__version__))
     args = parser.parse_args()
 
-    # max_box_distance_to_water
-    if args.max_box_distance_to_water_list is not None:
-        max_box_distance_to_water = np.array(args.max_box_distance_to_water_list)
-        add_inf = np.any(max_box_distance_to_water < 0)
-        max_box_distance_to_water = max_box_distance_to_water[max_box_distance_to_water >= 0]
-        max_box_distance_to_water = np.unique(max_box_distance_to_water)
-        max_box_distance_to_water_list = max_box_distance_to_water.tolist()
-        if add_inf:
-            max_box_distance_to_water_list = max_box_distance_to_water_list + [float('inf')]
-    else:
-        max_box_distance_to_water_list = [float('inf')]
-    # cost_function_classes
-    if args.cost_function_list is None:
-        cost_function_classes = None
-    else:
-        cost_function_classes = [getattr(simulation.optimization.cost_function, cost_function_name) for cost_function_name in args.cost_function_list]
-
     # run
     with util.logging.Logger(level=args.debug_level):
         save_for_all_measurements(
-            min_standard_deviations_list=args.min_standard_deviations_list,
-            min_measurements_correlations_list=args.min_measurements_correlations_list,
-            max_box_distance_to_water_list=max_box_distance_to_water_list,
-            cost_function_classes=cost_function_classes,
-            model_names=args.model_list,
+            cost_function_names=args.cost_functions,
+            model_names=args.model_names,
+            min_standard_deviations=args.min_standard_deviations,
+            min_measurements_correlations=args.min_measurements_correlations,
+            max_box_distance_to_water=args.max_box_distance_to_water,
             eval_f=True,
-            eval_df=args.DF)
+            eval_df=args.DF,
+            node_kind=args.node_kind,
+            as_jobs=args.as_jobs)
         util.logging.info('Finished.')
 
 
