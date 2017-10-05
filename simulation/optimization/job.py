@@ -1,4 +1,5 @@
 import os
+import tempfile
 
 import simulation.constants
 import simulation.model.constants
@@ -8,7 +9,6 @@ import simulation.optimization.constants
 import measurements.constants
 
 import util.batch.universal.system
-import util.io.fs
 import util.io.env
 
 import util.logging
@@ -16,14 +16,21 @@ import util.logging
 
 class CostFunctionJob(util.batch.universal.system.Job):
 
-    def __init__(self, output_dir, cf_kind, model_options, model_job_options=None, min_standard_deviations=None, min_measurements_correlations=None, max_box_distance_to_water=None, eval_f=True, eval_df=True, job_options=None):
-        from simulation.optimization.constants import COST_FUNCTION_NODES_SETUP_JOB
-
+    def __init__(self, cf_kind, model_options, output_dir=None, model_job_options=None, min_standard_deviations=None, min_measurements_correlations=None, max_box_distance_to_water=None, eval_f=True, eval_df=True, cost_function_job_options=None):
         util.logging.debug('Initiating cost function job with cf_kind {}, eval_f {} and eval_df {}.'.format(cf_kind, eval_f, eval_df))
 
-        model_options = simulation.model.options.as_model_options(model_options)
+        # if no output dir, use tmp output dir
+        remove_output_dir_on_close = output_dir is None
+        if output_dir is None:
+            output_dir = simulation.model.constants.DATABASE_TMP_DIR
+            os.makedirs(output_dir, exist_ok=True)
+            output_dir = tempfile.mkdtemp(dir=output_dir, prefix='cost_function_tmp_')
 
-        super().__init__(output_dir)
+        # init job object
+        super().__init__(output_dir, remove_output_dir_on_close=remove_output_dir_on_close)
+
+        # convert model options
+        model_options = simulation.model.options.as_model_options(model_options)
 
         # save CF options
         self.options['/cf/kind'] = cf_kind
@@ -34,12 +41,12 @@ class CostFunctionJob(util.batch.universal.system.Job):
         self.options['/cf/min_measurements_correlations'] = min_measurements_correlations
 
         # prepare job options
-        if job_options is None:
-            job_options = {}
+        if cost_function_job_options is None:
+            cost_function_job_options = {}
 
         # prepare job name
         try:
-            job_name = job_options['name']
+            job_name = cost_function_job_options['name']
         except KeyError:
             job_name = cf_kind
             if cf_kind == 'GLS':
@@ -50,9 +57,9 @@ class CostFunctionJob(util.batch.universal.system.Job):
 
         # prepare node setup
         try:
-            nodes_setup = job_options['nodes_setup']
+            nodes_setup = cost_function_job_options['nodes_setup']
         except KeyError:
-            nodes_setup = COST_FUNCTION_NODES_SETUP_JOB.copy()
+            nodes_setup = simulation.optimization.constants.COST_FUNCTION_NODES_SETUP_JOB.copy()
             if eval_df:
                 nodes_setup['memory'] = nodes_setup['memory'] + 5
             if cf_kind == 'GLS':
@@ -60,7 +67,7 @@ class CostFunctionJob(util.batch.universal.system.Job):
 
         # init job file
         queue = None
-        super().set_job_options(job_name, nodes_setup, queue=queue)
+        self.set_job_options(job_name, nodes_setup, queue=queue)
 
         # write python script
         commands = ['import numpy as np']

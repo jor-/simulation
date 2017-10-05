@@ -167,13 +167,8 @@ def _main():
             cf.model.run_dir
 
             # start cf calculation job
-            output_dir = simulation.model.constants.DATABASE_TMP_DIR
-            os.makedirs(output_dir, exist_ok=True)
-            output_dir = tempfile.mkdtemp(dir=output_dir, prefix='cost_function_tmp_')
-            util.io.fs.add_group_permissions(output_dir)
-
             with simulation.optimization.job.CostFunctionJob(
-                    output_dir, cost_function_name, model_options,
+                    cost_function_name, model_options,
                     model_job_options=prepare_model_job_options(),
                     min_standard_deviations=min_standard_deviations,
                     min_measurements_correlations=min_measurements_correlations,
@@ -182,10 +177,6 @@ def _main():
                     eval_df=eval_grad_value) as cf_job:
                 cf_job.start()
                 cf_job.wait_until_finished()
-            try:
-                util.io.fs.remove_recursively(output_dir, not_exist_okay=True)
-            except OSError as e:
-                util.logging.warning('Dir {} could not be removed: {}'.format(output_dir, e))
 
         # save cost function values
         if eval_function_value:
