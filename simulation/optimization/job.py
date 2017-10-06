@@ -16,7 +16,7 @@ import util.logging
 
 class CostFunctionJob(util.batch.universal.system.Job):
 
-    def __init__(self, cf_kind, model_options, output_dir=None, model_job_options=None, min_standard_deviations=None, min_measurements_correlations=None, max_box_distance_to_water=None, eval_f=True, eval_df=True, cost_function_job_options=None):
+    def __init__(self, cf_kind, model_options, output_dir=None, model_job_options=None, min_standard_deviations=None, min_measurements_correlations=None, max_box_distance_to_water=None, eval_f=True, eval_df=True, cost_function_job_options=None, include_initial_concentrations_factor_by_default=False):
         util.logging.debug('Initiating cost function job with cf_kind {}, eval_f {} and eval_df {}.'.format(cf_kind, eval_f, eval_df))
 
         # if no output dir, use tmp output dir
@@ -39,6 +39,7 @@ class CostFunctionJob(util.batch.universal.system.Job):
         self.options['/cf/max_box_distance_to_water'] = max_box_distance_to_water
         self.options['/cf/min_standard_deviations'] = min_standard_deviations
         self.options['/cf/min_measurements_correlations'] = min_measurements_correlations
+        self.options['/cf/include_initial_concentrations_factor_by_default'] = include_initial_concentrations_factor_by_default
 
         # prepare job options
         if cost_function_job_options is None:
@@ -93,7 +94,9 @@ class CostFunctionJob(util.batch.universal.system.Job):
             commands += ['    model_job_options = {model_job_options!r}'.format(model_job_options=model_job_options)]
         else:
             commands += ['    model_job_options = None']
-        commands += ['    cf = simulation.optimization.cost_function.{cf_kind}(measurements_object=measurements_object, model_options=model_options, model_job_options=model_job_options)'.format(cf_kind=cf_kind)]
+        commands += ['    cf = simulation.optimization.cost_function.{cf_kind}(measurements_object=measurements_object, model_options=model_options, model_job_options=model_job_options, include_initial_concentrations_factor_by_default={include_initial_concentrations_factor_by_default})'.format(
+            cf_kind=cf_kind,
+            include_initial_concentrations_factor_by_default=include_initial_concentrations_factor_by_default)]
 
         if eval_f:
             commands += ['    cf.f()']

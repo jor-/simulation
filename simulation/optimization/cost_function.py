@@ -18,8 +18,8 @@ import measurements.universal.data
 
 class Base():
 
-    def __init__(self, measurements_object, model_options=None, model_job_options=None):
-        # set measurements,
+    def __init__(self, measurements_object, model_options=None, model_job_options=None, include_initial_concentrations_factor_by_default=False):
+        # set measurements
         self.measurements = measurements_object
 
         # prepare job options
@@ -67,9 +67,10 @@ class Base():
                 except AttributeError:
                     pass
 
-        # set model and initial_base_concentrations
+        # set model initial_base_concentrations and include_initial_concentrations_factor_by_default
         self.model = simulation.model.cache.Model(model_options=model_options, job_options=model_job_options)
         self.initial_base_concentrations = np.asanyarray(self.model.model_options.initial_concentration_options.concentrations)
+        self.include_initial_concentrations_factor_by_default = include_initial_concentrations_factor_by_default
 
     # cache, measurements, parameters
 
@@ -88,7 +89,13 @@ class Base():
 
     @property
     def parameters(self):
-        return self._parameters
+        try:
+            parameters = self._parameters
+        except AttributeError:
+            parameters = self.model.model_options.parameters
+            if self.include_initial_concentrations_factor_by_default:
+                parameters = np.concatenate([parameters, np.array([1])])
+        return parameters
 
     @parameters.setter
     def parameters(self, parameters):
@@ -107,12 +114,7 @@ class Base():
 
     @property
     def parameters_include_initial_concentrations_factor(self):
-        try:
-            model_parameters = self.parameters
-        except AttributeError:
-            return True
-        else:
-            return len(model_parameters) == self.model.model_options.parameters_len + 1
+        return len(self.parameters) == self.model.model_options.parameters_len + 1
 
     # names
 

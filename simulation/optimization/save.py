@@ -41,6 +41,9 @@ def save_for_all_measurements_serial(cost_function_names=None, model_names=None,
         max_box_distance_to_water=max_box_distance_to_water,
         cost_function_classes=cost_function_classes,
         model_options=model_options)
+    if eval_df:
+        for cost_function in cost_functions:
+            cost_function.include_initial_concentrations_factor_by_default = True
     # save values
     save(cost_functions, model_names=model_names, eval_f=eval_f, eval_df=eval_df)
 
@@ -70,7 +73,8 @@ def save_for_all_measurements_as_jobs(cost_function_names=None, model_names=None
                             max_box_distance_to_water=max_box_distance_to_water,
                             eval_f=eval_f,
                             eval_df=eval_df,
-                            cost_function_job_options=cost_function_job_options) as cf_job:
+                            cost_function_job_options=cost_function_job_options,
+                            include_initial_concentrations_factor_by_default=True) as cf_job:
                         cf_job.start()
 
                         util.logging.info('Starting cost function job {cost_function_name} for values in {model_parameter_dir} with eval_f={eval_f} and eval_df={eval_df}.'.format(
