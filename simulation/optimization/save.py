@@ -12,20 +12,33 @@ import util.logging
 
 def save(cost_functions, model_names=None, eval_f=True, eval_df=False):
     for cost_function in simulation.optimization.cost_function.iterator(cost_functions, model_names=model_names):
-        if eval_f and not cost_function.f_available():
-            try:
-                cost_function.f()
-            except Exception:
-                util.logging.error('Model function could not be evaluated.', exc_info=True)
-            else:
-                util.logging.info('Saving cost function {} f value in {}.'.format(cost_function, cost_function.model.parameter_set_dir))
-        if eval_df and not cost_function.df_available():
-            try:
-                cost_function.df()
-            except Exception:
-                util.logging.error('Model function derivative could not be evaluated.', exc_info=True)
-            else:
-                util.logging.info('Saving cost function {} df value in {}.'.format(cost_function, cost_function.model.parameter_set_dir))
+        eval_this_f = eval_f and not cost_function.f_available()
+        eval_this_df = eval_df and not cost_function.df_available()
+        if eval_this_f or eval_this_df:
+            if eval_this_f:
+                try:
+                    cost_function.f()
+                except Exception:
+                    util.logging.error('Model function could not be evaluated.', exc_info=True)
+                else:
+                    util.logging.info('Saving cost function {cost_function_name} f value in {model_parameter_dir}.'.format(
+                        cost_function_name=cost_function,
+                        model_parameter_dir=cost_function.model.parameter_set_dir))
+            if eval_this_df:
+                try:
+                    cost_function.df()
+                except Exception:
+                    util.logging.error('Model function derivative could not be evaluated.', exc_info=True)
+                else:
+                    util.logging.info('Saving cost function {cost_function_name} df value in {model_parameter_dir}.'.format(
+                        cost_function_name=cost_function,
+                        model_parameter_dir=cost_function.model.parameter_set_dir))
+        else:
+            util.logging.debug('Cost function values {cost_function_name} in {model_parameter_dir} with eval_f={eval_f} and eval_df={eval_df} are already available.'.format(
+                cost_function_name=cost_function.name,
+                model_parameter_dir=cost_function.model.parameter_set_dir,
+                eval_f=eval_f,
+                eval_df=eval_df))
 
 
 def save_for_all_measurements_serial(cost_function_names=None, model_names=None, min_standard_deviations=None, min_measurements_correlations=None, max_box_distance_to_water=None, eval_f=True, eval_df=False):
@@ -103,7 +116,6 @@ def save_for_all_measurements_as_jobs(cost_function_names=None, model_names=None
                             model_parameter_dir=model.parameter_set_dir,
                             eval_f=eval_f,
                             eval_df=eval_df))
-
 
 
 def save_for_all_measurements(cost_function_names=None, model_names=None, min_standard_deviations=None, min_measurements_correlations=None, max_box_distance_to_water=None, eval_f=True, eval_df=False, as_jobs=False, node_kind=None):
