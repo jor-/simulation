@@ -4,6 +4,8 @@ import simulation.optimization.job
 import simulation.model.constants
 import simulation.model.options
 
+import measurements.all.data
+
 import util.batch.universal.system
 import util.logging
 
@@ -51,6 +53,7 @@ def save_for_all_measurements_serial(cost_function_names=None, model_names=None,
 def save_for_all_measurements_as_jobs(cost_function_names=None, model_names=None, min_standard_deviations=None, min_measurements_correlations=None, max_box_distance_to_water=None, eval_f=True, eval_df=False, node_kind=None):
     if eval_f or eval_df:
         model_job_options = None
+        include_initial_concentrations_factor_by_default = True
 
         nodes_setup = simulation.optimization.constants.COST_FUNCTION_NODES_SETUP_JOB.copy()
         if node_kind is not None:
@@ -58,30 +61,49 @@ def save_for_all_measurements_as_jobs(cost_function_names=None, model_names=None
         cost_function_job_options = {'nodes_setup': nodes_setup}
 
         for cost_function_name in cost_function_names:
+            cost_function_class = getattr(simulation.optimization.cost_function, cost_function_name)
+
             for model_name in model_names:
-                model_options = simulation.model.options.ModelOptions()
-                model_options.model_name = model_name
-                model_options.spinup_options = {'years': 1, 'tolerance': 0.0, 'combination': 'or'}
-                model = simulation.model.cache.Model(model_options=model_options, job_options=model_job_options)
+                model = simulation.model.cache.Model(job_options=model_job_options)
+
                 for model_options in model.iterator(model_names=[model_name]):
-                    with simulation.optimization.job.CostFunctionJob(
-                            cost_function_name,
-                            model_options,
-                            model_job_options=model_job_options,
-                            min_standard_deviations=min_standard_deviations,
-                            min_measurements_correlations=min_measurements_correlations,
-                            max_box_distance_to_water=max_box_distance_to_water,
-                            eval_f=eval_f,
-                            eval_df=eval_df,
-                            cost_function_job_options=cost_function_job_options,
-                            include_initial_concentrations_factor_by_default=True) as cf_job:
-                        cf_job.start()
+                    measurements_object = measurements.all.data.all_measurements(
+                        tracers=model_options.tracers,
+                        min_standard_deviations=min_standard_deviations,
+                        min_measurements_correlations=min_measurements_correlations,
+                        max_box_distance_to_water=max_box_distance_to_water)
+                    cost_function = cost_function_class(
+                        measurements_object,
+                        model_options=model_options,
+                        model_job_options=model_job_options,
+                        include_initial_concentrations_factor_by_default=include_initial_concentrations_factor_by_default)
+
+                    if (eval_f and not cost_function.f_available()) or (eval_df and not cost_function.df_available()):
+                        with simulation.optimization.job.CostFunctionJob(
+                                cost_function_name,
+                                model_options,
+                                model_job_options=model_job_options,
+                                min_standard_deviations=min_standard_deviations,
+                                min_measurements_correlations=min_measurements_correlations,
+                                max_box_distance_to_water=max_box_distance_to_water,
+                                eval_f=eval_f,
+                                eval_df=eval_df,
+                                cost_function_job_options=cost_function_job_options,
+                                include_initial_concentrations_factor_by_default=include_initial_concentrations_factor_by_default) as cf_job:
+                            cf_job.start()
 
                         util.logging.info('Starting cost function job {cost_function_name} for values in {model_parameter_dir} with eval_f={eval_f} and eval_df={eval_df}.'.format(
                             cost_function_name=cost_function_name,
                             model_parameter_dir=model.parameter_set_dir,
                             eval_f=eval_f,
                             eval_df=eval_df))
+                    else:
+                        util.logging.debug('Cost function values {cost_function_name} in {model_parameter_dir} with eval_f={eval_f} and eval_df={eval_df} are already available.'.format(
+                            cost_function_name=cost_function_name,
+                            model_parameter_dir=model.parameter_set_dir,
+                            eval_f=eval_f,
+                            eval_df=eval_df))
+
 
 
 def save_for_all_measurements(cost_function_names=None, model_names=None, min_standard_deviations=None, min_measurements_correlations=None, max_box_distance_to_water=None, eval_f=True, eval_df=False, as_jobs=False, node_kind=None):
