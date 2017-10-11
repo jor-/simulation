@@ -55,14 +55,14 @@ MODEL_DEFAULT_DERIVATIVE_OPTIONS = {'years': 500, 'step_size': 10**(-6), 'accura
 MODEL_NAMES = ['MITgcm-PO4-DOP', 'N', 'N-DOP', 'NP-DOP', 'NPZ-DOP', 'NPZD-DOP']
 
 
-# model tracer 
+# model tracer
 MODEL_TRACER = {}
 MODEL_TRACER['MITgcm-PO4-DOP'] = ('po4', 'dop')
 MODEL_TRACER['N'] = ('po4',)
 MODEL_TRACER['N-DOP'] = ('po4', 'dop')
-MODEL_TRACER['NP-DOP'] = ('po4', 'p', 'dop')
-MODEL_TRACER['NPZ-DOP'] = ('po4', 'p', 'z', 'dop')
-MODEL_TRACER['NPZD-DOP'] = ('po4', 'p', 'z', 'd', 'dop')
+MODEL_TRACER['NP-DOP'] = ('po4', 'phytoplankton', 'dop')
+MODEL_TRACER['NPZ-DOP'] = ('po4', 'phytoplankton', 'zooplankton', 'dop')
+MODEL_TRACER['NPZD-DOP'] = ('po4', 'phytoplankton', 'zooplankton', 'detritus', 'dop')
 assert len(MODEL_TRACER['MITgcm-PO4-DOP']) == 2
 assert len(MODEL_TRACER['N']) == 1
 assert len(MODEL_TRACER['N-DOP']) == 2
@@ -71,7 +71,7 @@ assert len(MODEL_TRACER['NPZ-DOP']) == 4
 assert len(MODEL_TRACER['NPZD-DOP']) == 5
 
 
-# model inital concentrations 
+# model inital concentrations
 MODEL_DEFAULT_INITIAL_CONCENTRATION = {}
 MODEL_DEFAULT_INITIAL_CONCENTRATION['MITgcm-PO4-DOP'] = (2.17, 10**-4)
 MODEL_DEFAULT_INITIAL_CONCENTRATION['N'] = (2.17,)
