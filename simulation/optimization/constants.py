@@ -3,9 +3,8 @@ import util.batch.universal.system
 from simulation.model.constants import JOB_MEMORY_GB
 
 COST_FUNCTION_DIRNAME = 'cost_functions'
-COST_FUNCTION_F_FILENAME = 'f.npy'
-COST_FUNCTION_F_NORMALIZED_FILENAME = 'f_normalized.npy'
-COST_FUNCTION_DF_FILENAME = 'df_-_{derivative_kind}.npy'
+COST_FUNCTION_F_FILENAME = 'f_-_normalized_{normalized}_.npy'
+COST_FUNCTION_DF_FILENAME = 'df_-_normalized_{normalized}_-_{derivative_kind}.npy'
 
 CONCENTRATION_MIN_VALUE = 10**(-6)
 
