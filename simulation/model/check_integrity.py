@@ -132,9 +132,9 @@ def _main():
     parser.add_argument('--check_job_options', action='store_true')
     parser.add_argument('--check_database', action='store_true')
     parser.add_argument('--check_owner', action='store_true')
-    parser.add_argument('--check_permissions', default=None, type=int, nargs='*')
+    parser.add_argument('--check_permissions', type=int, default=None, nargs='*')
     parser.add_argument('--model_names', type=str, default=None, choices=simulation.model.constants.MODEL_NAMES, nargs='+', help='The models to check. If not specified all models are checked')
-    parser.add_argument('--check_job_options_in_dir', default=None, nargs='+', help='The directories where to check job options files. If not specified no special directories are checked')
+    parser.add_argument('--check_job_options_in_dirs', type=str, default=None, nargs='+', help='The directories where to check job options files. If not specified no special directories are checked')
     parser.add_argument('--debug_level', choices=util.logging.LEVELS, default='INFO', help='Print debug infos low to passed level.')
     parser.add_argument('--version', action='version', version='%(prog)s {}'.format(simulation.__version__))
     args = parser.parse_args()
@@ -161,6 +161,9 @@ def _main():
             check_file_stats(model_names=args.model_names, owner=args.check_owner, user=user, group=group, other=other)
         if args.check_database:
             check_db(model_names=args.model_names)
+        if args.check_job_options_in_dirs is not None:
+            for job_options_in_dir in args.check_job_options_in_dirs:
+                check_job_options_in_dir(job_options_in_dir)
         util.logging.info('Check completed.')
 
 
