@@ -129,13 +129,13 @@ def _main():
     # parse arguments
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('-j', '--check_job_options', action='store_true')
-    parser.add_argument('-d', '--check_database', action='store_true')
-    parser.add_argument('-o', '--check_owner', action='store_true')
-    parser.add_argument('-p', '--check_permissions', default=None, type=int, nargs='*')
-    parser.add_argument('-m', '--model_names', default=None, nargs='+', help='The models to check. If not specified all models are checked')
-    parser.add_argument('-f', '--check_job_options_in_dir', default=None, nargs='+', help='The directories where to check job options files. If not specified no special directories are checked')
-    parser.add_argument('-D', '--debug_level', choices=util.logging.LEVELS, default='INFO', help='Print debug infos low to passed level.')
+    parser.add_argument('--check_job_options', action='store_true')
+    parser.add_argument('--check_database', action='store_true')
+    parser.add_argument('--check_owner', action='store_true')
+    parser.add_argument('--check_permissions', default=None, type=int, nargs='*')
+    parser.add_argument('--model_names', type=str, default=None, choices=simulation.model.constants.MODEL_NAMES, nargs='+', help='The models to check. If not specified all models are checked')
+    parser.add_argument('--check_job_options_in_dir', default=None, nargs='+', help='The directories where to check job options files. If not specified no special directories are checked')
+    parser.add_argument('--debug_level', choices=util.logging.LEVELS, default='INFO', help='Print debug infos low to passed level.')
     parser.add_argument('--version', action='version', version='%(prog)s {}'.format(simulation.__version__))
     args = parser.parse_args()
 
