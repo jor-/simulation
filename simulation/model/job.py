@@ -304,7 +304,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
         opt = self.options
 
         opt['/model/name'] = model_name
-        opt['/model/tracer'] = simulation.model.constants.MODEL_TRACER[model_name]
+        opt['/model/tracers'] = simulation.model.constants.MODEL_TRACER[model_name]
 
         time_steps_per_year = int(simulation.model.constants.METOS_T_DIM / time_step)
         opt['/model/time_step'] = 1 / time_steps_per_year
@@ -331,16 +331,16 @@ class Metos3D_Job(util.batch.universal.system.Job):
         opt['/metos3d/output_dir'] = output_dir_not_expanded
         opt['/metos3d/option_file'] = os.path.join(output_dir_not_expanded, 'metos3d_options.txt')
         opt['/metos3d/debuglevel'] = 1
-        opt['/metos3d/tracer_output_filenames'] = ['{}_output.petsc'.format(tracer) for tracer in opt['/model/tracer']]
+        opt['/metos3d/tracer_output_filenames'] = ['{}_output.petsc'.format(tracer) for tracer in opt['/model/tracers']]
 
         # tracer_input_files
         if tracer_input_files is not None:
             opt['/model/tracer_input_files'] = tracer_input_files
 
             opt['/metos3d/tracer_input_dir'] = output_dir_not_expanded
-            opt['/metos3d/tracer_input_filenames'] = ['{}_input.petsc'.format(tracer) for tracer in opt['/model/tracer']]
+            opt['/metos3d/tracer_input_filenames'] = ['{}_input.petsc'.format(tracer) for tracer in opt['/model/tracers']]
 
-            for i in range(len(opt['/model/tracer'])):
+            for i in range(len(opt['/model/tracers'])):
                 tracer_input_base_file = os.path.expanduser(os.path.expandvars(tracer_input_files[i]))
                 tracer_input_result_file = os.path.join(output_dir, opt['/metos3d/tracer_input_filenames'][i])
 
@@ -386,7 +386,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
         metos3d_options.append(linesep)
 
         metos3d_options.append('# bgc tracer')
-        metos3d_options.append('-Metos3DTracerCount                     {:d}'.format(len(opt['/model/tracer'])))
+        metos3d_options.append('-Metos3DTracerCount                     {:d}'.format(len(opt['/model/tracers'])))
         try:
             metos3d_options.append('-Metos3DTracerInputDirectory            {}'.format(opt['/metos3d/tracer_input_dir']))
             metos3d_options.append('-Metos3DTracerInitFile                  {}'.format(','.join(map(str, opt['/metos3d/tracer_input_filenames']))))
@@ -518,7 +518,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
                 check_if_file_exists(file, should_exists=should_exists, should_be_in_output_dir=should_be_in_output_dir)
 
         # options should always exist
-        for option in ['/model/name', '/model/tracer', '/model/time_step', '/model/time_steps_per_year', '/model/time_step_multiplier', '/model/spinup/years', '/model/parameters', '/metos3d/parameters_string', '/metos3d/debuglevel', '/metos3d/write_trajectory', '/metos3d/tracer_output_filenames']:
+        for option in ['/model/name', '/model/tracers', '/model/time_step', '/model/time_steps_per_year', '/model/time_step_multiplier', '/model/spinup/years', '/model/parameters', '/metos3d/parameters_string', '/metos3d/debuglevel', '/metos3d/write_trajectory', '/metos3d/tracer_output_filenames']:
             check_if_option_exists(option)
 
         # for option in ['/metos3d/data_dir', '/metos3d/sim_file']:
