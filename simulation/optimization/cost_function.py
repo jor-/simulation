@@ -141,31 +141,33 @@ class Base():
     def normalize(self, value):
         return value / self.measurements.number_of_measurements
 
+    def unnormalize(self, value):
+        return value * self.measurements.number_of_measurements
+
     def f_calculate_unnormalized(self):
         raise NotImplementedError("Please implement this method.")
 
     def f_calculate_normalized(self):
-        return self.normalize(self.f(normalized=False))
+        return self.normalize(self.f_calculate_unnormalized())
 
-    def f(self, normalized=False):
-        filename = self._filename(simulation.optimization.constants.COST_FUNCTION_F_FILENAME.format(normalized=normalized))
+    def f(self, normalized=True):
         if normalized:
-            calculation_method = self.f_calculate_normalized
+            filename = self._filename(simulation.optimization.constants.COST_FUNCTION_F_FILENAME.format(normalized=True))
+            return self.cache.get_value(filename, self.f_calculate_normalized, derivative_used=False, save_also_txt=True)
         else:
-            calculation_method = self.f_calculate_unnormalized
-        return self.cache.get_value(filename, calculation_method, derivative_used=False, save_also_txt=True)
+            return self.unnormalize(self.f(normalized=True))
 
-    def f_available(self, normalized=False):
-        filename = self._filename(simulation.optimization.constants.COST_FUNCTION_F_FILENAME.format(normalized=normalized))
+    def f_available(self, normalized=True):
+        filename = self._filename(simulation.optimization.constants.COST_FUNCTION_F_FILENAME.format(normalized=True))
         return self.cache.has_value(filename, derivative_used=False)
 
     def df_calculate_unnormalized(self, derivative_kind):
         raise NotImplementedError("Please implement this method.")
 
     def df_calculate_normalized(self, derivative_kind):
-        return self.normalize(self.df(derivative_kind, normalized=False))
+        return self.normalize(self.df_calculate_unnormalized(derivative_kind))
 
-    def df(self, derivative_kind=None, normalized=False):
+    def df(self, derivative_kind=None, normalized=True):
         # get needed derivative kinds
         if derivative_kind is None:
             derivative_kinds = ['model_parameters']
@@ -174,22 +176,17 @@ class Base():
         else:
             derivative_kinds = [derivative_kind]
 
-        # calculate and cache derivative for each kind
-        filename_pattern = self._filename(simulation.optimization.constants.COST_FUNCTION_DF_FILENAME.format(normalized=normalized, derivative_kind='{derivative_kind}'))
-
         df = []
         for derivative_kind in derivative_kinds:
-            # filename for current kind
-            filename = filename_pattern.format(derivative_kind=derivative_kind)
             # calculate method for current kind
             if normalized:
+
                 def calculation_method():
                     return self.df_calculate_normalized(derivative_kind)
+                filename = self._filename(simulation.optimization.constants.COST_FUNCTION_DF_FILENAME.format(normalized=normalized, derivative_kind=derivative_kind))
+                df_i = self.cache.get_value(filename, calculation_method, derivative_used=True, save_also_txt=True)
             else:
-                def calculation_method():
-                    return self.df_calculate_unnormalized(derivative_kind)
-            # use cache
-            df_i = self.cache.get_value(filename, calculation_method, derivative_used=True, save_also_txt=True)
+                df_i = self.unnormalize(self.df(derivative_kind=derivative_kind, normalized=True))
             df.append(df_i)
 
         # concatenate to one df
@@ -199,7 +196,7 @@ class Base():
         assert df.shape[-1] == len(self.parameters)
         return df
 
-    def df_available(self, derivative_kind=None, normalized=False):
+    def df_available(self, derivative_kind=None, normalized=True):
         # get needed derivative kinds
         if derivative_kind is None:
             derivative_kinds = ['model_parameters']
@@ -271,12 +268,6 @@ class OLS(Base):
         df_factors = F - results
         df = 2 * np.sum(df_factors[:, np.newaxis] * DF, axis=0)
         return df
-
-    def normalize(self, value):
-        normalized_value = super().normalize(value)
-        inverse_average_variance = 1 / ((self.measurements.variances).mean())
-        normalized_value = normalized_value * inverse_average_variance
-        return normalized_value
 
 
 class WLS(BaseUsingStandardDeviation):
