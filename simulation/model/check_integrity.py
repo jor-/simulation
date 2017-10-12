@@ -24,7 +24,7 @@ def get_base_dirs(model_names=None):
         for model_name in model_names:
             model_dirname = simulation.model.constants.DATABASE_MODEL_DIRNAME.format(model_name)
             model_dir = os.path.join(simulation.model.constants.DATABASE_OUTPUT_DIR, model_dirname)
-            base_dirs.extend(model_dir)
+            base_dirs.append(model_dir)
     return base_dirs
 
 
