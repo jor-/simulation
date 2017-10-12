@@ -171,7 +171,17 @@ def update_parameter_files(update_function):
 # main function
 
 def _main():
-    with util.logging.Logger():
+
+    # parse arguments
+    import argparse
+
+    parser = argparse.ArgumentParser(description='Update job options in database to current version.')
+    parser.add_argument('--debug_level', choices=util.logging.LEVELS, default='INFO', help='Print debug infos low to passed level.')
+    parser.add_argument('--version', action='version', version='%(prog)s {}'.format(simulation.__version__))
+    args = parser.parse_args()
+
+    # run
+    with util.logging.Logger(level=args.debug_level):
         def update_function(job_file):
             rename_option(job_file, '/model/tracer', '/model/tracers')
             update_tracer_names(job_file, 'p', 'phytoplankton')
