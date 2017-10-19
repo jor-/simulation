@@ -73,6 +73,9 @@ def save_for_all_measurements_as_jobs(cost_function_names=None, model_names=None
             nodes_setup.node_kind = node_kind
         cost_function_job_options = {'nodes_setup': nodes_setup}
 
+        if cost_function_names is None:
+            cost_function_names = simulation.optimization.cost_function.ALL_COST_FUNCTION_NAMES
+
         for cost_function_name in cost_function_names:
             cost_function_class = getattr(simulation.optimization.cost_function, cost_function_name)
 
