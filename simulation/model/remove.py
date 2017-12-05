@@ -24,7 +24,7 @@ def remove(model_name, concentrations_index, parameter_set_index, time_step=1, u
 
     # remove indices
     parameter_db.remove_index(parameter_set_index, force=True)
-    if parameter_db.number_of_used_indices() == 0:
+    if parameter_db.number_of_indices() == 0:
         concentration_db.remove_index(concentrations_index, force=True)
 
 

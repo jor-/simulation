@@ -96,13 +96,13 @@ def save_all(concentration_indices=None, time_steps=None, parameter_set_indices=
         model_options.model_name = model_name
         for concentration_db in (model._constant_concentrations_db, model._vector_concentrations_db):
             if concentration_indices is None:
-                concentration_indices = concentration_db.used_indices()
+                concentration_indices = concentration_db.all_indices()
             for concentration_index in concentration_indices:
                 model_options.initial_concentration_options.concentrations = concentration_db.get_value(concentration_index)
                 for time_step in time_steps:
                     model_options.time_step = time_step
                     if not use_fix_parameter_sets:
-                        parameter_set_indices = model._parameter_db.used_indices()
+                        parameter_set_indices = model._parameter_db.all_indices()
                     for parameter_set_index in parameter_set_indices:
                         model_options.parameters = model._parameter_db.get_value(parameter_set_index)
                         util.logging.info('Calculating model output in {}.'.format(model.parameter_set_dir))
