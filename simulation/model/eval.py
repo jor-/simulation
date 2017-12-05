@@ -218,7 +218,7 @@ class Model_Database:
             return None
 
     @property
-    def _parameter_db(self):
+    def _parameters_db(self):
         time_step_dir = self.time_step_dir
         parameter_tolerance_options = self.model_options.parameter_tolerance_options
 
@@ -231,7 +231,7 @@ class Model_Database:
     @property
     def parameters(self):
         parameters = self.model_options.parameters
-        parameter_db = self._parameter_db
+        parameter_db = self._parameters_db
         index = parameter_db.get_or_add_index(parameters)
         parameters = parameter_db.get_value(index)
 
@@ -244,7 +244,7 @@ class Model_Database:
         parameters = self.model_options.parameters
         util.logging.debug('Searching parameter directory for parameters {}.'.format(parameters))
 
-        index = self._parameter_db.get_or_add_index(parameters)
+        index = self._parameters_db.get_or_add_index(parameters)
         parameter_set_dir = self.parameter_set_dir_with_index(index)
 
         # return
@@ -258,7 +258,7 @@ class Model_Database:
         util.logging.debug('Searching for directory for parameters as close as possible to {}.'.format(parameters))
 
         # get closest indices
-        closest_indices = self._parameter_db.closest_indices(parameters)
+        closest_indices = self._parameters_db.closest_indices(parameters)
 
         # check if run dirs exist
         i = 0
@@ -554,7 +554,7 @@ class Model_Database:
                         for time_step in time_steps:
                             model_options.time_step = time_step
                             if os.path.exists(self.time_step_dir):
-                                for parameters in self._parameter_db.all_values():
+                                for parameters in self._parameters_db.all_values():
                                     model_options.parameters = parameters
                                     yield model_options
 
@@ -587,7 +587,7 @@ class Model_Database:
                             for time_step in time_steps:
                                 model_options.time_step = time_step
                                 if os.path.exists(self.time_step_dir):
-                                    parameter_db = self._parameter_db
+                                    parameter_db = self._parameters_db
                                     parameter_db.check_integrity()
         except util.index_database.general.DatabaseError as e:
             util.logging.error(e)
@@ -1088,8 +1088,8 @@ class Model_Database_MemoryCached(Model_Database):
 
     @property
     @util.cache.memory.method_decorator(dependency=('self.time_step_dir', 'self.model_options.parameter_tolerance_options.relative', 'self.model_options.parameter_tolerance_options.absolute'))
-    def _parameter_db(self):
-        return super()._parameter_db
+    def _parameters_db(self):
+        return super()._parameters_db
 
     @property
     @util.cache.memory.method_decorator(dependency=('self.time_step_dir', 'self.model_options.parameters', 'self.model_options.parameter_tolerance_options.relative', 'self.model_options.parameter_tolerance_options.absolute'))

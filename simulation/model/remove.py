@@ -20,7 +20,7 @@ def remove(model_name, concentrations_index, parameter_set_index, time_step=1, u
 
     # get parameter_db
     model_options.initial_concentration_options.concentrations = concentration_db.get_value(concentrations_index)
-    parameter_db = m._parameter_db
+    parameter_db = m._parameters_db
 
     # remove indices
     parameter_db.remove_index(parameter_set_index, force=True)

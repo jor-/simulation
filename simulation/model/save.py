@@ -57,7 +57,7 @@ def save(model_name, time_step=1, spinup_years=10000, spinup_tolerance=0, spinup
         if parameters is not None:
             p = np.array(parameters)
         else:
-            p = model._parameter_db.get_value(parameter_set_index)
+            p = model._parameters_db.get_value(parameter_set_index)
         model_options.parameters = p
 
         # eval all box values
@@ -102,9 +102,9 @@ def save_all(concentration_indices=None, time_steps=None, parameter_set_indices=
                 for time_step in time_steps:
                     model_options.time_step = time_step
                     if not use_fix_parameter_sets:
-                        parameter_set_indices = model._parameter_db.all_indices()
+                        parameter_set_indices = model._parameters_db.all_indices()
                     for parameter_set_index in parameter_set_indices:
-                        model_options.parameters = model._parameter_db.get_value(parameter_set_index)
+                        model_options.parameters = model._parameters_db.get_value(parameter_set_index)
                         util.logging.info('Calculating model output in {}.'.format(model.parameter_set_dir))
                         model.f_measurements(*measurements_list)
 
