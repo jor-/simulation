@@ -25,8 +25,6 @@ import simulation.model.options
 import simulation.model.constants
 
 
-
-
 class Model_Database:
 
     def __init__(self, model_options=None, job_options=None):
@@ -42,7 +40,6 @@ class Model_Database:
         self._cached_interpolator = None
 
         self.model_lsm = simulation.model.constants.METOS_LSM
-
 
         # set job setup collection
         # convert job setup to job setup collection
@@ -88,8 +85,7 @@ class Model_Database:
 
         self.job_options = job_options
 
-
-    # model dir
+    # *** model dir *** #
 
     @property
     def model_dir(self):
@@ -100,8 +96,7 @@ class Model_Database:
         util.logging.debug('Returning model directory {} for model {}.'.format(model_dir, model_name))
         return model_dir
 
-
-    # concentration dir
+    # *** concentration dir *** #
 
     @property
     def initial_concentration_base_dir(self):
@@ -116,7 +111,6 @@ class Model_Database:
         util.logging.debug('Returning initial concentration directory {} for use constant concentration {}.'.format(initial_concentration_base_dir, use_constant_concentrations))
         return initial_concentration_base_dir
 
-
     @property
     def _constant_concentrations_db(self):
         model_dir = self.model_dir
@@ -127,7 +121,6 @@ class Model_Database:
 
         constant_concentrations_db = util.index_database.array_and_txt_file_based.Database(array_file, value_file, value_reliable_decimal_places=simulation.model.constants.DATABASE_CONSTANT_CONCENTRATIONS_RELIABLE_DECIMAL_PLACES, tolerance_options=tolerance_options)
         return constant_concentrations_db
-
 
     @property
     def _vector_concentrations_db(self):
@@ -140,7 +133,6 @@ class Model_Database:
 
         vector_concentrations_db = util.index_database.petsc_file_based.Database(value_dir, concentration_filenames, value_reliable_decimal_places=simulation.model.constants.DATABASE_VECTOR_CONCENTRATIONS_RELIABLE_DECIMAL_PLACES, tolerance_options=tolerance_options)
         return vector_concentrations_db
-
 
     @property
     def initial_concentration_dir_index(self):
@@ -159,7 +151,6 @@ class Model_Database:
         assert index is not None
         return index
 
-
     def initial_concentration_dir_with_index(self, index):
         if index is not None:
             dir = os.path.join(self.initial_concentration_base_dir, simulation.model.constants.DATABASE_CONCENTRATIONS_DIRNAME.format(index))
@@ -168,7 +159,6 @@ class Model_Database:
         else:
             return None
 
-
     @property
     def initial_concentration_dir(self):
         index = self.initial_concentration_dir_index
@@ -176,7 +166,6 @@ class Model_Database:
         util.logging.debug('Matching directory for concentrations found at {}.'.format(concentration_set_dir))
         assert concentration_set_dir is not None
         return concentration_set_dir
-
 
     @property
     def initial_constant_concentration(self):
@@ -189,7 +178,6 @@ class Model_Database:
 
         util.logging.debug('Matching constant concentrations found in db at {} with index {}.'.format(concentrations, index))
         return concentrations
-
 
     @property
     def initial_concentration_files(self):
@@ -204,8 +192,7 @@ class Model_Database:
         assert concentration_files is not None
         return concentration_files
 
-
-    # time step dir
+    # *** time step dir *** #
 
     @property
     def time_step_dir(self):
@@ -216,8 +203,7 @@ class Model_Database:
         util.logging.debug('Returning time step directory {} for time step {}.'.format(time_step_dir, time_step))
         return time_step_dir
 
-
-    # parameter set dir
+    # *** parameter set dir *** #
 
     def parameter_set_dir_with_index(self, index):
         if index is not None:
@@ -226,7 +212,6 @@ class Model_Database:
             return dir
         else:
             return None
-
 
     @property
     def _parameter_db(self):
@@ -239,7 +224,6 @@ class Model_Database:
         parameter_db = util.index_database.array_and_txt_file_based.Database(array_file, value_file, value_reliable_decimal_places=simulation.model.constants.DATABASE_PARAMETERS_RELIABLE_DECIMAL_PLACES, tolerance_options=parameter_tolerance_options)
         return parameter_db
 
-
     @property
     def parameters(self):
         parameters = self.model_options.parameters
@@ -249,7 +233,6 @@ class Model_Database:
 
         util.logging.debug('Matching model parameters found in db at {} with index {}.'.format(parameters, index))
         return parameters
-
 
     @property
     def parameter_set_dir(self):
@@ -265,7 +248,6 @@ class Model_Database:
         assert parameter_set_dir is not None
         return parameter_set_dir
 
-
     @property
     def closest_parameter_set_dir(self):
         parameters = self.model_options.parameters
@@ -277,7 +259,7 @@ class Model_Database:
         # check if run dirs exist
         i = 0
         while i < len(closest_indices) and self.last_run_dir(self.spinup_dir_with_index[i]) is None:
-            i = i +1
+            i = i + 1
         if i < len(closest_indices):
             closest_index = closest_indices[i]
         else:
@@ -288,8 +270,7 @@ class Model_Database:
         util.logging.debug('Closest parameter set dir is {}.'.format(closest_parameter_set_dir))
         return closest_parameter_set_dir
 
-
-    # spinup dir
+    # *** spinup dir *** #
 
     def spinup_dir_with_index(self, index):
         if index is not None:
@@ -299,13 +280,11 @@ class Model_Database:
         else:
             return None
 
-
     @property
     def spinup_dir(self):
         spinup_dir = os.path.join(self.parameter_set_dir, simulation.model.constants.DATABASE_SPINUP_DIRNAME)
         util.logging.debug('Returning spinup directory {}.'.format(spinup_dir))
         return spinup_dir
-
 
     @property
     def closest_spinup_dir(self):
@@ -313,15 +292,13 @@ class Model_Database:
         util.logging.debug('Returning closest spinup directory {}.'.format(spinup_dir))
         return spinup_dir
 
-
-    # run dirs
+    # *** run dirs *** #
 
     @property
     def run_dir(self):
         spinup_options = self.model_options.spinup_options
         run_dir = self.matching_run_dir(spinup_options)
         return run_dir
-
 
     @property
     def is_matching_run_available(self):
@@ -330,7 +307,6 @@ class Model_Database:
         spinup_options = self.model_options.spinup_options
         is_matching = self.is_run_matching_options(last_run_dir, spinup_options)
         return is_matching
-
 
     def run_dirs(self, search_path):
         DATABASE_RUN_DIRNAME_REGULAR_EXPRESSION = util.pattern.convert_format_string_in_regular_expression(simulation.model.constants.DATABASE_RUN_DIRNAME)
@@ -342,25 +318,23 @@ class Model_Database:
 
         return run_dirs
 
-
     def last_run_dir(self, search_path):
         util.logging.debug('Searching for last run in {}.'.format(search_path))
 
-        last_run_index =  len(self.run_dirs(search_path)) - 1
+        last_run_index = len(self.run_dirs(search_path)) - 1
 
         if last_run_index >= 0:
             last_run_dirname = simulation.model.constants.DATABASE_RUN_DIRNAME.format(last_run_index)
             last_run_dir = os.path.join(search_path, last_run_dirname)
 
             # check job options file
-            with simulation.model.job.Metos3D_Job(last_run_dir, force_load=True) as job:
+            with simulation.model.job.Metos3D_Job(last_run_dir, force_load=True):
                 pass
         else:
             last_run_dir = None
 
         util.logging.debug('Returning last run directory {}.'.format(last_run_dir))
         return last_run_dir
-
 
     def previous_run_dir(self, run_dir):
         (spinup_dir, run_dirname) = os.path.split(run_dir)
@@ -372,7 +346,6 @@ class Model_Database:
             previous_run_dir = None
 
         return previous_run_dir
-
 
     def make_new_run_dir(self, output_path):
         # get next run index
@@ -386,7 +359,6 @@ class Model_Database:
         util.logging.debug('Creating new run directory {} at {}.'.format(run_dir, output_path))
         os.makedirs(run_dir, exist_ok=False)
         return run_dir
-
 
     def matching_run_dir(self, spinup_options):
         spinup_options = util.options.as_options(spinup_options, simulation.model.options.SpinupOptions)
@@ -455,15 +427,14 @@ class Model_Database:
 
             else:
                 assert combination == 'and'
-                spinup_options = simulation.model.options.SpinupOptions({'years':years, 'tolerance':0, 'combination':'or'})
+                spinup_options = simulation.model.options.SpinupOptions({'years': years, 'tolerance': 0, 'combination': 'or'})
                 run_dir = self.matching_run_dir(spinup_options)
-                spinup_options = simulation.model.options.SpinupOptions({'years':self.model_spinup_max_years, 'tolerance':tolerance, 'combination':'or'})
+                spinup_options = simulation.model.options.SpinupOptions({'years': self.model_spinup_max_years, 'tolerance': tolerance, 'combination': 'or'})
                 run_dir = self.matching_run_dir(spinup_options)
 
             util.logging.debug('Spinup run directory created at {}.'.format(run_dir))
 
         return run_dir
-
 
     def start_run(self, model_parameters, output_path, years, tolerance=0, job_options=None, write_trajectory=False, initial_constant_concentrations=None, tracer_input_files=None, total_concentration_factor=1, make_read_only=True, wait_until_finished=True):
 
@@ -483,15 +454,13 @@ class Model_Database:
         else:
             util.logging.debug('Not waiting for job to finish.')
 
-
-    #  access run properties
+    #  *** access run properties *** #
 
     def wait_until_run_finished(self, run_dir, make_read_only=True):
         with simulation.model.job.Metos3D_Job(run_dir, force_load=True) as job:
             job.make_read_only_input(make_read_only)
             job.wait_until_finished()
             job.make_read_only_output(make_read_only)
-
 
     def is_run_matching_options(self, run_dir, spinup_options):
         if run_dir is not None:
@@ -524,7 +493,6 @@ class Model_Database:
 
         return is_matching
 
-
     def real_years(self, run_dir=None):
         if run_dir is None:
             run_dir = self.run_dir
@@ -536,7 +504,6 @@ class Model_Database:
             run_dir = self.previous_run_dir(run_dir)
         return real_years
 
-
     def real_tolerance(self, run_dir):
         if run_dir is None:
             run_dir = self.run_dir
@@ -544,8 +511,7 @@ class Model_Database:
             tolerance = job.last_tolerance
         return tolerance
 
-
-    # job options
+    # *** job options *** #
 
     def job_options_for_kind(self, kind):
         job_options = self.job_options[kind]
@@ -559,15 +525,15 @@ class Model_Database:
                 job_options['nodes_setup'] = job_options['nodes_setup'].copy()
         return job_options
 
+    # *** iterator *** #
 
-    # iterator
     def iterator(self, model_names=None):
         if model_names is None:
             model_names = simulation.model.constants.MODEL_NAMES
         time_steps = simulation.model.constants.METOS_TIME_STEPS
         old_model_options = self.model_options.copy()
         model_options = self.model_options
-        model_options.spinup_options = {'years':1, 'tolerance':0.0, 'combination':'or'}
+        model_options.spinup_options = {'years': 1, 'tolerance': 0.0, 'combination': 'or'}
 
         for model_name in model_names:
             model_options.model_name = model_name
@@ -633,7 +599,6 @@ class Model_Database:
                 raise DatabaseError(self, 'It is no run dir in {}!'.format(spinup_dir))
 
 
-
 class Model_With_F(Model_Database):
 
     def check_tracers(self, tracers):
@@ -646,14 +611,13 @@ class Model_With_F(Model_Database):
             tracers = self.model_options.tracers
         return tracers
 
-
-    # access to model values (auxiliary)
+    # *** access to model values (auxiliary) *** #
 
     def _interpolate(self, data, interpolation_points, use_cache=False):
         from .constants import MODEL_INTERPOLATOR_FILE, MODEL_INTERPOLATOR_AMOUNT_OF_WRAP_AROUND, MODEL_INTERPOLATOR_NUMBER_OF_LINEAR_INTERPOLATOR, MODEL_INTERPOLATOR_SINGLE_OVERLAPPING_AMOUNT_OF_LINEAR_INTERPOLATOR, METOS_DIM
 
-        data_points = data[:,:-1]
-        data_values = data[:,-1]
+        data_points = data[:, :-1]
+        data_values = data[:, -1]
         interpolator_file = MODEL_INTERPOLATOR_FILE
 
         # try to get cached interpolator
@@ -669,7 +633,7 @@ class Model_With_F(Model_Database):
                 util.logging.debug('Returning interpolator loaded from {}.'.format(interpolator_file))
             # if no interpolator exists, create new interpolator
             else:
-                interpolator = util.math.interpolate.Periodic_Interpolator(data_points=data_points, data_values=data_values, point_range_size=METOS_DIM, scaling_values=(METOS_DIM[1]/METOS_DIM[0], None, None, None), wrap_around_amount=MODEL_INTERPOLATOR_AMOUNT_OF_WRAP_AROUND, number_of_linear_interpolators=MODEL_INTERPOLATOR_NUMBER_OF_LINEAR_INTERPOLATOR, single_overlapping_amount_linear_interpolators=MODEL_INTERPOLATOR_SINGLE_OVERLAPPING_AMOUNT_OF_LINEAR_INTERPOLATOR)
+                interpolator = util.math.interpolate.Periodic_Interpolator(data_points=data_points, data_values=data_values, point_range_size=METOS_DIM, scaling_values=(METOS_DIM[1] / METOS_DIM[0], None, None, None), wrap_around_amount=MODEL_INTERPOLATOR_AMOUNT_OF_WRAP_AROUND, number_of_linear_interpolators=MODEL_INTERPOLATOR_NUMBER_OF_LINEAR_INTERPOLATOR, single_overlapping_amount_linear_interpolators=MODEL_INTERPOLATOR_SINGLE_OVERLAPPING_AMOUNT_OF_LINEAR_INTERPOLATOR)
                 util.logging.debug('Returning new created interpolator.')
 
             self._cached_interpolator = interpolator
@@ -684,7 +648,6 @@ class Model_With_F(Model_Database):
         # return interpolated values
         assert not np.any(np.isnan(interpolated_values))
         return interpolated_values
-
 
     def _trajectory_with_load_function(self, trajectory_load_function, run_dir, model_parameters, tracers=None):
         TMP_DIR = simulation.model.constants.DATABASE_TMP_DIR
@@ -728,11 +691,10 @@ class Model_With_F(Model_Database):
         assert len(trajectory_values) == len(tracers)
         return trajectory_values
 
-
     def _trajectory_load_function_for_all(self, time_dim):
-        trajectory_load_function = lambda trajectory_path, tracer: simulation.model.data.load_trajectories_to_map(trajectory_path, tracer, time_dim_desired=time_dim)
+        def trajectory_load_function(trajectory_path, tracer):
+            return simulation.model.data.load_trajectories_to_map(trajectory_path, tracer, time_dim_desired=time_dim)
         return trajectory_load_function
-
 
     def _trajectory_load_function_for_points(self, points):
         from .constants import MODEL_INTERPOLATOR_NUMBER_OF_LINEAR_INTERPOLATOR
@@ -766,7 +728,6 @@ class Model_With_F(Model_Database):
 
                 interpolation_points_dict[tracer] = interpolation_points_for_tracer
 
-
         # interpolate trajectory function
         def interpolate_trajectory(trajectory_path, tracer):
 
@@ -774,7 +735,7 @@ class Model_With_F(Model_Database):
             try:
                 interpolation_points_for_tracer = interpolation_points_dict[tracer]
             except KeyError:
-                return np.empty([0,1])
+                return np.empty([0, 1])
 
             # interpolate if points for tracer are available
             else:
@@ -783,7 +744,6 @@ class Model_With_F(Model_Database):
                 return interpolated_values_for_tracer
 
         return interpolate_trajectory
-
 
     def _merge_data_sets(self, tracer_dict, concatenate_axis=0):
         tracer_merged_dict = {}
@@ -806,7 +766,7 @@ class Model_With_F(Model_Database):
                     data_set_value = np.asanyarray(data_set_value)
                     data_set_values_list.append(data_set_value)
                     end_index = start_index + len(data_set_value)
-                    data_set_split_slice = (slice(None),)*concatenate_axis + (slice(start_index, end_index),)
+                    data_set_split_slice = (slice(None),) * concatenate_axis + (slice(start_index, end_index),)
                     data_set_split_dict[data_set_name] = data_set_split_slice
                     start_index = end_index
 
@@ -818,7 +778,6 @@ class Model_With_F(Model_Database):
 
         util.logging.debug('Merged data sets with tracer_split_dict {}.'.format(tracer_split_dict))
         return tracer_merged_dict, tracer_split_dict
-
 
     def _split_data_sets(self, tracer_dict, tracer_split_dict):
         tracer_splitted_dict = {}
@@ -841,7 +800,6 @@ class Model_With_F(Model_Database):
         util.logging.debug('Splitted data sets with tracer_split_dict {}.'.format(tracer_split_dict))
         return tracer_splitted_dict
 
-
     def _f(self, trajectory_load_function, tracers=None):
         tracers = self.check_tracers(tracers)
         matching_run_dir = self.run_dir
@@ -852,8 +810,7 @@ class Model_With_F(Model_Database):
         assert len(f) == len(tracers)
         return f
 
-
-    # access to model values
+    # *** access to model values *** #
 
     def f_all(self, time_dim, tracers=None):
 
@@ -861,7 +818,6 @@ class Model_With_F(Model_Database):
         f = self._f(self._trajectory_load_function_for_all(time_dim), tracers=tracers)
 
         return f
-
 
     def f_points(self, points):
         util.logging.debug('Calculating f values at points for tracers {}.'.format(tuple(points.keys())))
@@ -873,7 +829,6 @@ class Model_With_F(Model_Database):
 
         return f
 
-
     def f_measurements(self, *measurements_list):
         util.logging.debug('Calculating f values for measurements {}.'.format(tuple(map(str, measurements_list))))
         measurements_collection = measurements.universal.data.MeasurementsCollection(*measurements_list)
@@ -881,19 +836,14 @@ class Model_With_F(Model_Database):
         return self.f_points(points_dict)
 
 
-
-
-
 class Model_With_F_And_DF(Model_With_F):
-
 
     @property
     def derivative_dir(self):
         derivative_options = self.model_options.derivative_options
-        derivative_dir = os.path.join(self.parameter_set_dir, simulation.model.constants.DATABASE_DERIVATIVE_DIRNAME.format(spinup_real_years=self.real_years(),derivative_step_size=derivative_options.step_size, derivative_years=derivative_options.years))
+        derivative_dir = os.path.join(self.parameter_set_dir, simulation.model.constants.DATABASE_DERIVATIVE_DIRNAME.format(spinup_real_years=self.real_years(), derivative_step_size=derivative_options.step_size, derivative_years=derivative_options.years))
         util.logging.debug('Returning derivative directory {}.'.format(derivative_dir))
         return derivative_dir
-
 
     def _df(self, trajectory_load_function, partial_derivative_kind, tracers=None):
         # check tracers
@@ -913,7 +863,7 @@ class Model_With_F_And_DF(Model_With_F):
                 return {'model_parameters': partial_derivative_parameters, 'total_concentration_factor': 1}
 
             partial_derivative_parameters_bounds = self.model_options.parameters_bounds
-            partial_derivative_parameters_typical_values =  self.model_options.derivative_options.parameters_typical_values
+            partial_derivative_parameters_typical_values = self.model_options.derivative_options.parameters_typical_values
             partial_derivative_parameters_undisturbed = model_parameter
 
         elif partial_derivative_kind == 'total_concentration_factor':
@@ -921,8 +871,8 @@ class Model_With_F_And_DF(Model_With_F):
                 assert len(partial_derivative_parameters) == 1
                 return {'model_parameters': model_parameter, 'total_concentration_factor': partial_derivative_parameters[0]}
 
-            partial_derivative_parameters_bounds = np.array([[0,np.inf]])
-            partial_derivative_parameters_typical_values =  np.array([1])
+            partial_derivative_parameters_bounds = np.array([[0, np.inf]])
+            partial_derivative_parameters_typical_values = np.array([1])
             partial_derivative_parameters_undisturbed = np.array([1])
 
         else:
@@ -934,23 +884,20 @@ class Model_With_F_And_DF(Model_With_F):
         MODEL_DERIVATIVE_ACCURACY_ORDER = self.model_options.derivative_options.accuracy_order
         spinup_options = self.model_options.spinup_options
 
-
         # get direavtive dir and spinup run dir
         derivative_dir = self.derivative_dir
         spinup_matching_run_dir = self.matching_run_dir(spinup_options)
         spinup_matching_run_years = self.real_years(spinup_matching_run_dir)
 
-
         # get f if accuracy_order is 1
         if MODEL_DERIVATIVE_ACCURACY_ORDER == 1:
-            spinup_options_f = {'years':spinup_matching_run_years + MODEL_DERIVATIVE_SPINUP_YEARS, 'tolerance':0, 'combination':'or'}
+            spinup_options_f = {'years': spinup_matching_run_years + MODEL_DERIVATIVE_SPINUP_YEARS, 'tolerance': 0, 'combination': 'or'}
             spinup_options_f = simulation.model.options.SpinupOptions(spinup_options_f)
             self.model_options.spinup_options = spinup_options_f
             f_parameters = self._f(trajectory_load_function)
             self.model_options.spinup_options = spinup_options
         else:
             f_parameters = None
-
 
         # define evaluation functions for finite differences
 
@@ -988,7 +935,7 @@ class Model_With_F_And_DF(Model_With_F):
                     partial_derivative_spinup_run_dir = None
 
             # make new run if run not matching
-            if not self.is_run_matching_options(partial_derivative_run_dir, {'years':MODEL_DERIVATIVE_SPINUP_YEARS, 'tolerance':0, 'combination':'or'}) or not self.is_run_matching_options(partial_derivative_spinup_run_dir, spinup_options):
+            if not self.is_run_matching_options(partial_derivative_run_dir, {'years': MODEL_DERIVATIVE_SPINUP_YEARS, 'tolerance': 0, 'combination': 'or'}) or not self.is_run_matching_options(partial_derivative_spinup_run_dir, spinup_options):
 
                 # remove old run
                 if partial_derivative_run_dir is not None:
@@ -1017,7 +964,6 @@ class Model_With_F_And_DF(Model_With_F):
 
             return 0
 
-
         tracer_start_stop_indices = [0]
 
         def get_partial_derivative_run_value(partial_derivative_parameters):
@@ -1043,7 +989,6 @@ class Model_With_F_And_DF(Model_With_F):
 
             return trajectory
 
-
         # calculate deviation
         for function in (start_partial_derivative_run, get_partial_derivative_run_value):
             df_concatenated = util.math.finite_differences.calculate(function, partial_derivative_parameters_undisturbed, f_x=f_parameters, typical_x=partial_derivative_parameters_typical_values, bounds=partial_derivative_parameters_bounds, accuracy_order=MODEL_DERIVATIVE_ACCURACY_ORDER, eps=MODEL_DERIVATIVE_STEP_SIZE, use_always_typical_x=True)
@@ -1056,7 +1001,7 @@ class Model_With_F_And_DF(Model_With_F):
 
         df = {}
         for tracer_index in range(len(tracers)):
-            df_tracer = df_concatenated[tracer_start_stop_indices[tracer_index] : tracer_start_stop_indices[tracer_index+1]]
+            df_tracer = df_concatenated[tracer_start_stop_indices[tracer_index]: tracer_start_stop_indices[tracer_index + 1]]
             tracer = tracers[tracer_index]
             df[tracer] = df_tracer
 
@@ -1064,8 +1009,7 @@ class Model_With_F_And_DF(Model_With_F):
         assert len(df) == len(tracers)
         return df
 
-
-    # access to model values
+    # *** access to model values *** #
 
     def df_all(self, time_dim, tracers=None, partial_derivative_kind='model_parameters'):
         tracers = self.check_tracers(tracers)
@@ -1074,7 +1018,6 @@ class Model_With_F_And_DF(Model_With_F):
 
         df = self._df(self._trajectory_load_function_for_all(time_dim=time_dim), partial_derivative_kind=partial_derivative_kind, tracers=tracers)
         return df
-
 
     def df_points(self, points, partial_derivative_kind='model_parameters'):
         util.logging.debug('Calculating df values at points {} and partial_derivative_kind {}.'.format(tuple(map(len, points)), partial_derivative_kind))
@@ -1086,7 +1029,6 @@ class Model_With_F_And_DF(Model_With_F):
 
         return df
 
-
     def df_measurements(self, *measurements_list, partial_derivative_kind='model_parameters'):
         util.logging.debug('Calculating df values for measurements {} and partial_derivative_kind {}.'.format(tuple(map(str, measurements_list)), partial_derivative_kind))
 
@@ -1096,10 +1038,7 @@ class Model_With_F_And_DF(Model_With_F):
         return self.df_points(points_dict, partial_derivative_kind=partial_derivative_kind)
 
 
-
-
 # Cached versions
-
 
 class Model_Database_MemoryCached(Model_Database):
 
@@ -1114,17 +1053,17 @@ class Model_Database_MemoryCached(Model_Database):
         return super().initial_concentration_base_dir
 
     @property
-    @util.cache.memory.method_decorator(dependency=('self.model_dir', 'self.model_options.initial_concentration_options.tolerance_options.relative',  'self.model_options.initial_concentration_options.tolerance_options.absolute'))
+    @util.cache.memory.method_decorator(dependency=('self.model_dir', 'self.model_options.initial_concentration_options.tolerance_options.relative', 'self.model_options.initial_concentration_options.tolerance_options.absolute'))
     def _constant_concentrations_db(self):
         return super()._constant_concentrations_db
 
     @property
-    @util.cache.memory.method_decorator(dependency=('self.model_dir', 'self.model_options.tracers', 'self.model_options.initial_concentration_options.tolerance_options.relative',  'self.model_options.initial_concentration_options.tolerance_options.absolute'))
+    @util.cache.memory.method_decorator(dependency=('self.model_dir', 'self.model_options.tracers', 'self.model_options.initial_concentration_options.tolerance_options.relative', 'self.model_options.initial_concentration_options.tolerance_options.absolute'))
     def _vector_concentrations_db(self):
         return super()._vector_concentrations_db
 
     @property
-    @util.cache.memory.method_decorator(dependency=('self.model_dir', 'self.model_options.tracers', 'self.model_options.initial_concentration_options.concentrations', 'self.model_options.initial_concentration_options.tolerance_options.relative',  'self.model_options.initial_concentration_options.tolerance_options.absolute'))
+    @util.cache.memory.method_decorator(dependency=('self.model_dir', 'self.model_options.tracers', 'self.model_options.initial_concentration_options.concentrations', 'self.model_options.initial_concentration_options.tolerance_options.relative', 'self.model_options.initial_concentration_options.tolerance_options.absolute'))
     def initial_concentration_dir_index(self):
         return super().initial_concentration_dir_index
 
@@ -1174,12 +1113,8 @@ class Model_Database_MemoryCached(Model_Database):
         return super().run_dir
 
 
-
-
 class Model_With_F_MemoryCached(Model_Database_MemoryCached, Model_With_F):
     pass
-
-
 
 
 class Model_With_F_And_DF_MemoryCached(Model_With_F_MemoryCached, Model_With_F_And_DF):
@@ -1190,11 +1125,7 @@ class Model_With_F_And_DF_MemoryCached(Model_With_F_MemoryCached, Model_With_F_A
         return super().derivative_dir
 
 
-
-
 Model = Model_With_F_And_DF_MemoryCached
-
-
 
 
 class DatabaseError(Exception):
@@ -1202,4 +1133,3 @@ class DatabaseError(Exception):
         self.database = database
         message = 'Error at database {}: {}'.format(self.database_output_dir, message)
         super().__init__(message)
-
