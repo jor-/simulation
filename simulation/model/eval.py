@@ -135,19 +135,23 @@ class Model_Database:
         return vector_concentrations_db
 
     @property
-    def initial_concentration_dir_index(self):
+    def _concentrations_db(self):
         initial_concentration_options = self.model_options.initial_concentration_options
-
-        # search for directories with matching concentration
-        util.logging.debug('Searching concentration directory for concentration {} .'.format(initial_concentration_options))
-
-        concentrations = initial_concentration_options.concentrations
         if initial_concentration_options.use_constant_concentrations:
             concentration_db = self._constant_concentrations_db
         else:
             concentration_db = self._vector_concentrations_db
+        return concentration_db
 
+    @property
+    def initial_concentration_dir_index(self):
+        initial_concentration_options = self.model_options.initial_concentration_options
+        util.logging.debug('Searching concentration directory for concentration {} .'.format(initial_concentration_options))
+
+        concentration_db = self._concentrations_db
+        concentrations = initial_concentration_options.concentrations
         index = concentration_db.get_or_add_index(concentrations)
+
         assert index is not None
         return index
 
