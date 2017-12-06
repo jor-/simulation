@@ -46,7 +46,7 @@ class Base():
 
     def information_matrix(self, parameters, additionals=None):
         if additionals is None:
-            return self.cache.get_value(parameters, INFORMATION_MATRIX_FILENAME, self.information_matrix_calculate, derivative_used=True, save_also_txt=True)
+            return self.cache.get_value(parameters, INFORMATION_MATRIX_FILENAME, self.information_matrix_calculate, derivative_used=True, save_as_np=True, save_as_txt=True)
         else:
             return self.information_matrix_calculate(parameters, additionals)
 
@@ -75,7 +75,7 @@ class Base():
             return self.covariance_matrix_calculate_with_information_matrix(information_matrix)
         elif parameters_or_information_matrix.ndim == 1:
             parameters = parameters_or_information_matrix
-            return self.cache.get_value(parameters, COVARIANCE_MATRIX_FILENAME, self.covariance_matrix_calculate_with_parameters, derivative_used=True, save_also_txt=True)
+            return self.cache.get_value(parameters, COVARIANCE_MATRIX_FILENAME, self.covariance_matrix_calculate_with_parameters, derivative_used=True, save_as_np=True, save_as_txt=True)
         else:
             raise ValueError('Wrong shape: parameters_or_information_matrix must have 1 or 2 dimensions but it has {} dimensions.'.format(parameters_or_information_matrix.ndim))
 
@@ -115,7 +115,7 @@ class Base():
             return self.parameter_confidence_calculate(information_matrix)
         elif parameters_or_information_matrix.ndim == 1:
             parameters = parameters_or_information_matrix
-            return self.cache.get_value(parameters, PARAMETER_CONFIDENCE_FILENAME, self.parameter_confidence_calculate, derivative_used=True, save_also_txt=True)
+            return self.cache.get_value(parameters, PARAMETER_CONFIDENCE_FILENAME, self.parameter_confidence_calculate, derivative_used=True, save_as_np=True, save_as_txt=True)
         else:
             raise ValueError('Wrong shape: parameters_or_information_matrix must have 1 or 2 dimensions but it has {} dimensions.'.format(parameters_or_information_matrix.ndim))
 
@@ -180,7 +180,7 @@ class Base():
 
     def model_confidence(self, parameters, information_matrix=None, time_dim_confidence=12, time_dim_df=2880, value_mask=None, use_mem_map=False, parallel_mode=util.parallel.universal.max_parallel_mode()):
         if information_matrix is None:
-            return self.cache.get_value(parameters, MODEL_CONFIDENCE_FILENAME.format(time_dim_confidence=time_dim_confidence, time_dim_df=time_dim_df), lambda p: self.model_confidence_calculate(p, time_dim_confidence=time_dim_confidence, time_dim_df=time_dim_df, use_mem_map=use_mem_map, parallel_mode=parallel_mode), derivative_used=True, save_also_txt=False)
+            return self.cache.get_value(parameters, MODEL_CONFIDENCE_FILENAME.format(time_dim_confidence=time_dim_confidence, time_dim_df=time_dim_df), lambda p: self.model_confidence_calculate(p, time_dim_confidence=time_dim_confidence, time_dim_df=time_dim_df, use_mem_map=use_mem_map, parallel_mode=parallel_mode), derivative_used=True, save_as_np=True, save_as_txt=False)
         else:
             return self.model_confidence_calculate(parameters, information_matrix, time_dim_confidence=time_dim_confidence, time_dim_df=time_dim_df, value_mask=value_mask, use_mem_map=use_mem_map, parallel_mode=parallel_mode)
 
@@ -212,7 +212,7 @@ class Base():
 
     def average_model_confidence(self, parameters, information_matrix=None, time_dim_df=2880, value_mask=None, use_mem_map=False, parallel_mode=util.parallel.universal.max_parallel_mode()):
         if information_matrix is None and value_mask is None:
-            return self.cache.get_value(parameters, AVERAGE_MODEL_CONFIDENCE_FILENAME.format(time_dim_df=time_dim_df), lambda p: self.average_model_confidence_calculate(p, time_dim_df=time_dim_df, value_mask=value_mask, use_mem_map=use_mem_map, parallel_mode=parallel_mode), derivative_used=True, save_also_txt=True)
+            return self.cache.get_value(parameters, AVERAGE_MODEL_CONFIDENCE_FILENAME.format(time_dim_df=time_dim_df), lambda p: self.average_model_confidence_calculate(p, time_dim_df=time_dim_df, value_mask=value_mask, use_mem_map=use_mem_map, parallel_mode=parallel_mode), derivative_used=True, save_as_np=True, save_as_txt=True)
         else:
             return self.average_model_confidence_calculate(parameters, information_matrix, time_dim_df=time_dim_df, value_mask=value_mask, use_mem_map=use_mem_map, parallel_mode=parallel_mode)
 
@@ -274,7 +274,7 @@ class Base():
 
     def average_model_confidence_increase(self, parameters, number_of_measurements=1, time_dim_confidence_increase=12, time_dim_df=2880, value_mask=None, use_mem_map=False, parallel_mode=util.parallel.universal.max_parallel_mode()):
         if value_mask is None:
-            return self.cache.get_value(parameters, AVERAGE_MODEL_CONFIDENCE_INCREASE_FILENAME.format(number_of_measurements=number_of_measurements, time_dim_confidence_increase=time_dim_confidence_increase, time_dim_df=time_dim_df), lambda p: self.average_model_confidence_increase_calculate(p, number_of_measurements=number_of_measurements, time_dim_df=time_dim_df, use_mem_map=use_mem_map, parallel_mode=parallel_mode), derivative_used=True, save_also_txt=False)
+            return self.cache.get_value(parameters, AVERAGE_MODEL_CONFIDENCE_INCREASE_FILENAME.format(number_of_measurements=number_of_measurements, time_dim_confidence_increase=time_dim_confidence_increase, time_dim_df=time_dim_df), lambda p: self.average_model_confidence_increase_calculate(p, number_of_measurements=number_of_measurements, time_dim_df=time_dim_df, use_mem_map=use_mem_map, parallel_mode=parallel_mode), derivative_used=True, save_as_np=True, save_as_txt=False)
         else:
             return self.average_model_confidence_increase_calculate(parameters, number_of_measurements=number_of_measurements, time_dim_confidence_increase=time_dim_confidence_increase, time_dim_df=time_dim_df, value_mask=value_mask, use_mem_map=use_mem_map, parallel_mode=parallel_mode)
 

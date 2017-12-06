@@ -153,7 +153,7 @@ class Base():
     def f(self, normalized=True):
         if normalized:
             filename = self._filename(simulation.optimization.constants.COST_FUNCTION_F_FILENAME.format(normalized=True))
-            return self.cache.get_value(filename, self.f_calculate_normalized, derivative_used=False, save_also_txt=True)
+            return self.cache.get_value(filename, self.f_calculate_normalized, derivative_used=False, save_as_np=True, save_as_txt=True)
         else:
             return self.unnormalize(self.f(normalized=True))
 
@@ -184,7 +184,7 @@ class Base():
                 def calculation_method():
                     return self.df_calculate_normalized(derivative_kind)
                 filename = self._filename(simulation.optimization.constants.COST_FUNCTION_DF_FILENAME.format(normalized=normalized, derivative_kind=derivative_kind))
-                df_i = self.cache.get_value(filename, calculation_method, derivative_used=True, save_also_txt=True)
+                df_i = self.cache.get_value(filename, calculation_method, derivative_used=True, save_as_np=True, save_as_txt=True)
             else:
                 df_i = self.unnormalize(self.df(derivative_kind=derivative_kind, normalized=True))
             df.append(df_i)
