@@ -10,7 +10,6 @@ import simulation.model.constants
 import util.logging
 
 
-
 class Cache:
 
     def __init__(self, model, cache_dirname=None):
@@ -22,8 +21,7 @@ class Cache:
             cache_dirname = ''
         self.cache_dirname = cache_dirname
 
-
-    # file
+    # *** file *** #
 
     def get_file(self, filename, derivative_used):
         assert filename is not None
@@ -47,13 +45,11 @@ class Cache:
 
         return file
 
-
-    # value
+    # *** value *** #
 
     def has_value(self, filename, derivative_used):
         file = self.get_file(filename, derivative_used=derivative_used)
         return file is not None and os.path.exists(file)
-
 
     def load_value(self, filename, derivative_used, use_memmap=False, as_shared_array=False):
         file = self.get_file(filename, derivative_used=derivative_used)
@@ -76,7 +72,6 @@ class Cache:
             value = None
         return value
 
-
     def save_value(self, filename, value, derivative_used, save_as_np=True, save_as_txt=False):
         # check input
         if value is None:
@@ -91,7 +86,6 @@ class Cache:
         util.logging.debug('Saving value to {} file with save_as_np {} and save_as_txt {}.'.format(file, save_as_np, save_as_txt))
         os.makedirs(os.path.dirname(file), exist_ok=True)
         util.io.np.save_np_or_txt(file, value, make_read_only=True, overwrite=True, save_as_np=save_as_np, save_as_txt=save_as_txt)
-
 
     def get_value(self, filename, calculate_function, derivative_used, save_as_np=True, save_as_txt=False, use_memmap=False, as_shared_array=False):
         assert callable(calculate_function)
@@ -112,14 +106,11 @@ class Cache:
         return value
 
 
-
-
 class Model_With_F_File_and_MemoryCached(simulation.model.eval.Model_With_F_MemoryCached):
 
     def __init__(self, *args, **kargs):
         super().__init__(*args, **kargs)
         self._cache = Cache(self)
-
 
     def _cached_values_for_boxes(self, time_dim, calculate_function_for_boxes, file_pattern, derivative_used, tracers=None):
         assert callable(calculate_function_for_boxes)
@@ -150,12 +141,10 @@ class Model_With_F_File_and_MemoryCached(simulation.model.eval.Model_With_F_Memo
         assert (tracers is None and len(results_dict) == self.model_options.tracers_len) or len(results_dict) == len(tracers)
         return results_dict
 
-
     def f_all(self, time_dim, tracers=None):
         calculate_function_for_boxes = super().f_all
         file_pattern = os.path.join(simulation.model.constants.DATABASE_POINTS_OUTPUT_DIRNAME, simulation.model.constants.DATABASE_F_FILENAME)
         return self._cached_values_for_boxes(time_dim, calculate_function_for_boxes, file_pattern, derivative_used=False, tracers=tracers)
-
 
     def _cached_values_for_points(self, points, calculate_function_for_points, file_pattern, derivative_used):
         # load cached values and separate not cached points
@@ -189,12 +178,10 @@ class Model_With_F_File_and_MemoryCached(simulation.model.eval.Model_With_F_Memo
         # return
         return results_dict
 
-
     def f_points(self, points):
         calculate_function_for_points = super().f_points
         file_pattern = os.path.join(simulation.model.constants.DATABASE_POINTS_OUTPUT_DIRNAME, simulation.model.constants.DATABASE_F_FILENAME)
         return self._cached_values_for_points(points, calculate_function_for_points, file_pattern, derivative_used=False)
-
 
     def _cached_values_for_measurements(self, calculate_function_for_points, *measurements_list):
         # get base measurements
@@ -247,33 +234,36 @@ class Model_With_F_File_and_MemoryCached(simulation.model.eval.Model_With_F_Memo
         assert all([len(results_dict[m.tracer][m.data_set_name]) == m.number_of_measurements for m in measurements_list])
         return results_dict
 
-
     def f_measurements(self, *measurements_list):
         util.logging.debug('Calculating f values for measurements {}.'.format(tuple(map(str, measurements_list))))
         return self._cached_values_for_measurements(self.f_points, *measurements_list)
-
-
 
 
 class Model_With_F_And_DF_File_and_MemoryCached(Model_With_F_File_and_MemoryCached, simulation.model.eval.Model_With_F_And_DF_MemoryCached):
 
     def df_all(self, time_dim, tracers=None, partial_derivative_kind='model_parameters'):
         super_df_all = super().df_all
-        calculate_function_for_all = lambda time_dim, tracers: super_df_all(time_dim, tracers=tracers, partial_derivative_kind=partial_derivative_kind)
+
+        def calculate_function_for_all(time_dim, tracers):
+            return super_df_all(time_dim, tracers=tracers, partial_derivative_kind=partial_derivative_kind)
+
         file_pattern = os.path.join(simulation.model.constants.DATABASE_POINTS_OUTPUT_DIRNAME, simulation.model.constants.DATABASE_DF_FILENAME.format(derivative_kind=partial_derivative_kind))
         return self._cached_values_for_boxes(time_dim, calculate_function_for_all, file_pattern, derivative_used=True, tracers=tracers)
 
-
     def df_points(self, points, partial_derivative_kind='model_parameters'):
         super_df_points = super().df_points
-        calculate_function_for_points = lambda points: super_df_points(points, partial_derivative_kind=partial_derivative_kind)
+
+        def calculate_function_for_points(points):
+            return super_df_points(points, partial_derivative_kind=partial_derivative_kind)
+
         file_pattern = os.path.join(simulation.model.constants.DATABASE_POINTS_OUTPUT_DIRNAME, simulation.model.constants.DATABASE_DF_FILENAME.format(derivative_kind=partial_derivative_kind))
         return self._cached_values_for_points(points, calculate_function_for_points, file_pattern, derivative_used=True)
 
-
     def df_measurements(self, *measurements_list, partial_derivative_kind='model_parameters'):
         util.logging.debug('Calculating df values for measurements {} and partial_derivative_kind {}.'.format(tuple(map(str, measurements_list)), partial_derivative_kind))
-        calculate_function_for_points = lambda points: self.df_points(points, partial_derivative_kind=partial_derivative_kind)
+
+        def calculate_function_for_points(points):
+            return self.df_points(points, partial_derivative_kind=partial_derivative_kind)
         return self._cached_values_for_measurements(calculate_function_for_points, *measurements_list)
 
 
