@@ -3,7 +3,7 @@ import simulation.model.options
 import simulation.model.eval
 
 
-def remove(model_name, concentrations_index, parameter_set_index, time_step=1, use_constant_concentrations=True):
+def remove(model_name, concentrations_index, parameter_set_index=None, time_step=1, use_constant_concentrations=True):
 
     # prepare model and options
     model_options = simulation.model.options.ModelOptions()
@@ -18,14 +18,19 @@ def remove(model_name, concentrations_index, parameter_set_index, time_step=1, u
     else:
         concentration_db = m._vector_concentrations_db
 
-    # get parameter_db
-    model_options.initial_concentration_options.concentrations = concentration_db.get_value(concentrations_index)
-    parameter_db = m._parameters_db
-
-    # remove indices
-    parameter_db.remove_index(parameter_set_index, force=True)
-    if parameter_db.number_of_indices() == 0:
+    # remove concentration index if no parameter index specified
+    if parameter_set_index is None:
         concentration_db.remove_index(concentrations_index, force=True)
+    # else remove parameter index
+    else:
+        # get parameter_db
+        model_options.initial_concentration_options.concentrations = concentration_db.get_value(concentrations_index)
+        parameter_db = m._parameters_db
+
+        # remove parameter index
+        parameter_db.remove_index(parameter_set_index, force=True)
+        if parameter_db.number_of_indices() == 0:
+            concentration_db.remove_index(concentrations_index, force=True)
 
 
 # *** main function for script call *** #
@@ -42,8 +47,8 @@ def _main():
     parser.add_argument('--model_name', default=simulation.model.constants.MODEL_NAMES[0], choices=simulation.model.constants.MODEL_NAMES, help='The name of the model that should be used.')
     parser.add_argument('--time_step', type=int, default=1, help='The time step of the model that should be used. Default: 1')
     parser.add_argument('--use_vector_concentrations', action='store_true', help='Remove one entry for vector concentrations and not for constant concentrations.')
-    parser.add_argument('--concentrations_index', type=int, required=True, help='The constant concentration index that should be used.')
-    parser.add_argument('--parameter_set_index', type=int, required=True, help='The model parameter index that should be used.')
+    parser.add_argument('--concentrations_index', type=int, required=True, help='The concentration index that should be used.')
+    parser.add_argument('--parameter_set_index', type=int, default=None, help='The model parameter index that should be used. If none is specified, all parameter sets for the concentration index are removed.')
     parser.add_argument('--version', action='version', version='%(prog)s {}'.format(simulation.__version__))
 
     args = parser.parse_args()
