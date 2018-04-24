@@ -3,6 +3,8 @@ import os.path
 import numpy as np
 import scipy.sparse
 import scipy.sparse.linalg
+
+import matrix.approximate
 import matrix.calculate
 
 import simulation.model.cache
@@ -418,7 +420,11 @@ class LGLS(BaseUsingCorrelation, BaseLog):
 
         correlation_matrix.data[correlation_matrix.data < 0] = 0        # set negative correlations to zero (since it must hold C_ij >= - E_i E_j)
         correlation_matrix.eliminate_zeros()
-        correlation_matrix = matrix.calculate.approximate_decomposition(correlation_matrix, min_diag_value=self.measurements.min_diag_value_decomposition_correlation, min_abs_value=self.measurements.min_abs_correlation, permutation_method=self.measurements.permutation_method_decomposition_correlation, check_finite=False, return_type=matrix.constants.LDL_DECOMPOSITION_TYPE, overwrite_A=True)
+        correlation_matrix = matrix.approximate.decomposition(correlation_matrix,
+                                                              min_diag_B=1, max_diag_B=1,
+                                                              min_diag_D=self.measurements.min_diag_value_decomposition_correlation,
+                                                              permutation=self.measurements.permutation_method_decomposition_correlation,
+                                                              return_type=matrix.constants.LDL_DECOMPOSITION_TYPE, overwrite_A=True)
 
         covariance_matrix = standard_deviations_diag_matrix * correlation_matrix * standard_deviations_diag_matrix
 
@@ -428,7 +434,7 @@ class LGLS(BaseUsingCorrelation, BaseLog):
         return sigma
 
     def distribution_parameter_sigma_decomposition(self):
-        decomposition = matrix.decompose(self.distribution_parameter_sigma(), permutation_method=self.measurements.permutation_method_decomposition_correlation, check_finite=False, return_type=matrix.constants.LDL_DECOMPOSITION_TYPE)
+        decomposition = matrix.calculate.decompose(self.distribution_parameter_sigma(), permutation=self.measurements.permutation_method_decomposition_correlation, check_finite=False, return_type=matrix.constants.LDL_DECOMPOSITION_TYPE)
         return decomposition
 
     def f_calculate_unnormalized(self):
