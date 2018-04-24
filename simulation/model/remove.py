@@ -2,6 +2,8 @@ import simulation
 import simulation.model.options
 import simulation.model.eval
 
+import util.io.fs
+
 
 def remove(model_name, concentrations_index, parameter_set_index=None, time_step=1, use_constant_concentrations=True):
 
@@ -18,19 +20,22 @@ def remove(model_name, concentrations_index, parameter_set_index=None, time_step
     else:
         concentration_db = m._vector_concentrations_db
 
-    # remove concentration index if no parameter index specified
-    if parameter_set_index is None:
+    # remove concentration index if no parameter and time step index is specified
+    if parameter_set_index is None and time_step is None:
         concentration_db.remove_index(concentrations_index, force=True)
-    # else remove parameter index
     else:
-        # get parameter_db
+        # set concentration
         model_options.initial_concentration_options.concentrations = concentration_db.get_value(concentrations_index)
-        parameter_db = m._parameters_db
-
-        # remove parameter index
-        parameter_db.remove_index(parameter_set_index, force=True)
-        if parameter_db.number_of_indices() == 0:
-            concentration_db.remove_index(concentrations_index, force=True)
+        # remove time step dir if no parameter index but time step index is specified
+        if time_step is not None:
+            time_step_dir = m.time_step_dir
+            util.io.fs.remove_recursively(time_step_dir, force=True, not_exist_okay=True, exclude_dir=False)
+        # else remove parameter index
+        else:
+            parameter_db = m._parameters_db
+            parameter_db.remove_index(parameter_set_index, force=True)
+            if parameter_db.number_of_indices() == 0:
+                concentration_db.remove_index(concentrations_index, force=True)
 
 
 # *** main function for script call *** #
@@ -45,7 +50,7 @@ def _main():
     parser = argparse.ArgumentParser(description='Removing values from the database.')
 
     parser.add_argument('--model_name', default=simulation.model.constants.MODEL_NAMES[0], choices=simulation.model.constants.MODEL_NAMES, help='The name of the model that should be used.')
-    parser.add_argument('--time_step', type=int, default=1, help='The time step of the model that should be used. Default: 1')
+    parser.add_argument('--time_step', type=int, default=None, help='The time step of the model that should be used. Default: 1')
     parser.add_argument('--use_vector_concentrations', action='store_true', help='Remove one entry for vector concentrations and not for constant concentrations.')
     parser.add_argument('--concentrations_index', type=int, required=True, help='The concentration index that should be used.')
     parser.add_argument('--parameter_set_index', type=int, default=None, help='The model parameter index that should be used. If none is specified, all parameter sets for the concentration index are removed.')
@@ -53,9 +58,15 @@ def _main():
 
     args = parser.parse_args()
 
+    # default values
+    parameter_set_index = args.parameter_set_index
+    time_step = args.time_step
+    if time_step is None and parameter_set_index is not None:
+        time_step = 1
+
     # call function
     with util.logging.Logger():
-        remove(args.model_name, args.concentrations_index, args.parameter_set_index, time_step=args.time_step, use_constant_concentrations=not args.use_vector_concentrations)
+        remove(args.model_name, args.concentrations_index, parameter_set_index, time_step=time_step, use_constant_concentrations=not args.use_vector_concentrations)
 
 
 if __name__ == "__main__":
