@@ -69,9 +69,8 @@ class Base():
                 except AttributeError:
                     pass
 
-        # set model initial_base_concentrations and include_initial_concentrations_factor_by_default
+        # set model and include_initial_concentrations_factor_by_default
         self.model = simulation.model.cache.Model(model_options=model_options, job_options=model_job_options)
-        self.initial_base_concentrations = np.asanyarray(self.model.model_options.initial_concentration_options.concentrations)
         self.include_initial_concentrations_factor_by_default = include_initial_concentrations_factor_by_default
 
     # cache, measurements, parameters
@@ -88,6 +87,12 @@ class Base():
     def measurements(self, measurements_object):
         measurements_object = measurements.universal.data.as_measurements_collection(measurements_object)
         self._measurements = measurements_object
+
+    @property
+    def initial_base_concentrations(self):
+        model_name = self.model.model_options.model_name
+        initial_base_concentrations = simulation.model.constants.MODEL_DEFAULT_INITIAL_CONCENTRATION[model_name]
+        return np.asanyarray(initial_base_concentrations)
 
     @property
     def parameters(self):
