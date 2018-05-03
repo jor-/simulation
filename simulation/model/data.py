@@ -13,7 +13,7 @@ import util.logging
 
 def convert_metos_1D_to_3D(metos_vec):
     assert len(metos_vec) == simulation.model.constants.METOS_VECTOR_LEN
-    
+
     METOS_LSM = simulation.model.constants.METOS_LSM
 
     # init array
@@ -65,27 +65,29 @@ def load_trajectories_to_universal(path, convert_function=None, converted_result
 
     # check convert_function
     if convert_function is None:
-        convert_function = lambda x: x
+        def convert_function(x):
+            return x
+
         if converted_result_shape is not None:
             raise ValueError('The convert function is None but the converted result shape is not None ({}).'.format(converted_result_shape))
     elif not callable(convert_function):
         raise ValueError('The convert function {} has to be callable.'.format(convert_function))
 
-    assert callable(convert_function)
-
     # calculate tracer_time_dim
-    tracer_time_dim = simulation.model.constants.METOS_T_DIM
     tracer_time_dim_found = False
-    while not tracer_time_dim_found:
+    time_dims = simulation.model.constants.METOS_TIME_STEPS
+    assert all(a < b for a, b in zip(time_dims[:-1], time_dims[1:]))
+    i = len(time_dims - 1)
+    while (not tracer_time_dim_found) and i >= 0:
+        tracer_time_dim = time_dims[i]
         filename = simulation.model.constants.METOS_TRAJECTORY_FILENAME.format(tracer=tracers[0], time_step=tracer_time_dim - 1)
         file = os.path.join(path, filename)
-        if not os.path.exists(file):
-            if tracer_time_dim > 1:
-                tracer_time_dim -= 1
-            else:
-                raise FileNotFoundError('No PETSc vectors found in {}.'.format(path))
-        else:
+        if os.path.exists(file):
             tracer_time_dim_found = True
+        else:
+            i -= 1
+    if i < 0:
+        raise FileNotFoundError('No PETSc vectors found in {}.'.format(path))
 
     util.logging.debug('{} petsc vectors were found for each tracer.'.format(tracer_time_dim_found))
 
