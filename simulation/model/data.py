@@ -77,7 +77,7 @@ def load_trajectories_to_universal(path, convert_function=None, converted_result
     tracer_time_dim_found = False
     time_dims = simulation.model.constants.METOS_TIME_STEPS
     assert all(a < b for a, b in zip(time_dims[:-1], time_dims[1:]))
-    i = len(time_dims - 1)
+    i = len(time_dims) - 1
     while (not tracer_time_dim_found) and i >= 0:
         tracer_time_dim = time_dims[i]
         filename = simulation.model.constants.METOS_TRAJECTORY_FILENAME.format(tracer=tracers[0], time_step=tracer_time_dim - 1)
@@ -131,6 +131,8 @@ def load_trajectories_to_universal(path, convert_function=None, converted_result
 
                 # load vector and average
                 vec = util.petsc.universal.load_petsc_vec_to_numpy_array(file)
+                if np.any(np.isnan(vec)):
+                    raise ValueError('Trajectory {} contains nans.'.format(file))
                 if set_negative_values_to_zero:
                     vec[vec < 0] = 0
                 if k == 0:
