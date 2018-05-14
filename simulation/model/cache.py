@@ -85,7 +85,7 @@ class Cache:
 
         util.logging.debug('Saving value to {} file with save_as_np {} and save_as_txt {}.'.format(file, save_as_np, save_as_txt))
         os.makedirs(os.path.dirname(file), exist_ok=True)
-        util.io.np.save_np_or_txt(file, value, make_read_only=True, overwrite=True, save_as_np=save_as_np, save_as_txt=save_as_txt)
+        util.io.np.save_np_or_txt(file, value, make_read_only=True, overwrite=False, save_as_np=save_as_np, save_as_txt=save_as_txt)
 
     def get_value(self, filename, calculate_function, derivative_used, save_as_np=True, save_as_txt=False, use_memmap=False, as_shared_array=False):
         assert callable(calculate_function)
