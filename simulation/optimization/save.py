@@ -108,13 +108,14 @@ def save_for_all_measurements_as_jobs(cost_function_names=None, model_names=None
                                 include_initial_concentrations_factor_by_default=include_initial_concentrations_factor_by_default) as cf_job:
                             cf_job.start()
 
-                        util.logging.info('Starting cost function job {cost_function_name} for values in {model_parameter_dir} with eval_f={eval_f} and eval_df={eval_df}.'.format(
-                            cost_function_name=cost_function_name,
-                            model_parameter_dir=model.parameter_set_dir,
-                            eval_f=eval_f,
-                            eval_df=eval_df))
+                            util.logging.info('Cost function {cost_function_name} for values in {model_parameter_dir} with eval_f={eval_f} and eval_df={eval_df} job started with id {job_id}.'.format(
+                                cost_function_name=cost_function_name,
+                                model_parameter_dir=model.parameter_set_dir,
+                                eval_f=eval_f,
+                                eval_df=eval_df,
+                                job_id=cf_job.id))
                     else:
-                        util.logging.debug('Cost function values {cost_function_name} in {model_parameter_dir} with eval_f={eval_f} and eval_df={eval_df} are already available.'.format(
+                        util.logging.debug('Cost function {cost_function_name} for values in {model_parameter_dir} with eval_f={eval_f} and eval_df={eval_df} are already available.'.format(
                             cost_function_name=cost_function_name,
                             model_parameter_dir=model.parameter_set_dir,
                             eval_f=eval_f,
