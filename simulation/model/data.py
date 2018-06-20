@@ -1,5 +1,4 @@
 import os
-import itertools
 
 import numpy as np
 
@@ -28,7 +27,7 @@ def convert_metos_1D_to_3D(metos_vec):
         for ix in range(METOS_LSM.x_dim):
             length = METOS_LSM[ix, iy]
             if length > 0:
-                array[ix, iy, 0:length] = metos_vec[offset:offset+length]
+                array[ix, iy, 0: length] = metos_vec[offset: offset + length]
                 offset = offset + length
 
     return array
@@ -48,7 +47,7 @@ def convert_3D_to_metos_1D(data):
             mask = ~ np.isnan(data_x_y)
             length = sum(mask)
             if length > 0:
-                metos_vec[offset:offset+length] = data_x_y[mask]
+                metos_vec[offset: offset + length] = data_x_y[mask]
                 offset = offset + length
 
     return metos_vec
@@ -155,8 +154,7 @@ def load_trajectories_to_universal(path, convert_function=None, converted_result
 
 def load_trajectories_to_map(path, tracers, time_dim_desired=None):
     # load trajectory
-    convert_function = lambda metos_vec: convert_metos_1D_to_3D(metos_vec)
-    trajectory = load_trajectories_to_universal(path, convert_function=convert_function, converted_result_shape=simulation.model.constants.METOS_SPACE_DIM, tracers=tracers, time_dim_desired=time_dim_desired)
+    trajectory = load_trajectories_to_universal(path, convert_function=convert_metos_1D_to_3D, converted_result_shape=simulation.model.constants.METOS_SPACE_DIM, tracers=tracers, time_dim_desired=time_dim_desired)
     trajectory = trajectory[0]
 
     assert trajectory.ndim == 4
@@ -190,13 +188,12 @@ def load_trajectories_to_map_index_array(path, tracers, time_dim_desired=None):
     assert np.all(trajectory[:, :, :3] % 1 == 0)
 
     # convert time index to point value
-    t_dim, point_len_per_t, point_dim  = trajectory.shape
+    t_dim, point_len_per_t, point_dim = trajectory.shape
     trajectory_point_array = np.empty((t_dim * point_len_per_t, point_dim + 1))
     for t_index in range(t_dim):
-        trajectory_point_array[t_index*point_len_per_t : (t_index+1)*point_len_per_t, 0] = t_index
-        trajectory_point_array[t_index*point_len_per_t : (t_index+1)*point_len_per_t, 1:] = trajectory[t_index]
+        trajectory_point_array[t_index * point_len_per_t: (t_index + 1) * point_len_per_t, 0] = t_index
+        trajectory_point_array[t_index * point_len_per_t: (t_index + 1) * point_len_per_t, 1:] = trajectory[t_index]
 
     assert trajectory_point_array.ndim == 2
     assert trajectory_point_array.shape[1] == 5
     return trajectory_point_array
-
