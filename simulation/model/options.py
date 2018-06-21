@@ -30,7 +30,7 @@ class ModelOptions(util.options.Options):
 
     def time_step_check(self, time_step):
         if time_step not in simulation.model.constants.METOS_TIME_STEPS:
-            raise ValueError('Wrong time_step in model options. Time step has to be in {} .'.format(time_step, simulation.model.constants.METOS_TIME_STEPS))
+            raise ValueError('Time_step {} is not allowed. Time step has to be in {}.'.format(time_step, simulation.model.constants.METOS_TIME_STEPS))
         assert simulation.model.constants.METOS_T_DIM % time_step == 0
 
     def parameters_check(self, parameters):
