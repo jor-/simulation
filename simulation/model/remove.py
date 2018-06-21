@@ -10,8 +10,6 @@ def remove(model_name, concentrations_index, parameter_set_index=None, time_step
     # prepare model and options
     model_options = simulation.model.options.ModelOptions()
     model_options.model_name = model_name
-    model_options.time_step = time_step
-
     m = simulation.model.eval.Model(model_options=model_options)
 
     # get concentration_db
@@ -26,8 +24,10 @@ def remove(model_name, concentrations_index, parameter_set_index=None, time_step
     else:
         # set concentration
         model_options.initial_concentration_options.concentrations = concentration_db.get_value(concentrations_index)
-        # remove time step dir if no parameter index but time step index is specified
-        if time_step is not None:
+        # set time step
+        model_options.time_step = time_step
+        # remove time step dir if no parameter index but time step is specified
+        if parameter_set_index is None:
             time_step_dir = m.time_step_dir
             util.io.fs.remove_recursively(time_step_dir, force=True, not_exist_okay=True, exclude_dir=False)
         # else remove parameter index
