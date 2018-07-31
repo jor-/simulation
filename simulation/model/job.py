@@ -461,7 +461,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
         pre_command = batch_system.pre_command('metos3d')
         pre_command += linesep + 'export OMP_NUM_THREADS=1' + linesep
         command = '{} {}'.format(opt['/metos3d/sim_file'], opt['/metos3d/option_file']) + linesep
-        super().write_job_file(command, pre_command=pre_command, use_mpi=True)
+        super().write_job_file(command, pre_command=pre_command, use_mpi=True, use_conda=False, add_timing=True)
 
         util.logging.debug('Job initialised.')
 

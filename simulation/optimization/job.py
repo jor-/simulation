@@ -132,4 +132,4 @@ class CostFunctionJob(util.batch.universal.system.Job):
         python_command = batch_system.command('python')
         command = '{python_command} {python_script_file}'.format(python_command=python_command, python_script_file=python_script_file)
 
-        super().write_job_file(command, pre_command=pre_command, use_mpi=False)
+        super().write_job_file(command, pre_command=pre_command, use_mpi=False, use_conda=True, add_timing=True)
