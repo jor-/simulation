@@ -53,7 +53,7 @@ setuptools.setup(
     ],
 
     # version
-    version=versioneer.get_version().replace('.dev0+', '+dirty.').replace('.post', '.post.dev'),
+    version=versioneer.get_version().replace('.dev0+', '+dirty.').replace('.post', '.post0.dev'),
     cmdclass=versioneer.get_cmdclass(),
 
     # packages to install
