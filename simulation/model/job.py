@@ -465,13 +465,11 @@ class Metos3D_Job(util.batch.universal.system.Job):
 
         util.logging.debug('Job initialised.')
 
-
-
     # check integrity
 
-    def check_integrity(self, should_be_started=False, should_be_readonly=False):
+    def check_integrity(self, force_to_be_started=False, force_to_be_readonly=False):
         # super check
-        super().check_integrity(should_be_started=should_be_started, should_be_readonly=should_be_readonly)
+        super().check_integrity(force_to_be_started=force_to_be_started, force_to_be_readonly=force_to_be_readonly)
 
         # check output
         if self.is_started():
@@ -502,7 +500,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
         def check_if_file_exists(file, should_exists=True, should_be_in_output_dir=True):
             if should_be_in_output_dir and not file.startswith(self.output_dir):
                 raise util.batch.universal.system.JobError(self, 'The file {} should start with {}.'.format(file, self.output_dir))
-            exists =  os.path.exists(file)
+            exists = os.path.exists(file)
             if should_exists and not exists:
                 raise util.batch.universal.system.JobError(self, 'File {} does not exist.'.format(file))
             if not should_exists and exists:
@@ -526,7 +524,6 @@ class Metos3D_Job(util.batch.universal.system.Job):
 
         for option in ['/metos3d/tracer_output_dir', '/metos3d/output_dir', '/metos3d/option_file']:
             check_if_file_option_exists(option, should_be_in_output_dir=True)
-
 
         # tracer input files
         tracer_input_options = ['/model/tracer_input_files', '/metos3d/tracer_input_dir', '/metos3d/tracer_input_filenames']
