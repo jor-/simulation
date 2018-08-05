@@ -63,8 +63,9 @@ def save_for_all_measurements_serial(cost_function_names=None, model_names=None,
     save(cost_functions, model_names=model_names, eval_f=eval_f, eval_df=eval_df)
 
 
-def save_for_all_measurements_as_jobs(cost_function_names=None, model_names=None, min_standard_deviations=None, min_measurements_correlations=None, max_box_distance_to_water=None, eval_f=True, eval_df=False, node_kind=None):
+def save_for_all_measurements_as_jobs(cost_function_names=None, model_names=None, min_standard_deviations=None, min_measurements_correlations=None, max_box_distance_to_water=None, eval_f=True, eval_df=False, node_kind=None, max_parallel_jobs=100):
     if eval_f or eval_df:
+        # prepare
         model_job_options = None
         include_initial_concentrations_factor_by_default = True
 
@@ -76,6 +77,26 @@ def save_for_all_measurements_as_jobs(cost_function_names=None, model_names=None
         if cost_function_names is None:
             cost_function_names = simulation.optimization.cost_function.ALL_COST_FUNCTION_NAMES
 
+        running_jobs = []
+
+        def wait_for_next_job():
+            with running_jobs.pop(0) as cf_job:
+                # print waiting info
+                try:
+                    is_finished = cf_job.is_finished(check_exit_code=False)
+                except simulation.optimization.job.JobError:
+                    is_finished = False
+                if not is_finished:
+                    util.logging.info('Waiting for cost function evaluation {cf_job} to finish.'.format(cf_job=cf_job))
+                # wait for finishing and remove
+                try:
+                    cf_job.wait_until_finished(check_exit_code=True)
+                except simulation.optimization.job.JobError as error:
+                    util.logging.error('Cost function evaluation {cf_job} failed due to {error}.'.format(cf_job=cf_job, error=error))
+                else:
+                    cf_job.remove()
+
+        # evaluate
         for cost_function_name in cost_function_names:
             cost_function_class = getattr(simulation.optimization.cost_function, cost_function_name)
 
@@ -95,6 +116,11 @@ def save_for_all_measurements_as_jobs(cost_function_names=None, model_names=None
                         include_initial_concentrations_factor_by_default=include_initial_concentrations_factor_by_default)
 
                     if (eval_f and not cost_function.f_available()) or (eval_df and not cost_function.df_available()):
+
+                        if max_parallel_jobs is not None and len(running_jobs) > max_parallel_jobs:
+                            wait_for_next_job()
+
+                        # start job
                         with simulation.optimization.job.CostFunctionJob(
                                 cost_function_name,
                                 model_options,
@@ -105,7 +131,8 @@ def save_for_all_measurements_as_jobs(cost_function_names=None, model_names=None
                                 eval_f=eval_f,
                                 eval_df=eval_df,
                                 cost_function_job_options=cost_function_job_options,
-                                include_initial_concentrations_factor_by_default=include_initial_concentrations_factor_by_default) as cf_job:
+                                include_initial_concentrations_factor_by_default=include_initial_concentrations_factor_by_default,
+                                remove_output_dir_on_close=False) as cf_job:
                             cf_job.start()
 
                             util.logging.info('Cost function {cost_function_name} for values in {model_parameter_dir} with eval_f={eval_f} and eval_df={eval_df} job started with id {job_id}.'.format(
@@ -114,12 +141,20 @@ def save_for_all_measurements_as_jobs(cost_function_names=None, model_names=None
                                 eval_f=eval_f,
                                 eval_df=eval_df,
                                 job_id=cf_job.id))
+
+                            running_jobs.append(cf_job)
+
                     else:
+
                         util.logging.debug('Cost function {cost_function_name} for values in {model_parameter_dir} with eval_f={eval_f} and eval_df={eval_df} are already available.'.format(
                             cost_function_name=cost_function_name,
                             model_parameter_dir=model.parameter_set_dir,
                             eval_f=eval_f,
                             eval_df=eval_df))
+
+        # remove all jobs
+        while len(running_jobs) > 0:
+            wait_for_next_job()
 
 
 def save_for_all_measurements(cost_function_names=None, model_names=None, min_standard_deviations=None, min_measurements_correlations=None, max_box_distance_to_water=None, eval_f=True, eval_df=False, as_jobs=False, node_kind=None):
