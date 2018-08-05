@@ -175,7 +175,8 @@ def _main():
                     max_box_distance_to_water=max_box_distance_to_water,
                     eval_f=eval_function_value,
                     eval_df=eval_grad_value,
-                    include_initial_concentrations_factor_by_default=cf.parameters_include_initial_concentrations_factor) as cf_job:
+                    include_initial_concentrations_factor_by_default=cf.parameters_include_initial_concentrations_factor,
+                    remove_output_dir_on_close=True) as cf_job:
                 cf_job.start()
                 cf_job.wait_until_finished()
 

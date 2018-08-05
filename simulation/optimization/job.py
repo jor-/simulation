@@ -16,11 +16,15 @@ import util.logging
 
 class CostFunctionJob(util.batch.universal.system.Job):
 
-    def __init__(self, cf_kind, model_options, output_dir=None, model_job_options=None, min_standard_deviations=None, min_measurements_correlations=None, max_box_distance_to_water=None, eval_f=True, eval_df=True, cost_function_job_options=None, include_initial_concentrations_factor_by_default=False):
+    def __init__(self, cf_kind, model_options,
+                 output_dir=None, model_job_options=None,
+                 min_standard_deviations=None, min_measurements_correlations=None,
+                 max_box_distance_to_water=None, eval_f=True, eval_df=True,
+                 cost_function_job_options=None, include_initial_concentrations_factor_by_default=False,
+                 remove_output_dir_on_close=False):
         util.logging.debug('Initiating cost function job with cf_kind {}, eval_f {} and eval_df {}.'.format(cf_kind, eval_f, eval_df))
 
         # if no output dir, use tmp output dir
-        remove_output_dir_on_close = output_dir is None
         if output_dir is None:
             output_dir = simulation.model.constants.DATABASE_TMP_DIR
             os.makedirs(output_dir, exist_ok=True)
