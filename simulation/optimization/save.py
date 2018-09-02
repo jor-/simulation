@@ -87,14 +87,17 @@ def save_for_all_measurements_as_jobs(cost_function_names=None, model_names=None
                 except simulation.optimization.job.JobError:
                     is_finished = False
                 if not is_finished:
-                    util.logging.info('Waiting for cost function evaluation {cf_job} to finish.'.format(cf_job=cf_job))
+                    util.logging.info(f'Waiting for cost function evaluation {cf_job} to finish.')
                 # wait for finishing and remove
                 try:
                     cf_job.wait_until_finished(check_exit_code=True)
                 except simulation.optimization.job.JobError as error:
-                    util.logging.error('Cost function evaluation {cf_job} failed due to {error}.'.format(cf_job=cf_job, error=error))
+                    util.logging.error(f'Cost function evaluation {cf_job} failed due to {error}.')
                 else:
-                    cf_job.remove()
+                    try:
+                        cf_job.remove()
+                    except OSError as error:
+                        util.logging.warn(f'Cost function evaluation {cf_job} could not be removed due to {error}.')
 
         # evaluate
         for cost_function_name in cost_function_names:
