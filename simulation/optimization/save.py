@@ -160,18 +160,8 @@ def save_for_all_measurements_as_jobs(cost_function_names=None, model_names=None
             wait_for_next_job()
 
 
-def save_for_all_measurements(cost_function_names=None, model_names=None, min_standard_deviations=None, min_measurements_correlations=None, max_box_distance_to_water=None, eval_f=True, eval_df=False, as_jobs=False, node_kind=None):
-    if as_jobs:
-        save_for_all_measurements_as_jobs(
-            cost_function_names=cost_function_names,
-            model_names=model_names,
-            min_standard_deviations=min_standard_deviations,
-            min_measurements_correlations=min_measurements_correlations,
-            max_box_distance_to_water=max_box_distance_to_water,
-            eval_f=eval_f,
-            eval_df=eval_df,
-            node_kind=node_kind)
-    else:
+def save_for_all_measurements(cost_function_names=None, model_names=None, min_standard_deviations=None, min_measurements_correlations=None, max_box_distance_to_water=None, eval_f=True, eval_df=False, node_kind=None, number_of_jobs=0):
+    if number_of_jobs is None or number_of_jobs == 0:
         save_for_all_measurements_serial(
             cost_function_names=cost_function_names,
             model_names=model_names,
@@ -180,6 +170,17 @@ def save_for_all_measurements(cost_function_names=None, model_names=None, min_st
             max_box_distance_to_water=max_box_distance_to_water,
             eval_f=eval_f,
             eval_df=eval_df)
+    else:
+        save_for_all_measurements_as_jobs(
+            cost_function_names=cost_function_names,
+            model_names=model_names,
+            min_standard_deviations=min_standard_deviations,
+            min_measurements_correlations=min_measurements_correlations,
+            max_box_distance_to_water=max_box_distance_to_water,
+            eval_f=eval_f,
+            eval_df=eval_df,
+            node_kind=node_kind,
+            max_parallel_jobs=number_of_jobs)
 
 
 # *** main function for script call *** #
@@ -196,7 +197,7 @@ def _main():
     parser.add_argument('--cost_functions', type=str, default=None, nargs='+', help='The cost functions to evaluate.')
     parser.add_argument('--model_names', type=str, default=None, choices=simulation.model.constants.MODEL_NAMES, nargs='+', help='The models to evaluate.')
     parser.add_argument('--DF', action='store_true', help='Eval (also) DF.')
-    parser.add_argument('--as_jobs', action='store_true', help='Eval as batch jobs.')
+    parser.add_argument('--number_of_jobs', type=int, default=0, help='The number of parallel batch jobs used for calculations.')
     parser.add_argument('--node_kind', default=None, help='The kind of nodes to use for the batch jobs.')
     parser.add_argument('--debug_level', choices=util.logging.LEVELS, default='INFO', help='Print debug infos low to passed level.')
     parser.add_argument('--version', action='version', version='%(prog)s {}'.format(simulation.__version__))
@@ -213,7 +214,7 @@ def _main():
             eval_f=True,
             eval_df=args.DF,
             node_kind=args.node_kind,
-            as_jobs=args.as_jobs)
+            number_of_jobs=args.number_of_jobs)
         util.logging.info('Finished.')
 
 
