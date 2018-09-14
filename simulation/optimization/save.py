@@ -72,6 +72,7 @@ def save_for_all_measurements_as_jobs(cost_function_names=None, model_names=None
         nodes_setup = simulation.optimization.constants.COST_FUNCTION_NODES_SETUP_JOB.copy()
         if node_kind is not None:
             nodes_setup.node_kind = node_kind
+            nodes_setup.check_for_better = False
         cost_function_job_options = {'nodes_setup': nodes_setup}
 
         if cost_function_names is None:
