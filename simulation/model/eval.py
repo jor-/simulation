@@ -526,10 +526,11 @@ class Model_Database:
 
     # *** iterator *** #
 
-    def iterator(self, model_names=None):
+    def iterator(self, model_names=None, time_steps=None):
         if model_names is None:
             model_names = simulation.model.constants.MODEL_NAMES
-        time_steps = simulation.model.constants.METOS_TIME_STEPS
+        if time_steps is None:
+            time_steps = simulation.model.constants.METOS_TIME_STEPS
         old_model_options = self.model_options.copy()
         model_options = self.model_options
         model_options.spinup_options = {'years': 1, 'tolerance': 0.0, 'combination': 'or'}
