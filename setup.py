@@ -87,6 +87,7 @@ setuptools.setup(
             'simulation_optimization_matlab_cost_function_eval = simulation.optimization.matlab.cost_function:_main',
             'simulation_optimization_min_values = simulation.optimization.min_values:_main',
             'simulation_optimization_values = simulation.optimization.values:_main',
+            'simulation_optimization_database = simulation.optimization.database:_main',
         ],
     }
 )
