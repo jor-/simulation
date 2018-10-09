@@ -172,7 +172,7 @@ class Model_Database:
         return concentration_set_dir
 
     @property
-    def initial_constant_concentration(self):
+    def initial_constant_concentrations(self):
         assert self.model_options.initial_concentration_options.use_constant_concentrations
 
         concentrations = self.model_options.initial_concentration_options.concentrations
@@ -418,7 +418,7 @@ class Model_Database:
                     initial_concentration_options = self.model_options.initial_concentration_options
 
                     if initial_concentration_options.use_constant_concentrations:
-                        constant_concentrations = self.initial_constant_concentration
+                        constant_concentrations = self.initial_constant_concentrations
                         self.start_run(parameters, run_dir, years, tolerance=tolerance, job_options=self.job_options_for_kind('spinup'), initial_constant_concentrations=constant_concentrations, wait_until_finished=True)
                     else:
                         concentration_files = self.initial_concentration_files
