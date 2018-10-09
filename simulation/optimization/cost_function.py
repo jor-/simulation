@@ -136,12 +136,13 @@ class Base():
     def __str__(self):
         return '{}({})'.format(self.name, self._measurements_name)
 
-    @property
-    def _cache_dirname(self):
-        return os.path.join(simulation.optimization.constants.COST_FUNCTION_DIRNAME, self._measurements_name, self.name)
+    def _cache_dirname(self, base_dir=None):
+        if base_dir is None:
+            base_dir = simulation.optimization.constants.COST_FUNCTION_DIRNAME
+        return os.path.join(base_dir, self._measurements_name, self.name)
 
-    def _filename(self, filename):
-        return os.path.join(self._cache_dirname, filename)
+    def _filename(self, filename, base_dir=None):
+        return os.path.join(self._cache_dirname(base_dir=base_dir), filename)
 
     # cost function values
 
