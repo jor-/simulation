@@ -504,7 +504,7 @@ def cost_functions_for_all_measurements(min_standard_deviations=None, min_measur
     return cost_functions
 
 
-def iterator(cost_functions, model_names=None):
+def iterator(cost_functions, model_names=None, time_steps=None):
     if cost_functions is None:
         cost_functions = []
 
@@ -512,6 +512,8 @@ def iterator(cost_functions, model_names=None):
         # default values
         if model_names is None:
             model_names = simulation.model.constants.MODEL_NAMES
+        if time_steps is None:
+            time_steps = simulation.model.constants.METOS_TIME_STEPS
 
         # set same model and model options, store original model and measurements
         model = cost_functions[0].model
@@ -532,7 +534,7 @@ def iterator(cost_functions, model_names=None):
                 measurements_for_model = original_measurements.subset(model_options.tracers)
                 cost_function.measurements = measurements_for_model
             # iterate over other options
-            for model_options in model.iterator(model_names=[model_name]):
+            for model_options in model.iterator(model_names=[model_name], time_steps=time_steps):
                 for cost_function in cost_functions:
                     yield cost_function
 
