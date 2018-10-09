@@ -258,15 +258,10 @@ class Model_Database:
         util.logging.debug('Searching for directory for parameters as close as possible to {}.'.format(parameters))
 
         # get closest indices
-        closest_indices = self._parameters_db.closest_indices(parameters)
+        closest_index = self._parameters_db.closest_index(parameters)
 
         # check if run dirs exist
-        i = 0
-        while i < len(closest_indices) and self.last_run_dir(self.spinup_dir_with_index[i]) is None:
-            i = i + 1
-        if i < len(closest_indices):
-            closest_index = closest_indices[i]
-        else:
+        if self.last_run_dir(self.spinup_dir_with_index(closest_index)) is None:
             closest_index = None
 
         # get parameter set dir and return
