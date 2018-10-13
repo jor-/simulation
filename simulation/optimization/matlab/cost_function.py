@@ -150,8 +150,8 @@ def _main():
         min_measurements_correlations = args.min_measurements_correlations
         measurements_object = measurements.all.data.all_measurements(
             tracers=model_options.tracers,
-            min_standard_deviations=min_standard_deviations,
-            min_measurements_correlations=min_measurements_correlations,
+            min_standard_deviation=min_standard_deviations,
+            min_measurements_correlation=min_measurements_correlations,
             max_box_distance_to_water=max_box_distance_to_water)
 
         # init cost function

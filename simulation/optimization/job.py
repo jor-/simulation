@@ -88,19 +88,14 @@ class CostFunctionJob(util.batch.universal.system.Job):
             min_measurements_correlations = None
 
         commands += ['with util.logging.Logger():']
-        commands += ['    model_options = {model_options!r}'.format(model_options=model_options)]
-        commands += ['    measurements_object = measurements.all.data.all_measurements(tracers=model_options.tracers, min_standard_deviations={min_standard_deviations}, min_measurements_correlations={min_measurements_correlations}, max_box_distance_to_water={max_box_distance_to_water})'.format(
-            min_standard_deviations=min_standard_deviations,
-            min_measurements_correlations=min_measurements_correlations,
-            max_box_distance_to_water=max_box_distance_to_water)]
+        commands += [f'    model_options = {model_options!r}']
+        commands += [f'    measurements_object = measurements.all.data.all_measurements(tracers=model_options.tracers, min_standard_deviation={min_standard_deviations}, min_measurements_correlation={min_measurements_correlations}, max_box_distance_to_water={max_box_distance_to_water})']
 
         if model_job_options is not None:
-            commands += ['    model_job_options = {model_job_options!r}'.format(model_job_options=model_job_options)]
+            commands += [f'    model_job_options = {model_job_options!r}']
         else:
             commands += ['    model_job_options = None']
-        commands += ['    cf = simulation.optimization.cost_function.{cf_kind}(measurements_object=measurements_object, model_options=model_options, model_job_options=model_job_options, include_initial_concentrations_factor_by_default={include_initial_concentrations_factor_by_default})'.format(
-            cf_kind=cf_kind,
-            include_initial_concentrations_factor_by_default=include_initial_concentrations_factor_by_default)]
+        commands += [f'    cf = simulation.optimization.cost_function.{cf_kind}(measurements_object=measurements_object, model_options=model_options, model_job_options=model_job_options, include_initial_concentrations_factor_by_default={include_initial_concentrations_factor_by_default})']
 
         if eval_f:
             commands += ['    cf.f()']

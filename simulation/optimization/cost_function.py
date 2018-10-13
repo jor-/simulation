@@ -482,8 +482,8 @@ def cost_functions_for_all_measurements(min_standard_deviations=None, min_measur
     cost_functions = []
     measurements_collection = measurements.all.data.all_measurements(
         tracers=model_options.tracers,
-        min_standard_deviations=min_standard_deviations,
-        min_measurements_correlations=min_measurements_correlations,
+        min_standard_deviation=min_standard_deviations,
+        min_measurements_correlation=min_measurements_correlations,
         max_box_distance_to_water=max_box_distance_to_water)
 
     if len(cost_function_classes_without_standard_deviation) > 0:
