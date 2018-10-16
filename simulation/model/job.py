@@ -159,7 +159,9 @@ class Metos3D_Job(util.batch.universal.system.Job):
             raise util.batch.universal.system.JobError(self, 'Output file is missing!')
 
         # check output file for errors
-        IGNORE_ERROR_MESSAGES = ('Error_Path = ', 'cpuinfo: error while loading shared libraries: libgcc_s.so.1: cannot open shared object file: No such file or directory',)
+        IGNORE_ERROR_MESSAGES = ('Error_Path = ',
+                                 'cpuinfo: error while loading shared libraries: libgcc_s.so.1: cannot open shared object file: No such file or directory',
+                                 "<class 'socket.error'>")
         IGNORE_ERROR_MESSAGES = (tuple(error_message.lower() for error_message in IGNORE_ERROR_MESSAGES))
         for line in self.output.splitlines():
             line = line.lower()
