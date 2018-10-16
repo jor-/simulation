@@ -171,18 +171,23 @@ class Metos3D_Job(util.batch.universal.system.Job):
 
         # check if output file exists
         if self.output_file is not None and not os.path.exists(self.output_file):
-            ValueError('Output file {} does not exist. The job is not finished'.format(self.output_file))
+            raise util.batch.universal.system.JobError(self, 'Output file is missing!')
 
         # check output file for errors
-        IGNORE_ERRORS = ('Error_Path = ', 'cpuinfo: error while loading shared libraries: libgcc_s.so.1: cannot open shared object file: No such file or directory')
-        output = self.output
-        for ingore_error in IGNORE_ERRORS:
-            output = output.replace(ingore_error, '')
-        output = output.lower()
-        if 'error' in output:
-            return 255
-        else:
-            return 0
+        IGNORE_ERROR_MESSAGES = ('Error_Path = ', 'cpuinfo: error while loading shared libraries: libgcc_s.so.1: cannot open shared object file: No such file or directory',)
+        IGNORE_ERROR_MESSAGES = (tuple(error_message.lower() for error_message in IGNORE_ERROR_MESSAGES))
+        for line in self.output.splitlines():
+            line = line.lower()
+            if 'error' in line:
+                ignore = False
+                for ignore_error_message in IGNORE_ERROR_MESSAGES:
+                    if ignore_error_message in line:
+                        ignore = True
+                if not ignore:
+                    raise util.batch.universal.system.JobError(self, f'There was an error in the job output: {line}', include_output=True)
+
+        # everything is okay
+        return 0
 
 
     def is_finished(self, check_exit_code=True):
