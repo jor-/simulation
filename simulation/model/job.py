@@ -37,7 +37,6 @@ class Metos3D_Job(util.batch.universal.system.Job):
 
         return last_spinup_line
 
-
     @property
     def last_year(self):
         last_spinup_line = self.last_spinup_line
@@ -51,7 +50,6 @@ class Metos3D_Job(util.batch.universal.system.Job):
 
         return last_spinup_year
 
-
     @property
     def last_tolerance(self):
         last_spinup_line = self.last_spinup_line
@@ -64,7 +62,6 @@ class Metos3D_Job(util.batch.universal.system.Job):
             last_spinup_tolerance = float('inf')
 
         return last_spinup_tolerance
-
 
     @property
     def time_step(self):
@@ -80,18 +77,15 @@ class Metos3D_Job(util.batch.universal.system.Job):
 
         return time_step
 
-
     @property
     def model_parameters(self):
         return self.options['/model/parameters']
-
 
     # files
 
     @property
     def metos3d_option_file(self):
         return self.options['/metos3d/option_file']
-
 
     @property
     def model_tracer_input_files(self):
@@ -106,7 +100,6 @@ class Metos3D_Job(util.batch.universal.system.Job):
 
         return tracer_input_dir
 
-
     @property
     def tracer_input_files(self):
         try:
@@ -117,17 +110,14 @@ class Metos3D_Job(util.batch.universal.system.Job):
             tracer_input_files = [os.path.join(tracer_input_dir, tracer_input_filename) for tracer_input_filename in self.options['/metos3d/tracer_input_filenames']]
         return tracer_input_files
 
-
     @property
     def tracer_input_info_files(self):
         tracer_input_info_files = [tracer_input_file + '.info' for tracer_input_file in self.tracer_input_files]
         return tracer_input_info_files
 
-
     @property
     def tracer_output_dir(self):
         return self.options['/metos3d/tracer_output_dir']
-
 
     @property
     def tracer_output_files(self):
@@ -135,13 +125,10 @@ class Metos3D_Job(util.batch.universal.system.Job):
         tracer_output_files = [os.path.join(tracer_output_dir, tracer_output_filename) for tracer_output_filename in self.options['/metos3d/tracer_output_filenames']]
         return tracer_output_files
 
-
     @property
     def tracer_output_info_files(self):
         tracer_output_info_files = [tracer_output_file + '.info' for tracer_output_file in self.tracer_output_files]
         return tracer_output_info_files
-
-
 
     def make_read_only_input(self, read_only=True):
         super().make_read_only_input(read_only=read_only)
@@ -150,7 +137,6 @@ class Metos3D_Job(util.batch.universal.system.Job):
             for file in self.tracer_input_files:
                 util.io.fs.make_read_only(file)
 
-
     def make_read_only_output(self, read_only=True):
         super().make_read_only_output(read_only=read_only)
         if read_only:
@@ -158,7 +144,6 @@ class Metos3D_Job(util.batch.universal.system.Job):
                 util.io.fs.make_read_only(file)
             for file in self.tracer_output_info_files:
                 util.io.fs.make_read_only(file)
-
 
     # exit code and is finished
 
@@ -189,7 +174,6 @@ class Metos3D_Job(util.batch.universal.system.Job):
         # everything is okay
         return 0
 
-
     def is_finished(self, check_exit_code=True):
         # check if finished without exit code check
         if not super().is_finished(check_exit_code=False):
@@ -214,7 +198,6 @@ class Metos3D_Job(util.batch.universal.system.Job):
             else:
                 raise util.batch.universal.system.JobError(self, 'The job output file is not completely written!', job_output)
 
-
     # write job file
 
     def write_job_file(self, model_name, model_parameters, years, tolerance=None, time_step=1, initial_constant_concentrations=None, tracer_input_files=None, total_concentration_factor=1, write_trajectory=False, job_options=None):
@@ -222,7 +205,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
         util.logging.debug('Initialising job with model {}, parameters {},  years {}, tolerance {}, time step {}, initial_constant_concentrations {}, tracer_input_files {}, total concentration factor {} and job_options {}.'.format(model_name, model_parameters, years, tolerance, time_step, initial_constant_concentrations, tracer_input_files, total_concentration_factor, job_options))
 
         # check input
-        if not time_step in simulation.model.constants.METOS_TIME_STEPS:
+        if time_step not in simulation.model.constants.METOS_TIME_STEPS:
             raise ValueError('Wrong time_step in model options. Time step has to be in {} .'.format(time_step, simulation.model.constants.METOS_TIME_STEPS))
         assert simulation.model.constants.METOS_T_DIM % time_step == 0
 
@@ -244,7 +227,6 @@ class Metos3D_Job(util.batch.universal.system.Job):
         if tracer_input_files is not None:
             if len(tracer_input_files) != number_of_tracers:
                 raise ValueError('The tracer input files must be {} files for model {}, but it is {}.'.format(number_of_tracers, model_name, tracer_input_files))
-
 
         # unpack job setup
         if job_options is not None:
@@ -277,8 +259,8 @@ class Metos3D_Job(util.batch.universal.system.Job):
             nodes_setup.memory = simulation.model.constants.JOB_MEMORY_GB
 
         # check/set walltime
-        sec_per_year = np.exp(- (nodes_setup.nodes * nodes_setup.cpus) / (6*16)) * 10 + 2.5
-        sec_per_year /= time_step**(1/2)
+        sec_per_year = np.exp(- (nodes_setup.nodes * nodes_setup.cpus) / (6 * 16)) * 10 + 2.5
+        sec_per_year /= time_step**(0.5)
         estimated_walltime_hours = np.ceil(years * sec_per_year / 60**2)
         util.logging.debug('The estimated walltime for {} nodes with {} cpus, {} years and time step {} is {} hours.'.format(nodes_setup.nodes, nodes_setup.cpus, years, time_step, estimated_walltime_hours))
         if nodes_setup.walltime is None:
@@ -289,21 +271,18 @@ class Metos3D_Job(util.batch.universal.system.Job):
 
         # check/set min cpus
         if nodes_setup.total_cpus_min is None:
-            nodes_setup.total_cpus_min = min(int(np.ceil(years/20)), 32)
+            nodes_setup.total_cpus_min = min(int(np.ceil(years / 20)), 32)
 
         # check/set max nodes
         if nodes_setup.nodes_max is None and years <= 1:
             nodes_setup.nodes_max = 1
 
-
         # init job
         super().set_job_options(job_name, nodes_setup)
 
-
         # get output dir
         output_dir = self.output_dir
-        output_dir_not_expanded = os.path.join(self.output_dir_not_expanded, '') # ending with separator
-
+        output_dir_not_expanded = os.path.join(self.output_dir_not_expanded, '')  # ending with separator
 
         # set model options
         opt = self.options
