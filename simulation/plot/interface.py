@@ -101,7 +101,7 @@ def optimization_cost_function_for_data_kind(data_kind='WOD', path='/tmp', y_max
                 else:
                     line_labels.append(None)
 
-    util.plot.line(xs, ys, file, line_label=line_labels, line_style=line_styles, line_color=line_colors, line_width=line_widths, tick_font_size=20, legend_font_size=16, y_max=y_max, use_log_scale=True)
+    util.plot.line(file, xs, ys, line_label=line_labels, line_style=line_styles, line_color=line_colors, line_width=line_widths, tick_font_size=20, legend_font_size=16, y_max=y_max, use_log_scale=True)
 
 
 def optimization_cost_functions(path='/tmp', y_max=10, with_line_search_steps=True):
@@ -179,7 +179,7 @@ def optimization_parameters_for_kind(kind, path='/tmp', all_parameters_in_one_pl
             [y_min, y_max] = [0, 1]
 
             # plot
-            util.plot.line(xs, ys, file, line_style=line_styles, line_label=line_labels, line_color=line_colors, line_width=line_widths, tick_font_size=20, legend_font_size=16, y_min=y_min, y_max=y_max)
+            util.plot.line(file, xs, ys, line_style=line_styles, line_label=line_labels, line_color=line_colors, line_width=line_widths, tick_font_size=20, legend_font_size=16, y_min=y_min, y_max=y_max)
 
         # plot each parameter
         else:
@@ -192,7 +192,7 @@ def optimization_parameters_for_kind(kind, path='/tmp', all_parameters_in_one_pl
                 file = os.path.join(path, 'optimization_{}_parameter_{}.png'.format(kind_label, i))
                 [y_min, y_max] = p_bounds[:, i]
 
-                util.plot.line(xs, ys, file, line_style=line_styles, line_width=3, tick_font_size=20, legend_font_size=16, y_min=y_min, y_max=y_max)
+                util.plot.line(file, xs, ys, line_style=line_styles, line_width=3, tick_font_size=20, legend_font_size=16, y_min=y_min, y_max=y_max)
 
 
 
