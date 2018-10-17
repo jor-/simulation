@@ -264,7 +264,7 @@ def relative_parameter_confidence(parameter_set_nr, kind='WOA_WLS', path='/tmp')
 
     # plot
     file = os.path.join(path, 'relative_parameter_confidence_-_' + parameter_dirname + '_-_' + get_label(kind) + '.png')
-    util.plot.intervals(relative_parameter_confidence_percent_interval, file, use_percent_ticks=True)
+    util.plot.intervals(file, relative_parameter_confidence_percent_interval, use_percent_ticks=True)
 
 
 
