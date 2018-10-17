@@ -54,20 +54,20 @@ def optimization_cost_function_for_data_kind(data_kind='WOD', path='/tmp', y_max
     line_styles = []
     line_colors = []
     line_widths = []
-    
+
     # get data
     def get_data(kind_of_cost_functions):
         f_all = simulation.optimization.results.all_f(kind_of_cost_functions)
-        
+
         if number_of_function_evals_max > 0 and len(f_all) > number_of_function_evals_max:
             f_all = f_all[:number_of_function_evals_max]
-        
+
         if len(f_all) > 0:
             f_all = f_all / f_all[0]
-        
+
         x_all = np.arange(len(f_all))
         return x_all, f_all
-    
+
 
     # plot each function call
     if with_line_search_steps:
@@ -199,7 +199,7 @@ def optimization_parameters_for_kind(kind, path='/tmp', all_parameters_in_one_pl
 def optimization_parameters_for_data_kind(data_kind, path='/tmp', all_parameters_in_one_plot=True, with_line_search_steps=True):
     for kind in get_kind(data_kind):
         optimization_parameters_for_kind(path=path, kind=kind, with_line_search_steps=with_line_search_steps)
-    
+
 
 def optimization_parameters(path='/tmp', with_line_search_steps=True):
     for kind in simulation.optimization.min_values.COST_FUNCTION_NAMES:
@@ -241,7 +241,7 @@ def model_output(parameter_set_nr, kind='BOXES', path='/tmp', y_max=(None, None)
     file = os.path.join(path, 'model_output_-_' + kind + '_-_' + parameter_set_dirname + '_-_{tracer}.png')
     tracers = ('dop', 'po4')
     for i in range(len(tracers)):
-        util.plot.data(f[i], file.format(tracer=tracers[i]), land_value=np.nan, no_data_value=np.inf, v_min=0, v_max=y_max[i], contours=True, colorbar=False)
+        util.plot.data(file.format(tracer=tracers[i]), f[i], land_value=np.nan, no_data_value=np.inf, v_min=0, v_max=y_max[i], contours=True, colorbar=False)
 
 
 
@@ -258,10 +258,10 @@ def relative_parameter_confidence(parameter_set_nr, kind='WOA_WLS', path='/tmp')
     parameter_value = np.loadtxt(parameter_value_file)
     parameter_confidence_file = os.path.join(parameter_dir, CACHE_DIRNAME, kind, PARAMETER_CONFIDENCE_FILENAME)
     parameter_confidence = np.load(parameter_confidence_file)
-    
+
     relative_parameter_confidence_percent = 100 * parameter_confidence / parameter_value
     relative_parameter_confidence_percent_interval = [relative_parameter_confidence_percent, - relative_parameter_confidence_percent]
-    
+
     # plot
     file = os.path.join(path, 'relative_parameter_confidence_-_' + parameter_dirname + '_-_' + get_label(kind) + '.png')
     util.plot.intervals(relative_parameter_confidence_percent_interval, file, use_percent_ticks=True)
@@ -281,19 +281,19 @@ def model_confidence(parameter_set_nr, kind='WOA_WLS', path='/tmp', v_max=[None,
     if average_in_time:
         f = f.mean(axis=1)
     assert len(f) == 2
-    
+
     # set v_max
     for i in range(len(f)):
         if v_max[i] is None:
             v_max[i] = np.nanmax(f[i])
             rounding_exponent = np.sign(np.log10(v_max[i])) * np.ceil(np.abs(np.log10(v_max[i])))
             v_max[i] = np.floor(v_max[i] * 10**(-rounding_exponent)) * 10**rounding_exponent
-    
+
     # plot
     file = os.path.join(path, 'model_confidence_-_' + parameter_set_dirname + '_-_' + get_label(kind) + '_-_time_dim_df_{}'.format(time_dim_df) + '_-_{tracer}.png')
     tracers = ('dop', 'po4')
     for i in range(len(tracers)):
-        util.plot.data(f[i], file.format(tracer=tracers[i]), land_value=np.nan, no_data_value=None, v_min=0, v_max=v_max[i], contours=True, colorbar=False)
+        util.plot.data(file.format(tracer=tracers[i]), f[i], land_value=np.nan, no_data_value=None, v_min=0, v_max=v_max[i], contours=True, colorbar=False)
 
 
 def average_model_confidence_increase(parameter_set_nr, kind='WOA_WLS', path='/tmp', time_dim_df=12):
@@ -318,8 +318,8 @@ def average_model_confidence_increase(parameter_set_nr, kind='WOA_WLS', path='/t
         v_max[i] = np.ceil(v_max[i] * round_factor) / round_factor
 
     file = os.path.join(path, 'average_model_confidence_increase_-_' + parameter_set_dirname + '_-_time_dim_df_{}'.format(time_dim_df) + '_-_{}_-_{}.png')
-    util.plot.data(f[0], file.format(kind, 'dop'), land_value=np.nan, no_data_value=None, v_min=v_min[0], v_max=v_max[0])
-    util.plot.data(f[1], file.format(kind, 'po4'), land_value=np.nan, no_data_value=None, v_min=v_min[1], v_max=v_max[1])
+    util.plot.data(file.format(kind, 'dop'), f[0], land_value=np.nan, no_data_value=None, v_min=v_min[0], v_max=v_max[0])
+    util.plot.data(file.format(kind, 'po4'), f[1], land_value=np.nan, no_data_value=None, v_min=v_min[1], v_max=v_max[1])
 
 
 def model_diff(parameter_set_nr, data_kind='WOA', path='/tmp', normalize_with_deviation=False, y_max=(None, None)):
@@ -352,7 +352,7 @@ def model_diff(parameter_set_nr, data_kind='WOA', path='/tmp', normalize_with_de
 
 
     def plot_tracer_diff(diff, file, y_max=None):
-        util.plot.data(np.abs(diff), file, land_value=np.nan, no_data_value=np.inf, v_min=0, v_max=y_max)
+        util.plot.data(file, np.abs(diff), land_value=np.nan, no_data_value=np.inf, v_min=0, v_max=y_max)
 
     plot_tracer_diff(diff_boxes[0], file.format(data_kind, 'dop'), y_max=y_max[0])
     plot_tracer_diff(diff_boxes[1], file.format(data_kind, 'po4'), y_max=y_max[1])
