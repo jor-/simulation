@@ -11,6 +11,7 @@ import simulation.model.cache
 import simulation.model.constants
 import simulation.model.options
 import simulation.optimization.constants
+import simulation.optimization.database
 
 import measurements.all.data
 import measurements.universal.data
@@ -20,7 +21,7 @@ import measurements.universal.data
 
 class Base():
 
-    def __init__(self, measurements_object, model_options=None, model_job_options=None, include_initial_concentrations_factor_by_default=False):
+    def __init__(self, measurements_object, model_options=None, model_job_options=None, include_initial_concentrations_factor_by_default=False, use_global_value_database=True):
         # set measurements
         self.measurements = measurements_object
 
@@ -69,9 +70,15 @@ class Base():
                 except AttributeError:
                     pass
 
-        # set model and include_initial_concentrations_factor_by_default
+        # set model
         self.model = simulation.model.cache.Model(model_options=model_options, job_options=model_job_options)
+
+        # include_initial_concentrations_factor_by_default
         self.include_initial_concentrations_factor_by_default = include_initial_concentrations_factor_by_default
+
+        # init database
+        if use_global_value_database:
+            self.global_value_database = simulation.optimization.database.database_for_cost_function(self)
 
     # cache, measurements, parameters
 
@@ -146,6 +153,18 @@ class Base():
 
     # cost function values
 
+    def _add_value_to_database(self, value, overwrite=False):
+        try:
+            db = self.global_value_database
+        except AttributeError:
+            pass
+        else:
+            concentrations = self.model.initial_constant_concentrations
+            time_step = self.model.model_options.time_step
+            parameters = self.model.parameters
+            key = np.array([*concentrations, time_step, *parameters])
+            db.set_value_with_key(key, value, use_tolerances=False, overwrite=overwrite)
+
     def normalize(self, value):
         return value / self.measurements.number_of_measurements
 
@@ -161,7 +180,9 @@ class Base():
     def f(self, normalized=True):
         if normalized:
             filename = self._filename(simulation.optimization.constants.COST_FUNCTION_F_FILENAME.format(normalized=True))
-            return self.cache.get_value(filename, self.f_calculate_normalized, derivative_used=False, save_as_txt=True, save_as_np=False)
+            value = self.cache.get_value(filename, self.f_calculate_normalized, derivative_used=False, save_as_txt=True, save_as_np=False)
+            self._add_value_to_database(value, overwrite=False)
+            return value
         else:
             return self.unnormalize(self.f(normalized=True))
 
