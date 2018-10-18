@@ -292,7 +292,9 @@ class Metos3D_Job(util.batch.universal.system.Job):
         opt['/model/name'] = model_name
         opt['/model/tracers'] = simulation.model.constants.MODEL_TRACER[model_name]
 
-        time_steps_per_year = int(simulation.model.constants.METOS_T_DIM / time_step)
+        time_steps_per_year = simulation.model.constants.METOS_T_DIM / time_step
+        assert time_steps_per_year.is_integer()
+        time_steps_per_year = int(time_steps_per_year)
         opt['/model/time_step'] = 1 / time_steps_per_year
         opt['/model/time_steps_per_year'] = time_steps_per_year
         opt['/model/time_step_multiplier'] = time_step
