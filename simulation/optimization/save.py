@@ -85,14 +85,14 @@ def save_for_all_measurements_as_jobs(cost_function_names=None, model_names=None
                 # print waiting info
                 try:
                     is_finished = cf_job.is_finished(check_exit_code=False)
-                except simulation.optimization.job.JobError:
-                    is_finished = False
+                except util.batch.universal.system.job.JobError:
+                    is_finished = True
                 if not is_finished:
                     util.logging.info(f'Waiting for cost function evaluation {cf_job} to finish.')
                 # wait for finishing and remove
                 try:
                     cf_job.wait_until_finished(check_exit_code=True)
-                except simulation.optimization.job.JobError as error:
+                except util.batch.universal.system.JobError as error:
                     util.logging.error(f'Cost function evaluation {cf_job} failed due to {error}.')
                 else:
                     try:
