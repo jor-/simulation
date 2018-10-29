@@ -141,7 +141,7 @@ def _main():
     parser.add_argument('--all_values_time_dim', type=int, help='Set time dim for box values. If None, eval measurement values.')
 
     parser.add_argument('--min_standard_deviations', nargs='+', type=float, default=None, help='The minimal standard deviations assumed for the measurement errors applied to each dataset.')
-    parser.add_argument('--min_measurements_correlations', nargs='+', type=int, default=float('inf'), help='The minimal number of measurements used to calculate correlations applied to each dataset.')
+    parser.add_argument('--min_measurements_correlations', nargs='+', type=int, default=None, help='The minimal number of measurements used to calculate correlations applied to each dataset.')
     parser.add_argument('--max_box_distance_to_water', type=int, default=float('inf'), help='The maximal distance to water boxes to accept measurements.')
 
     parser.add_argument('-d', '--debug', action='store_true', help='Print debug infos.')
