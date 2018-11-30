@@ -12,11 +12,12 @@ import util.logging
 
 
 def get_kind(data_kind, setup_index=3):
-    data_kinds = [cost_function_name for cost_function_name in simulation.optimization.min_values.COST_FUNCTION_NAMES if cost_function_name.startswith(data_kind) and not 'LWLS' in cost_function_name]
+    data_kinds = [cost_function_name for cost_function_name in simulation.optimization.min_values.COST_FUNCTION_NAMES if cost_function_name.startswith(data_kind) and 'LWLS' not in cost_function_name]
     data_kinds_with_setup = ['setup_{}/'.format(setup_index) + data_kind for data_kind in data_kinds]
     if 'OLD' in data_kind:
-        data_kinds_with_setup = [dk for dk in data_kinds_with_setup if not '30' in dk]
+        data_kinds_with_setup = [dk for dk in data_kinds_with_setup if '30' not in dk]
     return data_kinds_with_setup
+
 
 def get_label(kind):
     if 'OLD' in kind:
@@ -68,7 +69,6 @@ def optimization_cost_function_for_data_kind(data_kind='WOD', path='/tmp', y_max
         x_all = np.arange(len(f_all))
         return x_all, f_all
 
-
     # plot each function call
     if with_line_search_steps:
         for i in range(n):
@@ -117,14 +117,14 @@ def optimization_parameters_for_kind(kind, path='/tmp', all_parameters_in_one_pl
     all_p = simulation.optimization.results.all_p(kind)
     if number_of_function_evals_max > 0 and len(all_p) > number_of_function_evals_max:
         all_p = all_p[:number_of_function_evals_max]
-    all_p = all_p.swapaxes(0,1)
+    all_p = all_p.swapaxes(0, 1)
 
     if len(all_p) > 0:
         all_x = np.arange(all_p.shape[1])
 
         n = len(all_p)
 
-        p_bounds =  np.ones([2, n])
+        p_bounds = np.ones([2, n])
         p_bounds[0] = - p_bounds[0]
 
         # plot all normalized parameters in one plot
@@ -143,12 +143,12 @@ def optimization_parameters_for_kind(kind, path='/tmp', all_parameters_in_one_pl
 
             # prepare plot all values
             if with_line_search_steps:
-                xs = [all_x]*n
+                xs = [all_x] * n
                 ys = all_p.tolist()
-                line_labels = [None]*n
-                line_styles = ['.']*n
+                line_labels = [None] * n
+                line_styles = ['.'] * n
                 line_colors = util.plot.get_colors(n)
-                line_widths = [2]*n
+                line_widths = [2] * n
             else:
                 xs = []
                 ys = []
@@ -163,16 +163,15 @@ def optimization_parameters_for_kind(kind, path='/tmp', all_parameters_in_one_pl
                 local_solver_run = local_solver_runs_list[j]
                 if number_of_function_evals_max > 0:
                     local_solver_run = local_solver_run[local_solver_run < number_of_function_evals_max]
-                xs.extend([all_x[local_solver_run]]*n)
+                xs.extend([all_x[local_solver_run]] * n)
                 ys.extend(all_p.T[local_solver_run].T.tolist())
-                line_styles.extend(['-']*n)
+                line_styles.extend(['-'] * n)
                 line_colors.extend(util.plot.get_colors(n))
-                line_widths.extend([3]*n)
+                line_widths.extend([3] * n)
                 if j == 0:
                     line_labels.extend(p_labels)
                 else:
-                    line_labels.extend([None]*n)
-
+                    line_labels.extend([None] * n)
 
             # prepare rest
             file = os.path.join(path, 'optimization_normalized_parameters_-_{}.png'.format(kind_label))
@@ -184,7 +183,7 @@ def optimization_parameters_for_kind(kind, path='/tmp', all_parameters_in_one_pl
         # plot each parameter
         else:
             solver_x = simulation.optimization.results.solver_f_indices(kind)
-            solver_p = simulation.optimization.results.solver_p(kind).swapaxes(0,1)
+            solver_p = simulation.optimization.results.solver_p(kind).swapaxes(0, 1)
             xs = [all_x, solver_x]
             line_styles = ['-', 'o']
             for i in range(n):
@@ -193,7 +192,6 @@ def optimization_parameters_for_kind(kind, path='/tmp', all_parameters_in_one_pl
                 [y_min, y_max] = p_bounds[:, i]
 
                 util.plot.line(file, xs, ys, line_style=line_styles, line_width=3, tick_font_size=20, legend_font_size=16, y_min=y_min, y_max=y_max)
-
 
 
 def optimization_parameters_for_data_kind(data_kind, path='/tmp', all_parameters_in_one_plot=True, with_line_search_steps=True):
@@ -211,9 +209,7 @@ def optimization(path='/tmp', with_line_search_steps=True):
     optimization_parameters(path=path, with_line_search_steps=with_line_search_steps)
 
 
-
 # model output
-
 
 def model_output(parameter_set_nr, kind='BOXES', path='/tmp', y_max=(None, None), average_in_time=False):
     from simulation.model.constants import DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME, DATABASE_TIME_STEP_DIRNAME, DATABASE_PARAMETERS_DIRNAME, DATABASE_PARAMETERS_FILENAME
@@ -244,7 +240,6 @@ def model_output(parameter_set_nr, kind='BOXES', path='/tmp', y_max=(None, None)
         util.plot.data(file.format(tracer=tracers[i]), f[i], land_value=np.nan, no_data_value=np.inf, v_min=0, v_max=y_max[i], contours=True, colorbar=False)
 
 
-
 def relative_parameter_confidence(parameter_set_nr, kind='WOA_WLS', path='/tmp'):
     from simulation.model.constants import DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME, DATABASE_TIME_STEP_DIRNAME, DATABASE_PARAMETERS_DIRNAME, DATABASE_PARAMETERS_FILENAME
     from simulation.accuracy.constants import CACHE_DIRNAME, PARAMETER_CONFIDENCE_FILENAME
@@ -265,7 +260,6 @@ def relative_parameter_confidence(parameter_set_nr, kind='WOA_WLS', path='/tmp')
     # plot
     file = os.path.join(path, 'relative_parameter_confidence_-_' + parameter_dirname + '_-_' + get_label(kind) + '.png')
     util.plot.intervals(file, relative_parameter_confidence_percent_interval, use_percent_ticks=True)
-
 
 
 def model_confidence(parameter_set_nr, kind='WOA_WLS', path='/tmp', v_max=[None, None], time_dim_confidence=12, time_dim_df=12, average_in_time=False):
@@ -307,9 +301,9 @@ def average_model_confidence_increase(parameter_set_nr, kind='WOA_WLS', path='/t
     f_file = os.path.join(DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME.format('dop_po4'), DATABASE_TIME_STEP_DIRNAME.format(1), parameter_set_dirname, CACHE_DIRNAME, kind, AVERAGE_MODEL_CONFIDENCE_INCREASE_FILENAME.format(time_dim_df))
     f = np.load(f_file)
 
-    v_min = np.nanmin(f, axis=tuple(np.arange(f.ndim-1)+1))
-    v_max = np.nanmax(f, axis=tuple(np.arange(f.ndim-1)+1))
-    significant_digits=3
+    v_min = np.nanmin(f, axis=tuple(np.arange(f.ndim - 1) + 1))
+    v_max = np.nanmax(f, axis=tuple(np.arange(f.ndim - 1) + 1))
+    significant_digits = 3
     for i in range(len(v_min)):
         round_factor = 10 ** (np.ceil(-np.log10(v_min[i])) + significant_digits)
         v_min[i] = np.floor(v_min[i] * round_factor) / round_factor
@@ -349,7 +343,6 @@ def model_diff(parameter_set_nr, data_kind='WOA', path='/tmp', normalize_with_de
         diff_boxes = data_base.convert_to_boxes(diff, no_data_value=np.inf)
     else:
         raise ValueError('Data_kind {} unknown. Must be "WOA" or "WOD".'.format(data_kind))
-
 
     def plot_tracer_diff(diff, file, y_max=None):
         util.plot.data(file, np.abs(diff), land_value=np.nan, no_data_value=np.inf, v_min=0, v_max=y_max)
