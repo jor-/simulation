@@ -261,7 +261,7 @@ class Metos3D_Job(util.batch.universal.system.Job):
             nodes_setup.memory = simulation.model.constants.JOB_MEMORY_GB
 
         # check/set walltime
-        sec_per_year = np.exp(- (nodes_setup.nodes * nodes_setup.cpus) / (6 * 16)) * 10 + 2.5
+        sec_per_year = 10 * np.exp(- (nodes_setup.nodes * nodes_setup.cpus) / 80) + 2.5
         sec_per_year /= time_step**(0.5)
         estimated_walltime_hours = np.ceil(years * sec_per_year / 60**2)
         util.logging.debug('The estimated walltime for {} nodes with {} cpus, {} years and time step {} is {} hours.'.format(nodes_setup.nodes, nodes_setup.cpus, years, time_step, estimated_walltime_hours))
