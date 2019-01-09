@@ -118,7 +118,7 @@ def _main():
 
     parser = argparse.ArgumentParser(description='Evaluate and save model values.')
 
-    parser.add_argument('--model_name', default=simulation.model.constants.MODEL_NAMES[0], choices=simulation.model.constants.MODEL_NAMES, help='The name of the model that should be used.')
+    parser.add_argument('model_name', choices=simulation.model.constants.MODEL_NAMES, help='The name of the model that should be used.')
     parser.add_argument('--time_step', type=int, default=1, help='The time step of the model that should be used. Default: 1')
 
     parser.add_argument('--concentrations', type=float, nargs='+', help='The constant concentration values for the tracers in the initial spinup that should be used. If not specified the default model concentrations are used.')

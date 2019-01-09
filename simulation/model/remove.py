@@ -49,11 +49,11 @@ def _main():
 
     parser = argparse.ArgumentParser(description='Removing values from the database.')
 
-    parser.add_argument('--model_name', default=simulation.model.constants.MODEL_NAMES[0], choices=simulation.model.constants.MODEL_NAMES, help='The name of the model that should be used.')
+    parser.add_argument('model_name', choices=simulation.model.constants.MODEL_NAMES, help='The name of the model that should be used.')
+    parser.add_argument('--concentrations_index', type=int, help='The concentration index that should be used.')
     parser.add_argument('--time_step', type=int, default=None, help='The time step of the model that should be used. Default: 1')
-    parser.add_argument('--use_vector_concentrations', action='store_true', help='Remove one entry for vector concentrations and not for constant concentrations.')
-    parser.add_argument('--concentrations_index', type=int, required=True, help='The concentration index that should be used.')
     parser.add_argument('--parameter_set_index', type=int, default=None, help='The model parameter index that should be used. If none is specified, all parameter sets for the concentration index are removed.')
+    parser.add_argument('--use_vector_concentrations', action='store_true', help='Remove one entry for vector concentrations and not for constant concentrations.')
     parser.add_argument('--version', action='version', version='%(prog)s {}'.format(simulation.__version__))
 
     args = parser.parse_args()
