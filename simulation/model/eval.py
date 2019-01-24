@@ -460,6 +460,7 @@ class Model_Database:
             job.make_read_only_input(make_read_only)
             job.wait_until_finished()
             job.make_read_only_output(make_read_only)
+            job.remove_tracer_info_files(force=False, not_exist_okay=True)
 
     def is_run_matching_options(self, run_dir, spinup_options):
         if run_dir is not None:
