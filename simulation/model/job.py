@@ -148,6 +148,10 @@ class Metos3D_Job(util.batch.universal.system.Job):
             for file in self.tracer_output_files:
                 util.io.fs.make_read_only(file)
 
+    def remove_tracer_info_files(self, force=False, not_exist_okay=False):
+        for file in self.tracer_input_info_files + self.tracer_output_info_files:
+            util.io.fs.remove_file(file, force=force, not_exist_okay=not_exist_okay)
+
     # exit code and is finished
 
     @property
