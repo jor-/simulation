@@ -147,8 +147,6 @@ class Metos3D_Job(util.batch.universal.system.Job):
         if read_only:
             for file in self.tracer_output_files:
                 util.io.fs.make_read_only(file)
-            for file in self.tracer_output_info_files:
-                util.io.fs.make_read_only(file)
 
     # exit code and is finished
 
