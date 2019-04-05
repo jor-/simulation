@@ -108,6 +108,7 @@ def save_for_all_measurements_as_jobs(cost_function_names=None, model_names=None
                 model = simulation.model.cache.Model(job_options=model_job_options)
 
                 for model_options in model.iterator(model_names=[model_name]):
+                    # init cost function object
                     measurements_object = measurements.all.data.all_measurements(
                         tracers=model_options.tracers,
                         min_standard_deviation=min_standard_deviations,
@@ -119,42 +120,47 @@ def save_for_all_measurements_as_jobs(cost_function_names=None, model_names=None
                         model_job_options=model_job_options,
                         include_initial_concentrations_factor_by_default=include_initial_concentrations_factor_by_default)
 
-                    if (eval_f and not cost_function.f_available()) or (eval_df and not cost_function.df_available()):
+                    try:
+                        # check if evaluation is needed
+                        eval_f_for_cf = eval_f and not cost_function.f_available()
+                        eval_df_for_cf = eval_df and not cost_function.df_available()
 
-                        if max_parallel_jobs is not None and len(running_jobs) > max_parallel_jobs:
+                        # wait for running jobs to finish
+                        if (eval_f_for_cf or eval_df_for_cf) and max_parallel_jobs is not None and len(running_jobs) > max_parallel_jobs:
                             wait_for_next_job()
+                    except util.batch.universal.system.JobError as error:
+                        util.logging.error(f'Cost function evaluation {cf_job} failed due to {error}.')
+                    else:
+                        # start job if needed
+                        if eval_f_for_cf or eval_df_for_cf:
+                            with simulation.optimization.job.CostFunctionJob(
+                                    cost_function_name,
+                                    model_options,
+                                    model_job_options=model_job_options,
+                                    min_standard_deviations=min_standard_deviations,
+                                    min_measurements_correlations=min_measurements_correlations,
+                                    max_box_distance_to_water=max_box_distance_to_water,
+                                    eval_f=eval_f_for_cf,
+                                    eval_df=eval_df_for_cf,
+                                    cost_function_job_options=cost_function_job_options,
+                                    include_initial_concentrations_factor_by_default=include_initial_concentrations_factor_by_default,
+                                    remove_output_dir_on_close=False) as cf_job:
+                                cf_job.start()
 
-                        # start job
-                        with simulation.optimization.job.CostFunctionJob(
-                                cost_function_name,
-                                model_options,
-                                model_job_options=model_job_options,
-                                min_standard_deviations=min_standard_deviations,
-                                min_measurements_correlations=min_measurements_correlations,
-                                max_box_distance_to_water=max_box_distance_to_water,
-                                eval_f=eval_f,
-                                eval_df=eval_df,
-                                cost_function_job_options=cost_function_job_options,
-                                include_initial_concentrations_factor_by_default=include_initial_concentrations_factor_by_default,
-                                remove_output_dir_on_close=False) as cf_job:
-                            cf_job.start()
-
-                            util.logging.info('Cost function {cost_function_name} for values in {model_parameter_dir} with eval_f={eval_f} and eval_df={eval_df} job started with id {job_id}.'.format(
-                                cost_function_name=cost_function_name,
-                                model_parameter_dir=model.parameter_set_dir,
-                                eval_f=eval_f,
-                                eval_df=eval_df,
-                                job_id=cf_job.id))
+                                util.logging.info('Cost function {cost_function_name} for values in {model_parameter_dir} with eval_f={eval_f} and eval_df={eval_df} job started with id {job_id}.'.format(
+                                    cost_function_name=cost_function_name,
+                                    model_parameter_dir=model.parameter_set_dir,
+                                    eval_f=eval_f_for_cf,
+                                    eval_df=eval_df_for_cf,
+                                    job_id=cf_job.id))
 
                             running_jobs.append(cf_job)
-
-                    else:
-
-                        util.logging.debug('Cost function {cost_function_name} for values in {model_parameter_dir} with eval_f={eval_f} and eval_df={eval_df} are already available.'.format(
-                            cost_function_name=cost_function_name,
-                            model_parameter_dir=model.parameter_set_dir,
-                            eval_f=eval_f,
-                            eval_df=eval_df))
+                        else:
+                            util.logging.debug('Cost function {cost_function_name} for values in {model_parameter_dir} with eval_f={eval_f} and eval_df={eval_df} are already available.'.format(
+                                cost_function_name=cost_function_name,
+                                model_parameter_dir=model.parameter_set_dir,
+                                eval_f=eval_f_for_cf,
+                                eval_df=eval_df_for_cf))
 
         # remove all jobs
         while len(running_jobs) > 0:
