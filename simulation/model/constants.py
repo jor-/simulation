@@ -47,7 +47,7 @@ JOB_MEMORY_GB = 4
 # model spinup
 MODEL_SPINUP_MAX_YEARS = 50000
 MODEL_START_FROM_CLOSEST_PARAMETER_SET = False
-MODEL_DEFAULT_SPINUP_OPTIONS = {'years':10000, 'tolerance':0.0, 'combination':'or', 'match_type': 'best'}
+MODEL_DEFAULT_SPINUP_OPTIONS = {'years': 10000, 'tolerance': 0.0, 'combination': 'or', 'match_type': 'best'}
 MODEL_DEFAULT_DERIVATIVE_OPTIONS = {'years': 500, 'step_size': 10**(-6), 'accuracy_order': 2}
 
 
@@ -91,92 +91,92 @@ assert len(MODEL_DEFAULT_INITIAL_CONCENTRATION['NPZD-DOP']) == len(MODEL_TRACER[
 MODEL_PARAMETER_BOUNDS = {}
 
 MODEL_PARAMETER_BOUNDS['MITgcm-PO4-DOP'] = np.array([
-[0, METOS_T_DIM],       # lambdaDOPprime  = u(1)/360.d0   ! DOP reminalization rate   [1/y]
-[0, np.inf],            # muP             = u(2)          ! maximum groth rate P      [1/d]
-[0, 1],                 # sigmaDOP        = u(3)          ! fraction of DOP           [1]
-[10**(-8), np.inf],     # KN              = u(4)          ! N half saturation         [mmolP/m^3]
-[10**(-8), np.inf],     # KI              = u(5)          ! I half saturation         [W/m^2]
-[0, np.inf],            # kw              = u(6)          ! attenuation of water      [1/m]
-[0, np.inf]             # b               = u(7)          ! power law coefficient     [1]
+    [0, METOS_T_DIM],       # lambdaDOPprime  = u(1)/360.d0   ! DOP reminalization rate   [1/y]
+    [0, np.inf],            # muP             = u(2)          ! maximum groth rate P      [1/d]
+    [0, 1],                 # sigmaDOP        = u(3)          ! fraction of DOP           [1]
+    [10**(-8), np.inf],     # KN              = u(4)          ! N half saturation         [mmolP/m^3]
+    [10**(-8), np.inf],     # KI              = u(5)          ! I half saturation         [W/m^2]
+    [0, np.inf],            # kw              = u(6)          ! attenuation of water      [1/m]
+    [0, np.inf]             # b               = u(7)          ! power law coefficient     [1]
 ])
 assert MODEL_PARAMETER_BOUNDS['MITgcm-PO4-DOP'].shape == (7, 2)
 
 MODEL_PARAMETER_BOUNDS['N'] = np.array([
-[0, np.inf],            # kw  = u(1)          ! attenuation of water      [1/m]
-[0, np.inf],            # muP = u(2)          ! maximum groth rate P      [1/d]
-[10**(-8), np.inf],     # KN  = u(3)          ! N half saturation         [mmolP/m^3]
-[10**(-8), np.inf],     # KI  = u(4)          ! I half saturation         [W/m^2]
-[0, np.inf]             # b   = u(5)          ! power law coefficient     [1]
+    [0, np.inf],            # kw  = u(1)          ! attenuation of water      [1/m]
+    [0, np.inf],            # muP = u(2)          ! maximum groth rate P      [1/d]
+    [10**(-8), np.inf],     # KN  = u(3)          ! N half saturation         [mmolP/m^3]
+    [10**(-8), np.inf],     # KI  = u(4)          ! I half saturation         [W/m^2]
+    [0, np.inf]             # b   = u(5)          ! power law coefficient     [1]
 ])
 assert MODEL_PARAMETER_BOUNDS['N'].shape == (5, 2)
 
 MODEL_PARAMETER_BOUNDS['N-DOP'] = np.array([
-[0, np.inf],            # kw              = u(1)          ! attenuation of water      [1/m]
-[0, np.inf],            # muP             = u(2)          ! maximum groth rate P      [1/d]
-[10**(-8), 1],          # KN              = u(3)          ! N half saturation         [mmolP/m^3]
-[10**(-8), np.inf],     # KI              = u(4)          ! I half saturation         [W/m^2]
-[0, 1],                 # sigmaDOP        = u(5)          ! fraction of DOP           [1]
-[0, METOS_T_DIM],       # lambdaDOPprime  = u(6)/360.d0   ! DOP reminalization rate   [1/y]
-[0, np.inf]             # b               = u(7)          ! power law coefficient     [1]
+    [0, np.inf],            # kw              = u(1)          ! attenuation of water      [1/m]
+    [0, np.inf],            # muP             = u(2)          ! maximum groth rate P      [1/d]
+    [10**(-8), 1],          # KN              = u(3)          ! N half saturation         [mmolP/m^3]
+    [10**(-8), np.inf],     # KI              = u(4)          ! I half saturation         [W/m^2]
+    [0, 1],                 # sigmaDOP        = u(5)          ! fraction of DOP           [1]
+    [0, METOS_T_DIM],       # lambdaDOPprime  = u(6)/360.d0   ! DOP reminalization rate   [1/y]
+    [0, np.inf]             # b               = u(7)          ! power law coefficient     [1]
 ])
 assert MODEL_PARAMETER_BOUNDS['N-DOP'].shape == (7, 2)
 
 MODEL_PARAMETER_BOUNDS['NP-DOP'] = np.array([
-[0, np.inf],            # kw              = u(1)          ! attenuation of water                  [1/m]
-[0, np.inf],            # kc              = u(2)          ! attenuation of chlorophyll (P)        [1/m (m^3/mmolP)]
-[0, np.inf],            # muP             = u(3)          ! maximum groth rate P                  [1/d]
-[0, np.inf],            # muZ             = u(4)          ! maximum groth rate Z                  [1/d]
-[10**(-8), np.inf],     # KN              = u(5)          ! N half saturation                     [mmolP/m^3]
-[10**(-8), np.inf],     # KP              = u(6)          ! P half saturation                     [mmolP/m^3]
-[10**(-8), np.inf],     # KI              = u(7)          ! I half saturation                     [W/m^2]
-[0, 1],                 # sigmaDOP        = u(8)          ! fraction of DOP                       [1]
-[0, np.inf],            # lambdaP         = u(9)          ! linear loss rate P (euphotic)         [1/d]
-[0, np.inf],            # kappaP          = u(10)         ! quadratic loss rate P (euphotic)      [1/d (m^3/mmolP)]
-[0, np.inf],            # lambdaPprime    = u(11)         ! linear loss rate Z (all layers)       [1/d]
-[0, METOS_T_DIM],       # lambdaDOPprime  = u(12)/360.d0  ! DOP reminalization rate (all layers)  [1/y]
-[0, np.inf],            # b               = u(13)         ! power law coefficient                 [1]
+    [0, np.inf],            # kw              = u(1)          ! attenuation of water                  [1/m]
+    [0, np.inf],            # kc              = u(2)          ! attenuation of chlorophyll (P)        [1/m (m^3/mmolP)]
+    [0, np.inf],            # muP             = u(3)          ! maximum groth rate P                  [1/d]
+    [0, np.inf],            # muZ             = u(4)          ! maximum groth rate Z                  [1/d]
+    [10**(-8), np.inf],     # KN              = u(5)          ! N half saturation                     [mmolP/m^3]
+    [10**(-8), np.inf],     # KP              = u(6)          ! P half saturation                     [mmolP/m^3]
+    [10**(-8), np.inf],     # KI              = u(7)          ! I half saturation                     [W/m^2]
+    [0, 1],                 # sigmaDOP        = u(8)          ! fraction of DOP                       [1]
+    [0, np.inf],            # lambdaP         = u(9)          ! linear loss rate P (euphotic)         [1/d]
+    [0, np.inf],            # kappaP          = u(10)         ! quadratic loss rate P (euphotic)      [1/d (m^3/mmolP)]
+    [0, np.inf],            # lambdaPprime    = u(11)         ! linear loss rate Z (all layers)       [1/d]
+    [0, METOS_T_DIM],       # lambdaDOPprime  = u(12)/360.d0  ! DOP reminalization rate (all layers)  [1/y]
+    [0, np.inf],            # b               = u(13)         ! power law coefficient                 [1]
 ])
 assert MODEL_PARAMETER_BOUNDS['NP-DOP'].shape == (13, 2)
 
 MODEL_PARAMETER_BOUNDS['NPZ-DOP'] = np.array([
-[0, np.inf],            # kw              = u(1)          ! attenuation of water                  [1/m]
-[0, np.inf],            # kc              = u(2)          ! attenuation of chlorophyll (P)        [1/m (m^3/mmolP)]
-[0, np.inf],            # muP             = u(3)          ! maximum groth rate P                  [1/d]
-[0, np.inf],            # muZ             = u(4)          ! maximum groth rate Z                  [1/d]
-[10**(-8), np.inf],     # KN              = u(5)          ! N half saturation                     [mmolP/m^3]
-[10**(-8), np.inf],     # KP              = u(6)          ! P half saturation                     [mmolP/m^3]
-[10**(-8), np.inf],     # KI              = u(7)          ! I half saturation                     [W/m^2]
-[0, 1],                 # sigmaZ          = u(8)          ! fraction of Z                         [1]
-[0, 1],                 # sigmaDOP        = u(9)          ! fraction of DOP                       [1]
-[0, np.inf],            # lambdaP         = u(10)         ! linear loss rate P (euphotic)         [1/d]
-[0, np.inf],            # lambdaZ         = u(11)         ! linear loss rate Z (euphotic)         [1/d]
-[0, np.inf],            # kappaZ          = u(12)         ! quadratic loss rate Z (euphotic)      [1/d (m^3/mmolP)]
-[0, np.inf],            # lambdaPprime    = u(13)         ! linear loss rate P (all layers)       [1/d]
-[0, np.inf],            # lambdaZprime    = u(14)         ! linear loss rate Z (all layers)       [1/d]
-[0, METOS_T_DIM],       # lambdaDOPprime  = u(15)/360.d0  ! DOP reminalization rate (all layers)  [1/y]
-[0, np.inf],            # b               = u(16)         ! power law coefficient                 [1]
+    [0, np.inf],            # kw              = u(1)          ! attenuation of water                  [1/m]
+    [0, np.inf],            # kc              = u(2)          ! attenuation of chlorophyll (P)        [1/m (m^3/mmolP)]
+    [0, np.inf],            # muP             = u(3)          ! maximum groth rate P                  [1/d]
+    [0, np.inf],            # muZ             = u(4)          ! maximum groth rate Z                  [1/d]
+    [10**(-8), np.inf],     # KN              = u(5)          ! N half saturation                     [mmolP/m^3]
+    [10**(-8), np.inf],     # KP              = u(6)          ! P half saturation                     [mmolP/m^3]
+    [10**(-8), np.inf],     # KI              = u(7)          ! I half saturation                     [W/m^2]
+    [0, 1],                 # sigmaZ          = u(8)          ! fraction of Z                         [1]
+    [0, 1],                 # sigmaDOP        = u(9)          ! fraction of DOP                       [1]
+    [0, np.inf],            # lambdaP         = u(10)         ! linear loss rate P (euphotic)         [1/d]
+    [0, np.inf],            # lambdaZ         = u(11)         ! linear loss rate Z (euphotic)         [1/d]
+    [0, np.inf],            # kappaZ          = u(12)         ! quadratic loss rate Z (euphotic)      [1/d (m^3/mmolP)]
+    [0, np.inf],            # lambdaPprime    = u(13)         ! linear loss rate P (all layers)       [1/d]
+    [0, np.inf],            # lambdaZprime    = u(14)         ! linear loss rate Z (all layers)       [1/d]
+    [0, METOS_T_DIM],       # lambdaDOPprime  = u(15)/360.d0  ! DOP reminalization rate (all layers)  [1/y]
+    [0, np.inf],            # b               = u(16)         ! power law coefficient                 [1]
 ])
 assert MODEL_PARAMETER_BOUNDS['NPZ-DOP'].shape == (16, 2)
 
 MODEL_PARAMETER_BOUNDS['NPZD-DOP'] = np.array([
-[0, np.inf],            # kw              = u(1)          ! attenuation of water                  [1/m]
-[0, np.inf],            # kc              = u(2)          ! attenuation of chlorophyll (P)        [1/m (m^3/mmolP)]
-[0, np.inf],            # muP             = u(3)          ! maximum groth rate P                  [1/d]
-[0, np.inf],            # muZ             = u(4)          ! maximum groth rate Z                  [1/d]
-[10**(-8), np.inf],     # KN              = u(5)          ! N half saturation                     [mmolP/m^3]
-[10**(-8), np.inf],     # KP              = u(6)          ! P half saturation                     [mmolP/m^3]
-[10**(-8), np.inf],     # KI              = u(7)          ! I half saturation                     [W/m^2]
-[0, 1],                 # sigmaZ          = u(8)          ! fraction of Z                         [1]
-[0, 1],                 # sigmaDOP        = u(9)          ! fraction of DOP                       [1]
-[0, np.inf],            # lambdaP         = u(10)         ! linear loss rate P (euphotic)         [1/d]
-[0, np.inf],            # lambdaZ         = u(11)         ! linear loss rate Z (euphotic)         [1/d]
-[0, np.inf],            # kappaZ          = u(12)         ! quadratic loss rate Z (euphotic)      [1/d (m^3/mmolP)]
-[0, np.inf],            # lambdaPprime    = u(13)         ! linear loss rate P (all layers)       [1/d]
-[0, np.inf],            # lambdaZprime    = u(14)         ! linear loss rate Z (all layers)       [1/d]
-[0, np.inf],            # lambdaDprime    = u(15)         ! linear lass rate D (all layers)       [1/d]
-[0, METOS_T_DIM],       # lambdaDOPprime  = u(16)/360.d0  ! DOP reminalization rate (all layers)  [1/y]
-[0, np.inf],            # aD              = u(17)         ! increase of sinking speed w.r.t. depth    [1/d]
-[0, np.inf],            # bD              = u(18)         ! initial sinking speed                     [m/d]
+    [0, np.inf],            # kw              = u(1)          ! attenuation of water                  [1/m]
+    [0, np.inf],            # kc              = u(2)          ! attenuation of chlorophyll (P)        [1/m (m^3/mmolP)]
+    [0, np.inf],            # muP             = u(3)          ! maximum groth rate P                  [1/d]
+    [0, np.inf],            # muZ             = u(4)          ! maximum groth rate Z                  [1/d]
+    [10**(-8), np.inf],     # KN              = u(5)          ! N half saturation                     [mmolP/m^3]
+    [10**(-8), np.inf],     # KP              = u(6)          ! P half saturation                     [mmolP/m^3]
+    [10**(-8), np.inf],     # KI              = u(7)          ! I half saturation                     [W/m^2]
+    [0, 1],                 # sigmaZ          = u(8)          ! fraction of Z                         [1]
+    [0, 1],                 # sigmaDOP        = u(9)          ! fraction of DOP                       [1]
+    [0, np.inf],            # lambdaP         = u(10)         ! linear loss rate P (euphotic)         [1/d]
+    [0, np.inf],            # lambdaZ         = u(11)         ! linear loss rate Z (euphotic)         [1/d]
+    [0, np.inf],            # kappaZ          = u(12)         ! quadratic loss rate Z (euphotic)      [1/d (m^3/mmolP)]
+    [0, np.inf],            # lambdaPprime    = u(13)         ! linear loss rate P (all layers)       [1/d]
+    [0, np.inf],            # lambdaZprime    = u(14)         ! linear loss rate Z (all layers)       [1/d]
+    [0, np.inf],            # lambdaDprime    = u(15)         ! linear lass rate D (all layers)       [1/d]
+    [0, METOS_T_DIM],       # lambdaDOPprime  = u(16)/360.d0  ! DOP reminalization rate (all layers)  [1/y]
+    [0, np.inf],            # aD              = u(17)         ! increase of sinking speed w.r.t. depth    [1/d]
+    [0, np.inf],            # bD              = u(18)         ! initial sinking speed                     [m/d]
 ])
 assert MODEL_PARAMETER_BOUNDS['NPZD-DOP'].shape == (18, 2)
 
@@ -190,12 +190,11 @@ MODEL_PARAMETER_TYPICAL['NPZ-DOP'] = np.array([0.01, 1, 1, 1, 1, 1, 10, 1, 1, 0.
 MODEL_PARAMETER_TYPICAL['NPZD-DOP'] = np.array([0.01, 1, 1, 1, 1, 1, 10, 1, 1, 0.01, 0.01, 1, 0.01, 0.01, 0.01, 1, 0.01, 0.01])
 
 assert len(MODEL_PARAMETER_TYPICAL['MITgcm-PO4-DOP']) == len(MODEL_PARAMETER_BOUNDS['MITgcm-PO4-DOP'])
-assert len(MODEL_PARAMETER_TYPICAL['N']) ==  len(MODEL_PARAMETER_BOUNDS['N'])
-assert len(MODEL_PARAMETER_TYPICAL['N-DOP']) ==  len(MODEL_PARAMETER_BOUNDS['N-DOP'])
-assert len(MODEL_PARAMETER_TYPICAL['NP-DOP']) ==  len(MODEL_PARAMETER_BOUNDS['NP-DOP'])
-assert len(MODEL_PARAMETER_TYPICAL['NPZ-DOP']) ==  len(MODEL_PARAMETER_BOUNDS['NPZ-DOP'])
-assert len(MODEL_PARAMETER_TYPICAL['NPZD-DOP']) ==  len(MODEL_PARAMETER_BOUNDS['NPZD-DOP'])
-
+assert len(MODEL_PARAMETER_TYPICAL['N']) == len(MODEL_PARAMETER_BOUNDS['N'])
+assert len(MODEL_PARAMETER_TYPICAL['N-DOP']) == len(MODEL_PARAMETER_BOUNDS['N-DOP'])
+assert len(MODEL_PARAMETER_TYPICAL['NP-DOP']) == len(MODEL_PARAMETER_BOUNDS['NP-DOP'])
+assert len(MODEL_PARAMETER_TYPICAL['NPZ-DOP']) == len(MODEL_PARAMETER_BOUNDS['NPZ-DOP'])
+assert len(MODEL_PARAMETER_TYPICAL['NPZD-DOP']) == len(MODEL_PARAMETER_BOUNDS['NPZD-DOP'])
 
 
 # database directories and files
@@ -239,6 +238,6 @@ DATABASE_TMP_DIR = os.path.join(util.constants.TMP_DIR, 'metos3d_simulations')
 
 # model interpolator
 MODEL_INTERPOLATOR_FILE = os.path.join(DATABASE_OUTPUT_DIR, 'interpolator.ppy')
-MODEL_INTERPOLATOR_AMOUNT_OF_WRAP_AROUND = (1/METOS_T_DIM, 1/METOS_X_DIM, 0, 0)
+MODEL_INTERPOLATOR_AMOUNT_OF_WRAP_AROUND = (1 / METOS_T_DIM, 1 / METOS_X_DIM, 0, 0)
 MODEL_INTERPOLATOR_NUMBER_OF_LINEAR_INTERPOLATOR = 0
 MODEL_INTERPOLATOR_SINGLE_OVERLAPPING_AMOUNT_OF_LINEAR_INTERPOLATOR = 0
