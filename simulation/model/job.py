@@ -16,9 +16,13 @@ import util.logging
 class Metos3D_Job(util.batch.universal.system.Job):
 
     IGNORE_ERROR_KEYWORDS = tuple(error_message.lower() for error_message in (
-        'Error_Path = ',
-        'cpuinfo: error while loading shared libraries: libgcc_s.so.1: cannot open shared object file: No such file or directory',
-        "<class 'socket.error'>"))
+        "Error_Path = ",
+        "cpuinfo: error while loading shared libraries: libgcc_s.so.1: cannot open shared object file: No such file or directory",
+        "<class 'socket.error'>",
+        "failed to create a socket (sock2): <class 'socket.error'>, [Errno 98] Address already in use",
+        "failed to connect to the socket (sock2): {<type 'exceptions.UnboundLocalError'>, local variable 'sock2' referenced before assignment}.",
+        "UnboundLocalError: local variable 'sock2' referenced before assignment"
+    ))
 
     # run options
 
