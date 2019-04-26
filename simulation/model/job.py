@@ -1,6 +1,7 @@
 import os
 import time
 import re
+import warnings
 
 import numpy as np
 
@@ -328,16 +329,26 @@ class Metos3D_Job(util.batch.universal.system.Job):
             opt['/metos3d/tracer_input_filenames'] = ['{}_input.petsc'.format(tracer) for tracer in opt['/model/tracers']]
 
             for i in range(len(opt['/model/tracers'])):
-                tracer_input_base_file = os.path.expanduser(os.path.expandvars(tracer_input_files[i]))
-                tracer_input_result_file = os.path.join(output_dir, opt['/metos3d/tracer_input_filenames'][i])
-
+                # check existence of input files
+                tracer_input_file_base = os.path.expanduser(os.path.expandvars(tracer_input_files[i]))
+                if not os.path.exists(tracer_input_file_base):
+                    raise FileNotFoundError(tracer_input_file_base)
+                # make input files for metos3d
+                tracer_input_file_metos3d = os.path.join(output_dir, opt['/metos3d/tracer_input_filenames'][i])
                 if total_concentration_factor == 1:
-                    tracer_input_base_file = os.path.relpath(tracer_input_base_file, start=output_dir)
-                    os.symlink(tracer_input_base_file, tracer_input_result_file)
+                    tracer_input_file_base_rel = os.path.relpath(tracer_input_file_base, start=output_dir)
+                    os.symlink(tracer_input_file_base_rel, tracer_input_file_metos3d)
+                    # sometimes relative links does not work on file systems so absolute links are a fallback
+                    if not os.path.exists(tracer_input_file_metos3d):
+                        warnings.warn(f'Relative symbolic link from {output_dir} to {tracer_input_file_base_rel} does not work. Trying absolute symbolic link.')
+                        tracer_input_file_base_abs = os.path.abspath(tracer_input_file_base)
+                        os.remove(tracer_input_file_metos3d)
+                        os.symlink(tracer_input_file_base_abs, tracer_input_file_metos3d)
                 else:
-                    tracer_input = util.petsc.universal.load_petsc_vec_to_numpy_array(tracer_input_base_file)
+                    tracer_input = util.petsc.universal.load_petsc_vec_to_numpy_array(tracer_input_file_base)
                     tracer_input = tracer_input * total_concentration_factor
-                    util.petsc.universal.save_numpy_array_to_petsc_vec(tracer_input_result_file, tracer_input)
+                    util.petsc.universal.save_numpy_array_to_petsc_vec(tracer_input_file_metos3d, tracer_input)
+                assert os.path.exists(tracer_input_file_metos3d)
 
         # initial_constant_concentrations
         else:
