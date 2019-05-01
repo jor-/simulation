@@ -70,18 +70,32 @@ class Base():
                 except AttributeError:
                     pass
 
-        # set model
-        self.model = simulation.model.cache.Model(model_options=model_options, job_options=model_job_options)
-
         # include_initial_concentrations_factor_by_default
         self.include_initial_concentrations_factor_by_default = include_initial_concentrations_factor_by_default
+
+        # set model
+        self.model = simulation.model.cache.Model(model_options=model_options, job_options=model_job_options)
 
         # init database
         if use_global_value_database:
             self.global_value_database = simulation.optimization.database.database_for_cost_function(self)
 
-    # cache, measurements, parameters
+    # model options
+    @property
+    def model_options(self):
+        return self.model.model_options
 
+    @model_options.setter
+    def model_options(self, model_options):
+        self.model.model_options = model_options
+        try:
+            self.global_value_database
+        except AttributeError:
+            pass
+        else:
+            self.global_value_database = simulation.optimization.database.database_for_cost_function(self)
+
+    # cache, measurements, parameters
     @property
     def cache(self):
         return self.model._cache
@@ -97,7 +111,7 @@ class Base():
 
     @property
     def initial_base_concentrations(self):
-        model_name = self.model.model_options.model_name
+        model_name = self.model_options.model_name
         initial_base_concentrations = simulation.model.constants.MODEL_DEFAULT_INITIAL_CONCENTRATION[model_name]
         return np.asanyarray(initial_base_concentrations)
 
@@ -106,7 +120,7 @@ class Base():
         try:
             parameters = self._parameters
         except AttributeError:
-            parameters = self.model.model_options.parameters
+            parameters = self.model_options.parameters
             if self.include_initial_concentrations_factor_by_default:
                 parameters = np.concatenate([parameters, np.array([1])])
         return parameters
@@ -115,20 +129,20 @@ class Base():
     def parameters(self, parameters):
         parameters = np.asanyarray(parameters)
 
-        model_parameters_len = self.model.model_options.parameters_len
+        model_parameters_len = self.model_options.parameters_len
         if len(parameters) == model_parameters_len:
-            self.model.model_options.parameters = parameters
+            self.model_options.parameters = parameters
         elif len(parameters) == model_parameters_len + 1:
-            self.model.model_options.parameters = parameters[:-1]
-            self.model.model_options.initial_concentration_options.concentrations = self.initial_base_concentrations * parameters[-1]
+            self.model_options.parameters = parameters[:-1]
+            self.model_options.initial_concentration_options.concentrations = self.initial_base_concentrations * parameters[-1]
         else:
-            raise ValueError('The parameters for the model {} must be a vector of length {} or {}, but its length is {}.'.format(self.model.model_options.model_name, model_parameters_len, model_parameters_len + 1, len(parameters)))
+            raise ValueError('The parameters for the model {} must be a vector of length {} or {}, but its length is {}.'.format(self.model_options.model_name, model_parameters_len, model_parameters_len + 1, len(parameters)))
 
         self._parameters = parameters
 
     @property
     def parameters_include_initial_concentrations_factor(self):
-        return len(self.parameters) == self.model.model_options.parameters_len + 1
+        return len(self.parameters) == self.model_options.parameters_len + 1
 
     # names
 
@@ -160,7 +174,7 @@ class Base():
             pass
         else:
             concentrations = self.model.initial_constant_concentrations
-            time_step = self.model.model_options.time_step
+            time_step = self.model_options.time_step
             parameters = self.model.parameters
             key = np.array([*concentrations, time_step, *parameters])
             db.set_value_with_key(key, value, use_tolerances=False, overwrite=overwrite)
