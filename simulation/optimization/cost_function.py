@@ -572,6 +572,7 @@ def iterator(cost_functions, model_names=None, time_steps=None):
             # iterate over other options
             for model_options in model.iterator(model_names=[model_name], time_steps=time_steps):
                 for cost_function in cost_functions:
+                    cost_function.model_options = model_options
                     yield cost_function
 
         # reset to original model and measurements
