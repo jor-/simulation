@@ -65,10 +65,12 @@ class CostFunctionJob(util.batch.universal.system.Job):
             nodes_setup = cost_function_job_options['nodes_setup']
         except KeyError:
             nodes_setup = simulation.optimization.constants.COST_FUNCTION_NODES_SETUP_JOB.copy()
+            nodes_setup['walltime'] = model_options.tracers_len
             if eval_df:
-                nodes_setup['memory'] = nodes_setup['memory'] + 5
+                nodes_setup['walltime'] += model_options.tracers_len * model_options.parameters_len * 2
+                nodes_setup['memory'] += 5
             if cf_kind == 'GLS':
-                nodes_setup['memory'] = nodes_setup['memory'] + 20
+                nodes_setup['memory'] += 20
 
         # init job file
         queue = None
