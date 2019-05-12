@@ -77,19 +77,20 @@ class CostFunctionJob(util.batch.universal.system.Job):
         self.set_job_options(job_name, nodes_setup, queue=queue)
 
         # write python script
-        commands = ['import numpy as np']
-        commands += ['import simulation.model.options']
-        commands += ['import simulation.optimization.cost_function']
-        commands += ['import measurements.all.data']
-        commands += ['import util.batch.universal.system']
-        commands += ['import util.logging']
-
         if max_box_distance_to_water == float('inf'):
             max_box_distance_to_water = None
         if min_measurements_correlations == float('inf'):
             min_measurements_correlations = None
 
+        commands = []
+        commands += ['import util.logging']
         commands += ['with util.logging.Logger():']
+        commands += ['    import numpy as np']
+        commands += ['    import util.batch.universal.system']
+        commands += ['    import measurements.all.data']
+        commands += ['    import simulation.model.options']
+        commands += ['    import simulation.optimization.cost_function']
+
         commands += [f'    model_options = {model_options!r}']
         commands += [f'    measurements_object = measurements.all.data.all_measurements(tracers=model_options.tracers, min_standard_deviation={min_standard_deviations}, min_measurements_correlation={min_measurements_correlations}, max_box_distance_to_water={max_box_distance_to_water})']
 
