@@ -152,7 +152,8 @@ def _main():
             tracers=model_options.tracers,
             min_standard_deviation=min_standard_deviations,
             min_measurements_correlation=min_measurements_correlations,
-            max_box_distance_to_water=max_box_distance_to_water)
+            max_box_distance_to_water=max_box_distance_to_water,
+            water_lsm='TMM')
 
         # init cost function
         cf = cf_class(measurements_object=measurements_object, model_options=model_options, model_job_options=prepare_model_job_options())
