@@ -7,6 +7,7 @@ import util.constants
 import measurements.land_sea_mask.lsm
 
 from simulation.constants import METOS3D_DIR, METOS3D_DIR_ENV_NAME
+from simulation.constants import SIMULATION_OUTPUT_DIR as DATABASE_OUTPUT_DIR
 
 
 # METOS 3D
@@ -198,7 +199,6 @@ assert len(MODEL_PARAMETER_TYPICAL['NPZD-DOP']) == len(MODEL_PARAMETER_BOUNDS['N
 
 
 # database directories and files
-from simulation.constants import SIMULATION_OUTPUT_DIR as DATABASE_OUTPUT_DIR
 DATABASE_MODEL_DIRNAME = 'model_{}'
 DATABASE_TIME_STEP_DIRNAME = 'time_step_{:0>4d}'
 DATABASE_SPINUP_DIRNAME = 'spinup'
@@ -225,9 +225,9 @@ assert DATABASE_PARAMETERS_RELIABLE_DECIMAL_PLACES == 15
 DATABASE_PARAMETERS_FORMAT_STRING = '{:.' + '{}'.format(DATABASE_PARAMETERS_RELIABLE_DECIMAL_PLACES) + 'f}'
 
 
-DATABASE_CACHE_SPINUP_DIRNAME = 'spinup_years_{real_years:d}'
-DATABASE_CACHE_DERIVATIVE_DIRNAME = os.path.join('derivative_step_size_{derivative_step_size:g}', 'derivative_spinup_years_{derivative_years:d}', 'derivative_accuracy_order_{derivative_accuracy_order:d}')
-DATABASE_POINTS_OUTPUT_DIRNAME = os.path.join('output', '{tracer}', '{data_set_name}')
+DATABASE_CACHE_SPINUP_DIRNAME = 'spinup_years_{spinup_years:d}'
+DATABASE_CACHE_DERIVATIVE_DIRNAME = 'derivative_-_step_size_{derivative_step_size:g}_-_spinup_years_{derivative_years:d}_-_accuracy_order_{derivative_accuracy_order:d}'
+DATABASE_POINTS_OUTPUT_DIRNAME = os.path.join('output', DATABASE_CACHE_SPINUP_DIRNAME, '{tracer}_-_{data_set_name}')
 DATABASE_ALL_DATASET_NAME = 'all_model_values_-_time_dim_{time_dim}'
 DATABASE_F_FILENAME = 'f.npz'
 DATABASE_DF_FILENAME = 'df_{derivative_kind}.npz'

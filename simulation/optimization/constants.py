@@ -4,7 +4,7 @@ from simulation.model.constants import JOB_MEMORY_GB
 
 # cache file names
 
-COST_FUNCTION_DIRNAME = 'cost_functions'
+COST_FUNCTION_DIRNAME = 'cost_function'
 COST_FUNCTION_F_FILENAME = 'f_-_normalized_{normalized}.txt'
 COST_FUNCTION_DF_FILENAME = 'df_-_normalized_{normalized}_-_{derivative_kind}.txt'
 

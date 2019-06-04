@@ -13,27 +13,23 @@ import util.logging
 class Cache:
 
     def __init__(self, model, cache_dirname=None):
-        util.logging.debug('Initiating {} with model {} and cache dirname {}.'.format(self.__class__.__name__, model, cache_dirname))
-
+        util.logging.debug(f'Initiating {self.__class__.__name__} with model {model} and cache dirname {cache_dirname}.')
         self.model = model
-
         if cache_dirname is None:
             cache_dirname = ''
         self.cache_dirname = cache_dirname
 
     # *** file *** #
 
-    def get_file(self, filename, derivative_used):
+    def get_file(self, filename, derivative_used, **filename_format_dict):
         assert filename is not None
 
         model = self.model
 
         if model.is_matching_run_available:
             real_years = model.real_years()
-            spinup_dirname = simulation.model.constants.DATABASE_CACHE_SPINUP_DIRNAME.format(real_years=real_years)
-
+            filename = filename.format(spinup_years=real_years, **filename_format_dict)
             bottom_dirs, filename = os.path.split(filename)
-            bottom_dirs = os.path.join(bottom_dirs, spinup_dirname)
 
             if derivative_used:
                 derivative_dirname = simulation.model.constants.DATABASE_CACHE_DERIVATIVE_DIRNAME.format(derivative_step_size=self.model.model_options.derivative_options.step_size, derivative_years=self.model.model_options.derivative_options.years, derivative_accuracy_order=self.model.model_options.derivative_options.accuracy_order)
@@ -47,12 +43,10 @@ class Cache:
 
     # *** value *** #
 
-    def has_value(self, filename, derivative_used):
-        file = self.get_file(filename, derivative_used=derivative_used)
+    def has_value(self, file):
         return file is not None and os.path.exists(file)
 
-    def load_value(self, filename, derivative_used, use_memmap=False, as_shared_array=False):
-        file = self.get_file(filename, derivative_used=derivative_used)
+    def load_value(self, file, use_memmap=False, as_shared_array=False):
         if file is not None and os.path.exists(file):
             # set memmap mode
             if use_memmap or as_shared_array:
@@ -60,7 +54,7 @@ class Cache:
             else:
                 mem_map_mode = None
             # load
-            util.logging.debug('Loading value from {} with mem_map_mode {} and as_shared_array {}.'.format(file, mem_map_mode, as_shared_array))
+            util.logging.debug(f'Loading value from {file} with mem_map_mode {mem_map_mode} and as_shared_array {as_shared_array}.')
             value = util.io.np.load_np_or_txt(file, mmap_mode=mem_map_mode)
             # if scalar, get scalar value
             if value.ndim == 0:
@@ -72,18 +66,15 @@ class Cache:
             value = None
         return value
 
-    def save_value(self, filename, value, derivative_used, save_as_np=True, save_as_txt=False):
+    def save_value(self, file, value, save_as_np=True, save_as_txt=False):
         # check input
         if value is None:
-            raise ValueError('Value for {} is None!'.format(filename,))
-        if filename is None:
-            raise ValueError('Filename for is None!')
+            raise ValueError(f'Value for {file} is None!')
+        if file is None:
+            raise ValueError('File is None!')
 
         # save value
-        file = self.get_file(filename, derivative_used=derivative_used)
-        assert file is not None
-
-        util.logging.debug('Saving value to {} file with save_as_np {} and save_as_txt {}.'.format(file, save_as_np, save_as_txt))
+        util.logging.debug(f'Saving value to {file} with save_as_np {save_as_np} and save_as_txt {save_as_txt}.')
         os.makedirs(os.path.dirname(file), exist_ok=True)
         try:
             util.io.np.save_np_or_txt(file, value, make_read_only=True, overwrite=False, save_as_np=save_as_np, save_as_txt=save_as_txt)
@@ -95,21 +86,21 @@ class Cache:
             else:
                 raise e
 
-    def get_value(self, filename, calculate_function, derivative_used, save_as_np=True, save_as_txt=False, use_memmap=False, as_shared_array=False):
+    def get_value(self, file, calculate_function, save_as_np=True, save_as_txt=False, use_memmap=False, as_shared_array=False):
         assert callable(calculate_function)
 
         # if not matching calculate and save value
-        is_matchig = self.has_value(filename, derivative_used=derivative_used)
+        is_matchig = self.has_value(file)
         if not is_matchig:
 
             # calculating and saving value
-            util.logging.debug('Calculating value with {} and saving with filename {} with derivative_used {}.'.format(calculate_function, filename, derivative_used))
+            util.logging.debug(f'Calculating value with {calculate_function} and saving with file {file}.')
             value = calculate_function()
-            self.save_value(filename, value, derivative_used=derivative_used, save_as_np=save_as_np, save_as_txt=save_as_txt)
+            self.save_value(file, value, save_as_np=save_as_np, save_as_txt=save_as_txt)
 
         # load value if matching or memmap used
         if is_matchig or use_memmap or as_shared_array:
-            value = self.load_value(filename, derivative_used=derivative_used, use_memmap=use_memmap, as_shared_array=as_shared_array)
+            value = self.load_value(file, use_memmap=use_memmap, as_shared_array=as_shared_array)
 
         return value
 
@@ -130,9 +121,9 @@ class Model_With_F_File_and_MemoryCached(simulation.model.eval.Model_With_F_Memo
         results_dict = {}
         not_cached_tracers = []
         for tracer in tracers:
-            file = file_pattern.format(tracer=tracer, data_set_name=data_set_name)
-            if self._cache.has_value(file, derivative_used=derivative_used):
-                results_dict[tracer] = self._cache.load_value(file, derivative_used=derivative_used)
+            file = self._cache.get_file(file_pattern, derivative_used=derivative_used, tracer=tracer, data_set_name=data_set_name)
+            if self._cache.has_value(file):
+                results_dict[tracer] = self._cache.load_value(file)
             else:
                 not_cached_tracers.append(tracer)
 
@@ -141,8 +132,8 @@ class Model_With_F_File_and_MemoryCached(simulation.model.eval.Model_With_F_Memo
 
         # save calculated values and store in result
         for tracer, tracer_values in calculated_results_dict.items():
-            file = file_pattern.format(tracer=tracer, data_set_name=data_set_name)
-            self._cache.save_value(file, tracer_values, derivative_used=derivative_used)
+            file = self._cache.get_file(file_pattern, derivative_used=derivative_used, tracer=tracer, data_set_name=data_set_name)
+            self._cache.save_value(file, tracer_values)
             results_dict[tracer] = tracer_values
 
         # return
@@ -163,9 +154,9 @@ class Model_With_F_File_and_MemoryCached(simulation.model.eval.Model_With_F_Memo
             results_dict[tracer] = {}
 
             for data_set_name, data_set_points in tracer_points_dict.items():
-                file = file_pattern.format(tracer=tracer, data_set_name=data_set_name)
-                if self._cache.has_value(file, derivative_used=derivative_used):
-                    results_dict[tracer][data_set_name] = self._cache.load_value(file, derivative_used=derivative_used)
+                file = self._cache.get_file(file_pattern, derivative_used=derivative_used, tracer=tracer, data_set_name=data_set_name)
+                if self._cache.has_value(file):
+                    results_dict[tracer][data_set_name] = self._cache.load_value(file)
                 else:
                     try:
                         not_cached_points_dict[tracer]
@@ -179,8 +170,8 @@ class Model_With_F_File_and_MemoryCached(simulation.model.eval.Model_With_F_Memo
         # save interpolated values and store in results dict
         for tracer, tracer_calculated_results_dict in calculated_results_dict.items():
             for data_set_name, data_set_results in tracer_calculated_results_dict.items():
-                file = file_pattern.format(tracer=tracer, data_set_name=data_set_name)
-                self._cache.save_value(file, data_set_results, derivative_used=derivative_used)
+                file = self._cache.get_file(file_pattern, derivative_used=derivative_used, tracer=tracer, data_set_name=data_set_name)
+                self._cache.save_value(file, data_set_results)
                 results_dict[tracer][data_set_name] = data_set_results
 
         # return
@@ -243,7 +234,7 @@ class Model_With_F_File_and_MemoryCached(simulation.model.eval.Model_With_F_Memo
         return results_dict
 
     def f_measurements(self, *measurements_list):
-        util.logging.debug('Calculating f values for measurements {}.'.format(tuple(map(str, measurements_list))))
+        util.logging.debug(f'Calculating f values for measurements {tuple(map(str, measurements_list))}.')
         return self._cached_values_for_measurements(self.f_points, *measurements_list)
 
 
@@ -268,7 +259,7 @@ class Model_With_F_And_DF_File_and_MemoryCached(Model_With_F_File_and_MemoryCach
         return self._cached_values_for_points(points, calculate_function_for_points, file_pattern, derivative_used=True)
 
     def df_measurements(self, *measurements_list, partial_derivative_kind='model_parameters'):
-        util.logging.debug('Calculating df values for measurements {} and partial_derivative_kind {}.'.format(tuple(map(str, measurements_list)), partial_derivative_kind))
+        util.logging.debug(f'Calculating df values for measurements {tuple(map(str, measurements_list))} and partial_derivative_kind {partial_derivative_kind}.')
 
         def calculate_function_for_points(points):
             return self.df_points(points, partial_derivative_kind=partial_derivative_kind)

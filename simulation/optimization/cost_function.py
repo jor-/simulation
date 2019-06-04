@@ -157,13 +157,15 @@ class Base():
     def __str__(self):
         return '{}({})'.format(self.name, self._measurements_name)
 
-    def _cache_dirname(self, base_dir=None):
+    def _filename(self, filename, base_dir=None):
         if base_dir is None:
             base_dir = simulation.optimization.constants.COST_FUNCTION_DIRNAME
-        return os.path.join(base_dir, self._measurements_name, self.name)
-
-    def _filename(self, filename, base_dir=None):
-        return os.path.join(self._cache_dirname(base_dir=base_dir), filename)
+        file = os.path.join(base_dir,
+                            simulation.model.constants.DATABASE_CACHE_SPINUP_DIRNAME,
+                            self._measurements_name,
+                            self.name,
+                            filename)
+        return file
 
     # cost function values
 
@@ -194,7 +196,8 @@ class Base():
     def f(self, normalized=True):
         if normalized:
             filename = self._filename(simulation.optimization.constants.COST_FUNCTION_F_FILENAME.format(normalized=True))
-            value = self.cache.get_value(filename, self.f_calculate_normalized, derivative_used=False, save_as_txt=True, save_as_np=False)
+            file = self.cache.get_file(filename, derivative_used=False)
+            value = self.cache.get_value(file, self.f_calculate_normalized, save_as_txt=True, save_as_np=False)
             self._add_value_to_database(value, overwrite=False)
             return value
         else:
@@ -202,7 +205,8 @@ class Base():
 
     def f_available(self, normalized=True):
         filename = self._filename(simulation.optimization.constants.COST_FUNCTION_F_FILENAME.format(normalized=True))
-        return self.cache.has_value(filename, derivative_used=False)
+        file = self.cache.get_file(filename, derivative_used=False)
+        return self.cache.has_value(file)
 
     def df_calculate_unnormalized(self, derivative_kind):
         raise NotImplementedError("Please implement this method.")
@@ -223,11 +227,11 @@ class Base():
         for derivative_kind in derivative_kinds:
             # calculate method for current kind
             if normalized:
-
                 def calculation_method():
                     return self.df_calculate_normalized(derivative_kind)
                 filename = self._filename(simulation.optimization.constants.COST_FUNCTION_DF_FILENAME.format(normalized=normalized, derivative_kind=derivative_kind))
-                df_i = self.cache.get_value(filename, calculation_method, derivative_used=True, save_as_txt=True, save_as_np=False)
+                file = self.cache.get_file(filename, derivative_used=True)
+                df_i = self.cache.get_value(file, calculation_method, save_as_txt=True, save_as_np=False)
             else:
                 df_i = self.unnormalize(self.df(derivative_kind=derivative_kind, normalized=True))
             df.append(df_i)
@@ -249,8 +253,9 @@ class Base():
             derivative_kinds = [derivative_kind]
 
         # check cache for each kind
-        filename_pattern = self._filename(simulation.optimization.constants.COST_FUNCTION_DF_FILENAME.format(normalized=normalized, derivative_kind='{derivative_kind}'))
-        return all(self.cache.has_value(filename_pattern.format(derivative_kind=derivative_kind), derivative_used=True) for derivative_kind in derivative_kinds)
+        filenames = (self._filename(simulation.optimization.constants.COST_FUNCTION_DF_FILENAME.format(normalized=normalized, derivative_kind=derivative_kind)) for derivative_kind in derivative_kinds)
+        files = (self.cache.get_file(filename, derivative_used=True) for filename in filenames)
+        return all(self.cache.has_value(file) for file in files)
 
     # model and data values
 
