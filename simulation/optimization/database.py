@@ -28,7 +28,8 @@ def update_db(cost_function_name, model_name,
         min_standard_deviation=min_standard_deviations,
         min_measurements_correlation=min_measurements_correlations,
         max_box_distance_to_water=max_box_distance_to_water,
-        water_lsm='TMM')
+        water_lsm='TMM',
+        sample_lsm='TMM')
     cost_function_class = getattr(simulation.optimization.cost_function, cost_function_name)
     cost_function = cost_function_class(measurements_object, use_global_value_database=True)
 

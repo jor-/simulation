@@ -145,15 +145,13 @@ def _main():
     with util.logging.Logger(log_file=log_file, disp_stdout=log_file is None):
 
         # choose measurements
-        max_box_distance_to_water = args.max_box_distance_to_water
-        min_standard_deviations = args.min_standard_deviations
-        min_measurements_correlations = args.min_measurements_correlations
         measurements_object = measurements.all.data.all_measurements(
             tracers=model_options.tracers,
-            min_standard_deviation=min_standard_deviations,
-            min_measurements_correlation=min_measurements_correlations,
-            max_box_distance_to_water=max_box_distance_to_water,
-            water_lsm='TMM')
+            min_standard_deviation=args.min_standard_deviations,
+            min_measurements_correlation=args.min_measurements_correlations,
+            max_box_distance_to_water=args.max_box_distance_to_water,
+            water_lsm='TMM',
+            sample_lsm='TMM')
 
         # init cost function
         cf = cf_class(measurements_object=measurements_object, model_options=model_options, model_job_options=prepare_model_job_options())
@@ -171,9 +169,9 @@ def _main():
             with simulation.optimization.job.CostFunctionJob(
                     cost_function_name, model_options,
                     model_job_options=prepare_model_job_options(),
-                    min_standard_deviations=min_standard_deviations,
-                    min_measurements_correlations=min_measurements_correlations,
-                    max_box_distance_to_water=max_box_distance_to_water,
+                    min_standard_deviations=args.min_standard_deviations,
+                    min_measurements_correlations=args.min_measurements_correlations,
+                    max_box_distance_to_water=args.max_box_distance_to_water,
                     eval_f=eval_function_value,
                     eval_df=eval_grad_value,
                     include_initial_concentrations_factor_by_default=cf.parameters_include_initial_concentrations_factor,

@@ -92,7 +92,7 @@ class CostFunctionJob(util.batch.universal.system.Job):
         commands += ['    import simulation.optimization.cost_function']
 
         commands += [f'    model_options = {model_options!r}']
-        commands += [f'    measurements_object = measurements.all.data.all_measurements(tracers=model_options.tracers, min_standard_deviation={min_standard_deviations}, min_measurements_correlation={min_measurements_correlations}, max_box_distance_to_water={max_box_distance_to_water}, water_lsm="TMM")']
+        commands += [f'    measurements_object = measurements.all.data.all_measurements(tracers=model_options.tracers, min_standard_deviation={min_standard_deviations}, min_measurements_correlation={min_measurements_correlations}, max_box_distance_to_water={max_box_distance_to_water}, water_lsm="TMM", sample_lsm="TMM")']
 
         if model_job_options is not None:
             commands += [f'    model_job_options = {model_job_options!r}']

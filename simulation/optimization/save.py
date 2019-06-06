@@ -114,7 +114,8 @@ def save_for_all_measurements_as_jobs(cost_function_names=None, model_names=None
                         min_standard_deviation=min_standard_deviations,
                         min_measurements_correlation=min_measurements_correlations,
                         max_box_distance_to_water=max_box_distance_to_water,
-                        water_lsm='TMM')
+                        water_lsm='TMM',
+                        sample_lsm='TMM')
                     cost_function = cost_function_class(
                         measurements_object,
                         model_options=model_options,

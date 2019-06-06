@@ -525,7 +525,8 @@ def cost_functions_for_all_measurements(min_standard_deviations=None, min_measur
         min_standard_deviation=min_standard_deviations,
         min_measurements_correlation=min_measurements_correlations,
         max_box_distance_to_water=max_box_distance_to_water,
-        water_lsm='TMM')
+        water_lsm='TMM',
+        sample_lsm='TMM')
 
     if len(cost_function_classes_without_standard_deviation) > 0:
         cost_functions.extend([cost_functions_class(measurements_collection) for cost_functions_class in cost_function_classes_without_standard_deviation])

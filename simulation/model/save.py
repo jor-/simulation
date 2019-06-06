@@ -73,7 +73,8 @@ def save(model_name, time_step=1, spinup_years=10000, spinup_tolerance=0, spinup
                 min_standard_deviation=min_standard_deviations,
                 min_measurements_correlation=min_measurements_correlations,
                 max_box_distance_to_water=max_box_distance_to_water,
-                water_lsm='TMM')
+                water_lsm='TMM',
+                sample_lsm='TMM')
             if eval_function_value:
                 model.f_measurements(*measurements_object)
             if eval_grad_value:
