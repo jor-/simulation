@@ -18,7 +18,7 @@ class CostFunctionJob(util.batch.universal.system.Job):
 
     def __init__(self, cf_kind, model_options,
                  output_dir=None, model_job_options=None,
-                 min_standard_deviations=None, min_measurements_correlations=None,
+                 min_standard_deviations=None, min_measurements_standard_deviations=None, min_measurements_correlations=None,
                  max_box_distance_to_water=None, eval_f=True, eval_df=True,
                  cost_function_job_options=None, include_initial_concentrations_factor_by_default=False,
                  remove_output_dir_on_close=False):
@@ -42,6 +42,7 @@ class CostFunctionJob(util.batch.universal.system.Job):
         self.options['/cf/model_job_options'] = repr(model_job_options)
         self.options['/cf/max_box_distance_to_water'] = max_box_distance_to_water
         self.options['/cf/min_standard_deviations'] = min_standard_deviations
+        self.options['/cf/min_measurements_standard_deviations'] = min_measurements_standard_deviations
         self.options['/cf/min_measurements_correlations'] = min_measurements_correlations
         self.options['/cf/include_initial_concentrations_factor_by_default'] = include_initial_concentrations_factor_by_default
 
@@ -54,11 +55,13 @@ class CostFunctionJob(util.batch.universal.system.Job):
             job_name = cost_function_job_options['name']
         except KeyError:
             job_name = cf_kind
+            if cf_kind in ['WLS', 'GLS']:
+                job_name = job_name + f'_{min_measurements_standard_deviations}'
             if cf_kind == 'GLS':
-                job_name = job_name + '_{min_measurements_correlations}'.format(min_measurements_correlations=min_measurements_correlations)
+                job_name = job_name + f'_{min_measurements_correlations}'
             job_name = job_name + '_' + model_options.model_name + '_' + str(model_options.time_step)
             if max_box_distance_to_water is not None and max_box_distance_to_water != float('inf'):
-                job_name = job_name + '_N{max_box_distance_to_water:d}'.format(max_box_distance_to_water=max_box_distance_to_water)
+                job_name = job_name + f'_N{max_box_distance_to_water:d}'
 
         # prepare node setup
         try:
@@ -92,7 +95,7 @@ class CostFunctionJob(util.batch.universal.system.Job):
         commands += ['    import simulation.optimization.cost_function']
 
         commands += [f'    model_options = {model_options!r}']
-        commands += [f'    measurements_object = measurements.all.data.all_measurements(tracers=model_options.tracers, min_standard_deviation={min_standard_deviations}, min_measurements_correlation={min_measurements_correlations}, max_box_distance_to_water={max_box_distance_to_water}, water_lsm="TMM", sample_lsm="TMM")']
+        commands += [f'    measurements_object = measurements.all.data.all_measurements(tracers=model_options.tracers, min_standard_deviation={min_standard_deviations}, min_measurements_standard_deviation={min_measurements_standard_deviations}, min_measurements_correlation={min_measurements_correlations}, max_box_distance_to_water={max_box_distance_to_water}, water_lsm="TMM", sample_lsm="TMM")']
 
         if model_job_options is not None:
             commands += [f'    model_job_options = {model_job_options!r}']

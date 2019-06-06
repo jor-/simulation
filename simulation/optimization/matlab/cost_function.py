@@ -29,6 +29,7 @@ def _main():
 
     parser.add_argument('--cost_function_name', required=True, choices=COST_FUNCTION_NAMES, help='The cost function which should be evaluated.')
     parser.add_argument('--min_standard_deviations', nargs='+', type=float, default=None, help='The minimal standard deviations assumed for the measurement errors applied for each dataset.')
+    parser.add_argument('--min_measurements_standard_deviations', nargs='+', type=int, default=None, help='The minimal number of measurements used to calculate standard deviations applied to each dataset.')
     parser.add_argument('--min_measurements_correlations', nargs='+', type=int, default=None, help='The minimal number of measurements used to calculate correlations applied to each dataset.')
     parser.add_argument('--max_box_distance_to_water', type=int, default=float('inf'), help='The maximal distance to water boxes to accept measurements.')
 
@@ -148,6 +149,7 @@ def _main():
         measurements_object = measurements.all.data.all_measurements(
             tracers=model_options.tracers,
             min_standard_deviation=args.min_standard_deviations,
+            min_measurements_standard_deviation=args.min_measurements_standard_deviations,
             min_measurements_correlation=args.min_measurements_correlations,
             max_box_distance_to_water=args.max_box_distance_to_water,
             water_lsm='TMM',
@@ -170,6 +172,7 @@ def _main():
                     cost_function_name, model_options,
                     model_job_options=prepare_model_job_options(),
                     min_standard_deviations=args.min_standard_deviations,
+                    min_measurements_standard_deviations=args.min_measurements_standard_deviations,
                     min_measurements_correlations=args.min_measurements_correlations,
                     max_box_distance_to_water=args.max_box_distance_to_water,
                     eval_f=eval_function_value,

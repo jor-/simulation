@@ -8,13 +8,14 @@ import simulation.optimization.cost_function
 import util.logging
 
 
-def cost_functions_for_all_measurements(max_box_distance_to_water=None, min_standard_deviations=None, min_measurements_correlations=None, cost_function_classes=None):
+def cost_functions_for_all_measurements(max_box_distance_to_water=None, min_standard_deviations=None, min_measurements_standard_deviations=None, min_measurements_correlations=None, cost_function_classes=None):
     model_options = simulation.model.options.ModelOptions()
     model_options.spinup_options = {'years': 1, 'tolerance': 0.0, 'combination': 'or'}
     cost_functions = simulation.optimization.cost_function.cost_functions_for_all_measurements(
         min_standard_deviations=min_standard_deviations,
-        max_box_distance_to_water=max_box_distance_to_water,
+        min_measurements_standard_deviations=min_measurements_standard_deviations,
         min_measurements_correlations=min_measurements_correlations,
+        max_box_distance_to_water=max_box_distance_to_water,
         cost_function_classes=cost_function_classes,
         model_options=model_options)
     return cost_functions
@@ -39,11 +40,12 @@ def all_values(cost_functions, model_names=None):
     return all_values_dict
 
 
-def all_values_for_all_measurements(max_box_distance_to_water=None, min_standard_deviations=None, min_measurements_correlations=None, cost_function_classes=None, model_names=None):
+def all_values_for_all_measurements(max_box_distance_to_water=None, min_standard_deviations=None, min_measurements_standard_deviations=None, min_measurements_correlations=None, cost_function_classes=None, model_names=None):
     cost_functions = cost_functions_for_all_measurements(
-        max_box_distance_to_water=max_box_distance_to_water,
         min_standard_deviations=min_standard_deviations,
+        min_measurements_standard_deviations=min_measurements_standard_deviations,
         min_measurements_correlations=min_measurements_correlations,
+            max_box_distance_to_water=max_box_distance_to_water,
         cost_function_classes=cost_function_classes)
     all_values_dict = all_values(cost_functions, model_names)
     return all_values_dict
@@ -58,6 +60,7 @@ def _main():
 
     parser = argparse.ArgumentParser(description='Getting all cost function values.')
     parser.add_argument('--min_standard_deviations', nargs='+', type=float, default=None, help='The minimal standard deviations assumed for the measurement errors applied for each dataset.')
+    parser.add_argument('--min_measurements_standard_deviations', nargs='+', type=int, default=None, help='The minimal number of measurements used to calculate standard deviations applied to each dataset.')
     parser.add_argument('--min_measurements_correlations', nargs='+', type=int, default=None, help='The minimal number of measurements used to calculate correlations applied to each dataset.')
     parser.add_argument('--max_box_distance_to_water', type=int, default=None, help='The maximal distances to water boxes to accept measurements.')
     parser.add_argument('--cost_functions', type=str, default=None, nargs='+', help='The cost functions to evaluate.')
@@ -75,9 +78,10 @@ def _main():
     # run
     with util.logging.Logger(level=args.debug_level):
         results = all_values_for_all_measurements(
-            max_box_distance_to_water=args.max_box_distance_to_water,
             min_standard_deviations=args.min_standard_deviations,
+            min_measurements_standard_deviations=args.min_measurements_standard_deviations,
             min_measurements_correlations=args.min_measurements_correlations,
+            max_box_distance_to_water=args.max_box_distance_to_water,
             cost_function_classes=cost_function_classes,
             model_names=args.model_names)
         util.logging.info(str(results))

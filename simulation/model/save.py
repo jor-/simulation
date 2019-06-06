@@ -10,7 +10,7 @@ import measurements.all.data
 import util.logging
 
 
-def save(model_name, time_step=1, spinup_years=10000, spinup_tolerance=0, spinup_satisfy_years_and_tolerance=False, concentrations=None, concentrations_index=None, parameters=None, parameter_set_index=None, derivative_years=None, derivative_step_size=None, derivative_accuracy_order=None, eval_function_value=True, eval_grad_value=True, all_values_time_dim=None, min_standard_deviations=None, min_measurements_correlations=None, max_box_distance_to_water=None, debug_output=True):
+def save(model_name, time_step=1, spinup_years=10000, spinup_tolerance=0, spinup_satisfy_years_and_tolerance=False, concentrations=None, concentrations_index=None, parameters=None, parameter_set_index=None, derivative_years=None, derivative_step_size=None, derivative_accuracy_order=None, eval_function_value=True, eval_grad_value=True, all_values_time_dim=None, min_standard_deviations=None, min_measurements_standard_deviations=None, min_measurements_correlations=None, max_box_distance_to_water=None, debug_output=True):
 
     # prepare model options
     model_options = simulation.model.options.ModelOptions()
@@ -71,6 +71,7 @@ def save(model_name, time_step=1, spinup_years=10000, spinup_tolerance=0, spinup
             measurements_object = measurements.all.data.all_measurements(
                 tracers=model_options.tracers,
                 min_standard_deviation=min_standard_deviations,
+                min_measurements_standard_deviation=min_measurements_standard_deviations,
                 min_measurements_correlation=min_measurements_correlations,
                 max_box_distance_to_water=max_box_distance_to_water,
                 water_lsm='TMM',
@@ -143,6 +144,7 @@ def _main():
     parser.add_argument('--all_values_time_dim', type=int, help='Set time dim for box values. If None, eval measurement values.')
 
     parser.add_argument('--min_standard_deviations', nargs='+', type=float, default=None, help='The minimal standard deviations assumed for the measurement errors applied to each dataset.')
+    parser.add_argument('--min_measurements_standard_deviations', nargs='+', type=int, default=None, help='The minimal number of measurements used to calculate standard deviations applied to each dataset.')
     parser.add_argument('--min_measurements_correlations', nargs='+', type=int, default=None, help='The minimal number of measurements used to calculate correlations applied to each dataset.')
     parser.add_argument('--max_box_distance_to_water', type=int, default=float('inf'), help='The maximal distance to water boxes to accept measurements.')
 
@@ -175,6 +177,7 @@ def _main():
              eval_grad_value=args.eval_grad_value,
              all_values_time_dim=args.all_values_time_dim,
              min_standard_deviations=args.min_standard_deviations,
+             min_measurements_standard_deviations=args.min_measurements_standard_deviations,
              min_measurements_correlations=args.min_measurements_correlations,
              max_box_distance_to_water=args.max_box_distance_to_water,
              debug_output=args.debug)
