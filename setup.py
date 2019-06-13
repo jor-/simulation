@@ -68,7 +68,7 @@ setuptools.setup(
     install_requires=[
         'numpy',
         'scipy',
-        'matrix-decomposition',
+        'matrix-decomposition>=1.1',
         'utillib[cache,options,interpolate]',
         'measurements',
     ],
