@@ -63,17 +63,41 @@ class CostFunctionJob(util.batch.universal.system.Job):
             if max_box_distance_to_water is not None and max_box_distance_to_water != float('inf'):
                 job_name = job_name + f'_N{max_box_distance_to_water:d}'
 
-        # prepare node setup
+        # get node setup
+        batch_system = util.batch.universal.system.BATCH_SYSTEM
         try:
             nodes_setup = cost_function_job_options['nodes_setup']
         except KeyError:
             nodes_setup = simulation.optimization.constants.COST_FUNCTION_NODES_SETUP_JOB.copy()
-            nodes_setup['walltime'] = model_options.tracers_len
+
+        # set walltime if not set
+        if nodes_setup.walltime is None:
+            walltime = model_options.tracers_len
             if eval_df:
-                nodes_setup['walltime'] += model_options.tracers_len * model_options.parameters_len * 2
-                nodes_setup['memory'] += 5
+                walltime += model_options.tracers_len * model_options.parameters_len * 2
+            try:
+                node_kind = nodes_setup['node_kind']
+            except KeyError:
+                pass
+            else:
+                try:
+                    max_walltime = batch_system.max_walltime[node_kind]
+                except KeyError:
+                    pass
+                else:
+                    walltime = min(walltime, max_walltime)
+            nodes_setup.walltime = walltime
+
+        # set memory if not set
+        try:
+            nodes_setup.memory
+        except AttributeError:
+            memory = 30
+            if eval_df:
+                memory += 5
             if cf_kind == 'GLS':
-                nodes_setup['memory'] += 20
+                memory += 20
+            nodes_setup.memory = memory
 
         # init job file
         queue = None
@@ -127,8 +151,6 @@ class CostFunctionJob(util.batch.universal.system.Job):
                 return 'export {env_name}={env_value}'.format(env_name=env_name, env_value=env_value)
         env_names = [simulation.constants.BASE_DIR_ENV_NAME, simulation.constants.SIMULATION_OUTPUT_DIR_ENV_NAME, simulation.constants.METOS3D_DIR_ENV_NAME, measurements.constants.BASE_DIR_ENV_NAME, util.batch.universal.system.BATCH_SYSTEM_ENV_NAME, util.io.env.PYTHONPATH_ENV_NAME]
         pre_commands = [export_env_command(env_name) for env_name in env_names]
-
-        batch_system = util.batch.universal.system.BATCH_SYSTEM
         pre_commands.append(batch_system.pre_command('python'))
 
         pre_commands = [pre_command for pre_command in pre_commands if len(pre_command) > 0]
