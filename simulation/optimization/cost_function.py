@@ -505,7 +505,9 @@ ALL_COST_FUNCTION_NAMES = [cost_function_class.__name__ for cost_function_class 
 
 # iterator
 
-def cost_functions_for_all_measurements(min_standard_deviations=None, min_measurements_standard_deviations=None, min_measurements_correlations=None, max_box_distance_to_water=None, cost_function_classes=None, model_options=None):
+def cost_functions_for_all_measurements(min_measurements_standard_deviations=None, min_measurements_correlations=None,
+                                        min_standard_deviations=None, min_diag_correlations=None,
+                                        max_box_distance_to_water=None, cost_function_classes=None, model_options=None):
     # default values
     if cost_function_classes is None:
         cost_function_classes = ALL_COST_FUNCTION_CLASSES
@@ -522,9 +524,10 @@ def cost_functions_for_all_measurements(min_standard_deviations=None, min_measur
     cost_functions = []
     measurements_collection = measurements.all.data.all_measurements(
         tracers=model_options.tracers,
-        min_standard_deviation=min_standard_deviations,
         min_measurements_standard_deviation=min_measurements_standard_deviations,
         min_measurements_correlation=min_measurements_correlations,
+        min_standard_deviation=min_standard_deviations,
+        min_diag_correlations=min_diag_correlations,
         max_box_distance_to_water=max_box_distance_to_water,
         water_lsm='TMM',
         sample_lsm='TMM')

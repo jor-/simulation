@@ -41,7 +41,7 @@ def save(cost_functions, model_names=None, eval_f=True, eval_df=False):
                 eval_df=eval_df))
 
 
-def save_for_all_measurements_serial(cost_function_names=None, model_names=None, min_standard_deviations=None, min_measurements_standard_deviations=None, min_measurements_correlations=None, max_box_distance_to_water=None, eval_f=True, eval_df=False):
+def save_for_all_measurements_serial(cost_function_names=None, model_names=None, min_measurements_standard_deviations=None, min_measurements_correlations=None, min_standard_deviations=None, min_diag_correlations=None, max_box_distance_to_water=None, eval_f=True, eval_df=False):
     # get cost_function_classes
     if cost_function_names is None:
         cost_function_classes = None
@@ -51,9 +51,10 @@ def save_for_all_measurements_serial(cost_function_names=None, model_names=None,
     model_options = simulation.model.options.ModelOptions()
     model_options.spinup_options = {'years': 1, 'tolerance': 0.0, 'combination': 'or'}
     cost_functions = simulation.optimization.cost_function.cost_functions_for_all_measurements(
-        min_standard_deviations=min_standard_deviations,
         min_measurements_standard_deviations=min_measurements_standard_deviations,
         min_measurements_correlations=min_measurements_correlations,
+        min_standard_deviations=min_standard_deviations,
+        min_diag_correlations=min_diag_correlations,
         max_box_distance_to_water=max_box_distance_to_water,
         cost_function_classes=cost_function_classes,
         model_options=model_options)
@@ -64,7 +65,7 @@ def save_for_all_measurements_serial(cost_function_names=None, model_names=None,
     save(cost_functions, model_names=model_names, eval_f=eval_f, eval_df=eval_df)
 
 
-def save_for_all_measurements_as_jobs(cost_function_names=None, model_names=None, min_standard_deviations=None, min_measurements_standard_deviations=None, min_measurements_correlations=None, max_box_distance_to_water=None, eval_f=True, eval_df=False, node_kind=None, max_parallel_jobs=100):
+def save_for_all_measurements_as_jobs(cost_function_names=None, model_names=None, min_measurements_standard_deviations=None, min_measurements_correlations=None, min_standard_deviations=None, min_diag_correlations=None, max_box_distance_to_water=None, eval_f=True, eval_df=False, node_kind=None, max_parallel_jobs=100):
     if eval_f or eval_df:
         # prepare
         model_job_options = None
@@ -112,9 +113,10 @@ def save_for_all_measurements_as_jobs(cost_function_names=None, model_names=None
                     # init cost function object
                     measurements_object = measurements.all.data.all_measurements(
                         tracers=model_options.tracers,
-                        min_standard_deviation=min_standard_deviations,
                         min_measurements_standard_deviation=min_measurements_standard_deviations,
                         min_measurements_correlation=min_measurements_correlations,
+                        min_standard_deviation=min_standard_deviations,
+                        min_diag_correlations=min_diag_correlations,
                         max_box_distance_to_water=max_box_distance_to_water,
                         water_lsm='TMM',
                         sample_lsm='TMM')
@@ -141,9 +143,10 @@ def save_for_all_measurements_as_jobs(cost_function_names=None, model_names=None
                                     cost_function_name,
                                     model_options,
                                     model_job_options=model_job_options,
-                                    min_standard_deviations=min_standard_deviations,
                                     min_measurements_standard_deviations=min_measurements_standard_deviations,
                                     min_measurements_correlations=min_measurements_correlations,
+                                    min_standard_deviations=min_standard_deviations,
+                                    min_diag_correlations=min_diag_correlations,
                                     max_box_distance_to_water=max_box_distance_to_water,
                                     eval_f=eval_f_for_cf,
                                     eval_df=eval_df_for_cf,
@@ -172,14 +175,15 @@ def save_for_all_measurements_as_jobs(cost_function_names=None, model_names=None
             wait_for_next_job()
 
 
-def save_for_all_measurements(cost_function_names=None, model_names=None, min_standard_deviations=None, min_measurements_standard_deviations=None, min_measurements_correlations=None, max_box_distance_to_water=None, eval_f=True, eval_df=False, node_kind=None, number_of_jobs=0):
+def save_for_all_measurements(cost_function_names=None, model_names=None, min_measurements_standard_deviations=None, min_measurements_correlations=None, min_standard_deviations=None, min_diag_correlations=None, max_box_distance_to_water=None, eval_f=True, eval_df=False, node_kind=None, number_of_jobs=0):
     if number_of_jobs is None or number_of_jobs == 0:
         save_for_all_measurements_serial(
             cost_function_names=cost_function_names,
             model_names=model_names,
-            min_standard_deviations=min_standard_deviations,
             min_measurements_standard_deviations=min_measurements_standard_deviations,
             min_measurements_correlations=min_measurements_correlations,
+            min_standard_deviations=min_standard_deviations,
+            min_diag_correlations=min_diag_correlations,
             max_box_distance_to_water=max_box_distance_to_water,
             eval_f=eval_f,
             eval_df=eval_df)
@@ -187,9 +191,10 @@ def save_for_all_measurements(cost_function_names=None, model_names=None, min_st
         save_for_all_measurements_as_jobs(
             cost_function_names=cost_function_names,
             model_names=model_names,
-            min_standard_deviations=min_standard_deviations,
             min_measurements_standard_deviations=min_measurements_standard_deviations,
             min_measurements_correlations=min_measurements_correlations,
+            min_standard_deviations=min_standard_deviations,
+            min_diag_correlations=min_diag_correlations,
             max_box_distance_to_water=max_box_distance_to_water,
             eval_f=eval_f,
             eval_df=eval_df,
@@ -205,9 +210,10 @@ def _main():
     import argparse
 
     parser = argparse.ArgumentParser(description='Calculating cost function values.')
-    parser.add_argument('--min_standard_deviations', nargs='+', type=float, default=None, help='The minimal standard deviations assumed for the measurement errors applied for each dataset.')
     parser.add_argument('--min_measurements_standard_deviations', nargs='+', type=int, default=None, help='The minimal number of measurements used to calculate standard deviations applied to each dataset.')
     parser.add_argument('--min_measurements_correlations', nargs='+', type=int, default=None, help='The minimal number of measurements used to calculate correlations applied to each dataset.')
+    parser.add_argument('--min_standard_deviations', nargs='+', type=float, default=None, help='The minimal standard deviations assumed for the measurement errors applied for each dataset.')
+    parser.add_argument('--min_diag_correlations', type=float, default=None, help='The minimal value forced in the diagonal matrix of the decomposition of the correlation matrix.')
     parser.add_argument('--max_box_distance_to_water', type=int, default=None, help='The maximal distances to water boxes to accept measurements.')
     parser.add_argument('--cost_functions', type=str, default=None, nargs='+', help='The cost functions to evaluate.')
     parser.add_argument('--model_names', type=str, default=None, choices=simulation.model.constants.MODEL_NAMES, nargs='+', help='The models to evaluate.')
@@ -223,9 +229,10 @@ def _main():
         save_for_all_measurements(
             cost_function_names=args.cost_functions,
             model_names=args.model_names,
-            min_standard_deviations=args.min_standard_deviations,
             min_measurements_standard_deviations=args.min_measurements_standard_deviations,
             min_measurements_correlations=args.min_measurements_correlations,
+            min_standard_deviations=args.min_standard_deviations,
+            min_diag_correlations=args.min_diag_correlations,
             max_box_distance_to_water=args.max_box_distance_to_water,
             eval_f=True,
             eval_df=args.DF,

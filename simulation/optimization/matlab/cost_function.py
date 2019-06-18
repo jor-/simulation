@@ -28,10 +28,12 @@ def _main():
     parser = argparse.ArgumentParser(description='Evaluating a cost function for matlab.')
 
     parser.add_argument('--cost_function_name', required=True, choices=COST_FUNCTION_NAMES, help='The cost function which should be evaluated.')
-    parser.add_argument('--min_standard_deviations', nargs='+', type=float, default=None, help='The minimal standard deviations assumed for the measurement errors applied for each dataset.')
+    parser.add_argument('--max_box_distance_to_water', type=int, default=float('inf'), help='The maximal distance to water boxes to accept measurements.')
+
     parser.add_argument('--min_measurements_standard_deviations', nargs='+', type=int, default=None, help='The minimal number of measurements used to calculate standard deviations applied to each dataset.')
     parser.add_argument('--min_measurements_correlations', nargs='+', type=int, default=None, help='The minimal number of measurements used to calculate correlations applied to each dataset.')
-    parser.add_argument('--max_box_distance_to_water', type=int, default=float('inf'), help='The maximal distance to water boxes to accept measurements.')
+    parser.add_argument('--min_standard_deviations', nargs='+', type=float, default=None, help='The minimal standard deviations assumed for the measurement errors applied for each dataset.')
+    parser.add_argument('--min_diag_correlations', type=float, default=None, help='The minimal value forced in the diagonal matrix of the decomposition of the correlation matrix.')
 
     parser.add_argument('--exchange_dir', required=True, help='The directory from where to load the parameters and where to save the cost function values.')
     parser.add_argument('--debug_logging_file', default=None, help='File to store debug informations.')
@@ -148,9 +150,10 @@ def _main():
         # choose measurements
         measurements_object = measurements.all.data.all_measurements(
             tracers=model_options.tracers,
-            min_standard_deviation=args.min_standard_deviations,
             min_measurements_standard_deviation=args.min_measurements_standard_deviations,
             min_measurements_correlation=args.min_measurements_correlations,
+            min_standard_deviation=args.min_standard_deviations,
+            min_diag_correlations=args.min_diag_correlations,
             max_box_distance_to_water=args.max_box_distance_to_water,
             water_lsm='TMM',
             sample_lsm='TMM')
@@ -171,9 +174,10 @@ def _main():
             with simulation.optimization.job.CostFunctionJob(
                     cost_function_name, model_options,
                     model_job_options=prepare_model_job_options(),
-                    min_standard_deviations=args.min_standard_deviations,
                     min_measurements_standard_deviations=args.min_measurements_standard_deviations,
                     min_measurements_correlations=args.min_measurements_correlations,
+                    min_standard_deviations=args.min_standard_deviations,
+                    min_diag_correlations=args.min_diag_correlations,
                     max_box_distance_to_water=args.max_box_distance_to_water,
                     eval_f=eval_function_value,
                     eval_df=eval_grad_value,
