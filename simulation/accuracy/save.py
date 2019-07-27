@@ -1,94 +1,124 @@
-if __name__ == "__main__":
+import util.logging
 
+import measurements.all.data
+
+import simulation.accuracy.linearized
+import simulation.model.save
+
+
+def save(cost_function_name,
+         model_name, time_step=1, concentrations=None, concentrations_index=None, parameters=None, parameter_set_index=None,
+         spinup_years=None, spinup_tolerance=None, spinup_satisfy_years_and_tolerance=True, derivative_years=None, derivative_step_size=None, derivative_accuracy_order=None,
+         min_measurements_standard_deviations=None, min_standard_deviations=None, min_measurements_correlations=None, min_diag_correlations=None, max_box_distance_to_water=None):
+
+    # prepare model options
+    model_options = simulation.model.save.prepare_model_options(
+        model_name, time_step=time_step, concentrations=concentrations, concentrations_index=concentrations_index, parameters=parameters, parameter_set_index=parameter_set_index,
+        spinup_years=spinup_years, spinup_tolerance=spinup_tolerance, spinup_satisfy_years_and_tolerance=spinup_satisfy_years_and_tolerance,
+        derivative_years=derivative_years, derivative_step_size=derivative_step_size, derivative_accuracy_order=derivative_accuracy_order)
+
+    # prepare measurement object
+    measurements_object = measurements.all.data.all_measurements(
+        tracers=model_options.tracers,
+        min_measurements_standard_deviation=min_measurements_standard_deviations,
+        min_standard_deviation=min_standard_deviations,
+        min_measurements_correlation=min_measurements_correlations,
+        min_diag_correlations=min_diag_correlations,
+        max_box_distance_to_water=max_box_distance_to_water,
+        water_lsm='TMM',
+        sample_lsm='TMM')
+
+    # create accuracy object
+    if cost_function_name == 'OLS':
+        accuracy_class = simulation.accuracy.linearized.OLS
+    elif cost_function_name == 'WLS':
+        accuracy_class = simulation.accuracy.linearized.WLS
+    elif cost_function_name == 'GLS':
+        accuracy_class = simulation.accuracy.linearized.GLS
+    else:
+        raise ValueError(f'Unknown cost_function_name {cost_function_name}.')
+    accuracy_object = accuracy_class(measurements_object, model_options=model_options)
+
+    relative = True
+    alpha = 0.95
+    time_dim_model = 2880
+    time_dim_confidence = 12
+    parallel = True
+    accuracy_object.model_parameter_covariance_matrix()
+    accuracy_object.model_parameter_correlation_matrix()
+    accuracy_object.model_parameter_confidence(alpha=alpha, relative=relative)
+    accuracy_object.model_confidence(alpha=alpha, time_dim_confidence=time_dim_confidence, time_dim_model=time_dim_model, parallel=parallel)
+    accuracy_object.average_model_confidence(alpha=alpha, time_dim_model=time_dim_model, relative=relative, parallel=parallel)
+    accuracy_object.average_model_confidence_increase(number_of_measurements=1, alpha=alpha, time_dim_confidence_increase=time_dim_confidence, time_dim_model=time_dim_model, relative=relative, parallel=parallel)
+
+
+# *** main function for script call *** #
+
+def _main():
+
+    # parse arguments
     import argparse
-    import sys
-    import numpy as np
 
-    import simulation.optimization.constants
-    import simulation.accuracy.asymptotic
+    parser = argparse.ArgumentParser(description='Evaluate and save model accuracy.')
 
-    import util.parallel.universal
-    from util.logging import Logger
+    parser.add_argument('cost_function_name', choices=('OLS', 'WLS', 'GLS'), default=None, help='The cost functions to evaluate.')
 
-    from simulation.constants import SIMULATION_OUTPUT_DIR
-    from simulation.optimization.matlab.constants import KIND_OF_COST_FUNCTIONS
+    parser.add_argument('model_name', choices=simulation.model.constants.MODEL_NAMES, help='The name of the model that should be used.')
+    parser.add_argument('--time_step', type=int, default=1, help='The time step of the model that should be used. Default: 1')
 
-    parser = argparse.ArgumentParser(description='Calculating accuracy.')
+    parser.add_argument('--concentrations', type=float, nargs='+', help='The constant concentration values for the tracers in the initial spinup that should be used. If not specified the default model concentrations are used.')
+    parser.add_argument('--concentrations_index', type=int, help='The constant concentration index that should be used if no constant concentration values are specified.')
 
-    parser.add_argument('-k', '--kind', choices=KIND_OF_COST_FUNCTIONS, help='The kind of the cost function to chose.')
-    parser.add_argument('-p', '--parameter_set_nr', type=int, default=184, help='Parameter set nr.')
-    parser.add_argument('-t', '--time_dim_df', type=int, default=2880, help='Time dim of df.')
-    parser.add_argument('-c', '--time_dim_confidence_increase', type=int, default=12, help='Time dim of confidence increase.')
+    parser.add_argument('--parameters', type=float, nargs='+', help='The model parameters that should be used.')
+    parser.add_argument('--parameter_set_index', type=int, help='The model parameter index that should be used if no model parameters are specified.')
 
-    parser.add_argument('-i', '--number_of_measurements', type=int, default=1, help='Number of measurements for increase calulation.')
+    parser.add_argument('--spinup_years', type=int, default=10000, help='The number of years for the spinup.')
+    parser.add_argument('--spinup_tolerance', type=float, default=0, help='The tolerance for the spinup.')
+    parser.add_argument('--spinup_satisfy_years_and_tolerance', action='store_true', help='If used, the spinup is terminated if years and tolerance have been satisfied. Otherwise, the spinup is terminated as soon as years or tolerance have been satisfied.')
 
-    parser.add_argument('-m', '--use_mem_map', action='store_true', help='Use memmap to decrease memory use.')
+    parser.add_argument('--derivative_step_size', type=float, default=None, help='The step size used for the finite difference approximation.')
+    parser.add_argument('--derivative_years', type=int, default=None, help='The number of years for the finite difference approximation spinup.')
+    parser.add_argument('--derivative_accuracy_order', type=int, default=None, help='The accuracy order used for the finite difference approximation. 1 = forward differences. 2 = central differences.')
 
-    parser.add_argument('-n', '--not_parallel', action='store_false', help='Calculate serial.')
+    parser.add_argument('--min_measurements_standard_deviations', nargs='+', type=int, default=None, help='The minimal number of measurements used to calculate standard deviations applied to each dataset.')
+    parser.add_argument('--min_standard_deviations', nargs='+', type=float, default=None, help='The minimal standard deviations assumed for the measurement errors applied to each dataset.')
+    parser.add_argument('--min_measurements_correlations', nargs='+', type=int, default=None, help='The minimal number of measurements used to calculate correlations applied to each dataset.')
+    parser.add_argument('--min_diag_correlations', type=float, default=None, help='The minimal value aplied to the diagonal of the decomposition of the correlation matrix applied to each dataset.')
+    parser.add_argument('--max_box_distance_to_water', type=int, default=float('inf'), help='The maximal distance to water boxes to accept measurements.')
 
-    parser.add_argument('-v', '--value_mask_file', default=None, help='Calculate average model confidence increase with this value mask.')
-    parser.add_argument('-o', '--output_file', help='Save average model confidence increase to this file.')
+    parser.add_argument('-d', '--debug', action='store_true', help='Print debug infos.')
 
-    parser.add_argument('--version', action='version', version='%(prog)s 0.1')
+    parser.add_argument('--version', action='version', version='%(prog)s {}'.format(simulation.__version__))
 
     args = parser.parse_args()
 
-    with Logger():
-        # extract infos from kind
-        kind_splitted = args.kind.split('_')
-        assert len(kind_splitted) == 2
-        data_kind = kind_splitted[0]
-        cf_kind = kind_splitted[1]
-        time_step = 1
+    if args.concentrations is None and args.concentrations_index is None:
+        raise ValueError('"--concentrations" or "--concentrations_index" must be specified. Use "--help" for more infos.')
+    if args.parameters is None and args.parameter_set_index is None:
+        raise ValueError('"--concentrations" or "--concentrations_index" must be specified. Use "--help" for more infos.')
 
-        job_setup = {'name': 'Accuracy'}
-        job_setup['spinup'] = {'nodes_setup': simulation.model.constants.NODES_SETUP_SPINUP}
-        job_setup['derivative'] = {'nodes_setup': simulation.model.constants.NODES_SETUP_DERIVATIVE}
-        job_setup['trajectory'] = {'nodes_setup': simulation.model.constants.NODES_SETUP_TRAJECTORY}
+    # call function
+    with util.logging.Logger(disp_stdout=args.debug):
+        save(args.cost_function_name,
+             args.model_name,
+             time_step=args.time_step,
+             spinup_years=args.spinup_years,
+             spinup_tolerance=args.spinup_tolerance,
+             spinup_satisfy_years_and_tolerance=args.spinup_satisfy_years_and_tolerance,
+             concentrations=args.concentrations,
+             concentrations_index=args.concentrations_index,
+             parameters=args.parameters,
+             parameter_set_index=args.parameter_set_index,
+             derivative_years=args.derivative_years,
+             derivative_step_size=args.derivative_step_size,
+             derivative_accuracy_order=args.derivative_accuracy_order,
+             min_measurements_standard_deviations=args.min_measurements_standard_deviations,
+             min_standard_deviations=args.min_standard_deviations,
+             min_measurements_correlations=args.min_measurements_correlations,
+             min_diag_correlations=args.min_diag_correlations,
+             max_box_distance_to_water=args.max_box_distance_to_water)
+        util.logging.info('Finished.')
 
-        asymptotic_kargs = {'data_kind': data_kind, 'model_options': {'time_step': time_step, 'total_concentration_factor_included_in_parameters': True}, 'job_setup': job_setup}
 
-        if cf_kind == 'OLS':
-            asymptotic_class = simulation.accuracy.asymptotic.OLS
-        elif cf_kind == 'WLS':
-            asymptotic_class = simulation.accuracy.asymptotic.WLS
-        elif cf_kind == 'LWLS':
-            asymptotic_class = simulation.accuracy.asymptotic.LWLS
-        elif cf_kind.startswith('GLS'):
-            asymptotic_class = simulation.accuracy.asymptotic.GLS
-            cf_kind_splitted = cf_kind.split('.')
-            correlation_min_values = int(cf_kind_splitted[1])
-            correlation_max_year_diff = int(cf_kind_splitted[2])
-            if correlation_max_year_diff < 0:
-                correlation_max_year_diff = float('inf')
-            asymptotic_kargs['correlation_min_values'] = correlation_min_values
-            asymptotic_kargs['correlation_max_year_diff'] = correlation_max_year_diff
-        else:
-            raise ValueError('Unknown cf kind {}.'.format(cf_kind))
-
-        # init asymptotic
-        asymptotic = asymptotic_class(**asymptotic_kargs)
-
-        # parallel mode
-        if not args.not_parallel:
-            parallel_mode = util.parallel.universal.MODES['serial']
-        else:
-            parallel_mode = util.parallel.universal.max_parallel_mode()
-
-        # calculate
-        p = np.loadtxt(SIMULATION_OUTPUT_DIR+'/model_dop_po4/time_step_0001/parameter_set_{:0>5}/parameters.txt'.format(args.parameter_set_nr))
-        asymptotic.parameter_confidence(p)
-        asymptotic.model_confidence(p, time_dim_df=args.time_dim_df, use_mem_map=args.use_mem_map, parallel_mode=parallel_mode)
-        asymptotic.average_model_confidence(p, time_dim_df=args.time_dim_df, use_mem_map=args.use_mem_map, parallel_mode=parallel_mode)
-        if args.number_of_measurements > 0:
-            if args.value_mask_file is not None:
-                value_mask = np.load(args.value_mask_file)
-            else:
-                value_mask = None
-            average_model_confidence_increase = asymptotic.average_model_confidence_increase(p, number_of_measurements=args.number_of_measurements, time_dim_confidence_increase=args.time_dim_confidence_increase, time_dim_df=args.time_dim_df, value_mask=value_mask, use_mem_map=args.use_mem_map, parallel_mode=parallel_mode)
-            if args.output_file is not None:
-                np.save(args.output_file, average_model_confidence_increase)
-
-        print('finished')
-
-    sys.exit()
+if __name__ == "__main__":
+    _main()

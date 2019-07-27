@@ -189,7 +189,7 @@ class Cache():
 
     def model_df_all_boxes(self, time_dim, derivative_kind=None):
         def calculate(partial_derivative_kind):
-            df = self.model.df_all(time_dim, partial_derivative_kind=partial_derivative_kind)
+            df = self.model.df_all(time_dim, partial_derivative_kind=partial_derivative_kind, return_as_dict=False)
             assert df.shape[1] == time_dim
             return df
         return self._model_df(calculate, derivative_kind=derivative_kind)
