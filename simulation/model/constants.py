@@ -2,6 +2,7 @@ import os.path
 
 import numpy as np
 
+import util.batch.universal.system
 import util.constants
 
 import measurements.land_sea_mask.lsm
@@ -241,3 +242,16 @@ MODEL_INTERPOLATOR_FILE = os.path.join(DATABASE_OUTPUT_DIR, 'interpolator.ppy')
 MODEL_INTERPOLATOR_AMOUNT_OF_WRAP_AROUND = (1 / METOS_T_DIM, 1 / METOS_X_DIM, 0, 0)
 MODEL_INTERPOLATOR_NUMBER_OF_LINEAR_INTERPOLATOR = 0
 MODEL_INTERPOLATOR_SINGLE_OVERLAPPING_AMOUNT_OF_LINEAR_INTERPOLATOR = 0
+
+
+# node setups
+
+if util.batch.universal.system.IS_RZ:
+    NODES_SETUP_SPINUP = util.batch.universal.system.NodeSetup(memory=JOB_MEMORY_GB, node_kind='f_ocean2', nodes=6, cpus=16, nodes_max=9, check_for_better=True)
+    NODES_SETUP_DERIVATIVE = util.batch.universal.system.NodeSetup(memory=JOB_MEMORY_GB, node_kind='f_ocean2', nodes=3, cpus=16, nodes_max=9, check_for_better=True)
+    NODES_SETUP_TRAJECTORY = util.batch.universal.system.NodeSetup(memory=JOB_MEMORY_GB, node_kind='f_ocean2', nodes=1, cpus=12, nodes_max=1, walltime=1, check_for_better=True)
+
+if util.batch.universal.system.IS_NEC:
+    NODES_SETUP_SPINUP = util.batch.universal.system.NodeSetup(memory=JOB_MEMORY_GB, node_kind='clmedium', nodes=4, cpus=32, nodes_max=8, check_for_better=True)
+    NODES_SETUP_DERIVATIVE = util.batch.universal.system.NodeSetup(memory=JOB_MEMORY_GB, node_kind='clmedium', nodes=4, cpus=32, nodes_max=8, check_for_better=True)
+    NODES_SETUP_TRAJECTORY = util.batch.universal.system.NodeSetup(memory=JOB_MEMORY_GB, node_kind='clmedium', nodes=1, cpus=1, nodes_max=1, walltime=2, check_for_better=True)

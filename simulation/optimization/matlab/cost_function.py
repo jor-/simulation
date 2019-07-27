@@ -117,8 +117,7 @@ def _main():
     # set job setup
     def prepare_model_job_options():
         if args.nodes_setup_node_kind is not None:
-            from simulation.optimization.constants import COST_FUNCTION_NODES_SETUP_SPINUP
-            nodes_setup = COST_FUNCTION_NODES_SETUP_SPINUP.copy()
+            nodes_setup = simulation.model.constants.NODES_SETUP_SPINUP.copy()
             nodes_setup['node_kind'] = args.nodes_setup_node_kind
             nodes_setup['nodes'] = args.nodes_setup_number_of_nodes
             nodes_setup['cpus'] = args.nodes_setup_number_of_cpus

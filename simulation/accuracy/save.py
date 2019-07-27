@@ -1,18 +1,17 @@
 if __name__ == "__main__":
-    
+
     import argparse
     import sys
     import numpy as np
-    
+
     import simulation.optimization.constants
     import simulation.accuracy.asymptotic
-    
+
     import util.parallel.universal
     from util.logging import Logger
-    
+
     from simulation.constants import SIMULATION_OUTPUT_DIR
     from simulation.optimization.matlab.constants import KIND_OF_COST_FUNCTIONS
-
 
     parser = argparse.ArgumentParser(description='Calculating accuracy.')
 
@@ -41,13 +40,12 @@ if __name__ == "__main__":
         data_kind = kind_splitted[0]
         cf_kind = kind_splitted[1]
         time_step = 1
-        
-        from simulation.optimization.constants import COST_FUNCTION_NODES_SETUP_SPINUP, COST_FUNCTION_NODES_SETUP_DERIVATIVE, COST_FUNCTION_NODES_SETUP_TRAJECTORY
-        job_setup = {'name':'Accuracy'}
-        job_setup['spinup'] = {'nodes_setup' : COST_FUNCTION_NODES_SETUP_SPINUP}
-        job_setup['derivative'] = {'nodes_setup' : COST_FUNCTION_NODES_SETUP_DERIVATIVE}
-        job_setup['trajectory'] = {'nodes_setup' : COST_FUNCTION_NODES_SETUP_TRAJECTORY}
-        
+
+        job_setup = {'name': 'Accuracy'}
+        job_setup['spinup'] = {'nodes_setup': simulation.model.constants.NODES_SETUP_SPINUP}
+        job_setup['derivative'] = {'nodes_setup': simulation.model.constants.NODES_SETUP_DERIVATIVE}
+        job_setup['trajectory'] = {'nodes_setup': simulation.model.constants.NODES_SETUP_TRAJECTORY}
+
         asymptotic_kargs = {'data_kind': data_kind, 'model_options': {'time_step': time_step, 'total_concentration_factor_included_in_parameters': True}, 'job_setup': job_setup}
 
         if cf_kind == 'OLS':
@@ -67,16 +65,16 @@ if __name__ == "__main__":
             asymptotic_kargs['correlation_max_year_diff'] = correlation_max_year_diff
         else:
             raise ValueError('Unknown cf kind {}.'.format(cf_kind))
-        
+
         # init asymptotic
         asymptotic = asymptotic_class(**asymptotic_kargs)
-        
+
         # parallel mode
         if not args.not_parallel:
             parallel_mode = util.parallel.universal.MODES['serial']
         else:
             parallel_mode = util.parallel.universal.max_parallel_mode()
-        
+
         # calculate
         p = np.loadtxt(SIMULATION_OUTPUT_DIR+'/model_dop_po4/time_step_0001/parameter_set_{:0>5}/parameters.txt'.format(args.parameter_set_nr))
         asymptotic.parameter_confidence(p)

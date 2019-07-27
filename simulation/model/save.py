@@ -36,11 +36,10 @@ def save(model_name, time_step=1, spinup_years=10000, spinup_tolerance=0, spinup
     model_options.derivative_options = derivative_options
 
     # prepare job option
-    from simulation.optimization.constants import COST_FUNCTION_NODES_SETUP_SPINUP, COST_FUNCTION_NODES_SETUP_DERIVATIVE, COST_FUNCTION_NODES_SETUP_TRAJECTORY
     job_options = {'name': 'NDOP'}
-    job_options['spinup'] = {'nodes_setup': COST_FUNCTION_NODES_SETUP_SPINUP}
-    job_options['derivative'] = {'nodes_setup': COST_FUNCTION_NODES_SETUP_DERIVATIVE}
-    job_options['trajectory'] = {'nodes_setup': COST_FUNCTION_NODES_SETUP_TRAJECTORY}
+    job_options['spinup'] = {'nodes_setup': simulation.model.constants.NODES_SETUP_SPINUP}
+    job_options['derivative'] = {'nodes_setup': simulation.model.constants.NODES_SETUP_DERIVATIVE}
+    job_options['trajectory'] = {'nodes_setup': simulation.model.constants.NODES_SETUP_TRAJECTORY}
 
     # create model
     with util.logging.Logger(disp_stdout=debug_output):

@@ -44,7 +44,7 @@ class Base():
                 model_job_options['spinup']['nodes_setup']
             except KeyError:
                 try:
-                    model_job_options['spinup']['nodes_setup'] = simulation.optimization.constants.COST_FUNCTION_NODES_SETUP_SPINUP.copy()
+                    model_job_options['spinup']['nodes_setup'] = simulation.model.constants.NODES_SETUP_SPINUP.copy()
                 except AttributeError:
                     pass
             try:
@@ -55,7 +55,7 @@ class Base():
                 model_job_options['derivative']['nodes_setup']
             except KeyError:
                 try:
-                    model_job_options['derivative']['nodes_setup'] = simulation.optimization.constants.COST_FUNCTION_NODES_SETUP_DERIVATIVE.copy()
+                    model_job_options['derivative']['nodes_setup'] = simulation.model.constants.NODES_SETUP_DERIVATIVE.copy()
                 except AttributeError:
                     pass
             try:
@@ -66,7 +66,7 @@ class Base():
                 model_job_options['trajectory']['nodes_setup']
             except KeyError:
                 try:
-                    model_job_options['trajectory']['nodes_setup'] = simulation.optimization.constants.COST_FUNCTION_NODES_SETUP_TRAJECTORY.copy()
+                    model_job_options['trajectory']['nodes_setup'] = simulation.model.constants.NODES_SETUP_TRAJECTORY.copy()
                 except AttributeError:
                     pass
 

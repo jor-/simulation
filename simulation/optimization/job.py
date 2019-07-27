@@ -70,7 +70,7 @@ class CostFunctionJob(util.batch.universal.system.Job):
         try:
             nodes_setup = cost_function_job_options['nodes_setup']
         except KeyError:
-            nodes_setup = simulation.optimization.constants.COST_FUNCTION_NODES_SETUP_JOB.copy()
+            nodes_setup = simulation.optimization.constants.NODES_SETUP_JOB.copy()
 
         # set walltime if not set
         if nodes_setup.walltime is None:

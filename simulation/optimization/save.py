@@ -71,7 +71,7 @@ def save_for_all_measurements_as_jobs(cost_function_names=None, model_names=None
         model_job_options = None
         include_initial_concentrations_factor_by_default = True
 
-        nodes_setup = simulation.optimization.constants.COST_FUNCTION_NODES_SETUP_JOB.copy()
+        nodes_setup = simulation.optimization.constants.NODES_SETUP_JOB.copy()
         if node_kind is not None:
             nodes_setup.node_kind = node_kind
             nodes_setup.check_for_better = False
