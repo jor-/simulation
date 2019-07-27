@@ -111,7 +111,7 @@ class Model_With_F_File_and_MemoryCached(simulation.model.eval.Model_With_F_Memo
         super().__init__(*args, **kargs)
         self._cache = Cache(self)
 
-    def _cached_values_for_boxes(self, time_dim, calculate_function_for_boxes, file_pattern, derivative_used, tracers=None):
+    def _cached_values_for_boxes(self, time_dim, calculate_function_for_boxes, file_pattern, derivative_used, tracers=None, return_as_dict=True):
         assert callable(calculate_function_for_boxes)
         tracers = self.check_tracers(tracers)
 
@@ -135,15 +135,21 @@ class Model_With_F_File_and_MemoryCached(simulation.model.eval.Model_With_F_Memo
             file = self._cache.get_file(file_pattern, derivative_used=derivative_used, tracer=tracer, data_set_name=data_set_name)
             self._cache.save_value(file, tracer_values)
             results_dict[tracer] = tracer_values
+        assert (tracers is None and len(results_dict) == self.model_options.tracers_len) or len(results_dict) == len(tracers)
+
+        # convert to array if needed
+        if return_as_dict:
+            result = results_dict
+        else:
+            result = np.array([results_dict[tracer] for tracer in tracers])
 
         # return
-        assert (tracers is None and len(results_dict) == self.model_options.tracers_len) or len(results_dict) == len(tracers)
-        return results_dict
+        return result
 
-    def f_all(self, time_dim, tracers=None):
+    def f_all(self, time_dim, tracers=None, return_as_dict=True):
         calculate_function_for_boxes = super().f_all
         file_pattern = os.path.join(simulation.model.constants.DATABASE_POINTS_OUTPUT_DIRNAME, simulation.model.constants.DATABASE_F_FILENAME)
-        return self._cached_values_for_boxes(time_dim, calculate_function_for_boxes, file_pattern, derivative_used=False, tracers=tracers)
+        return self._cached_values_for_boxes(time_dim, calculate_function_for_boxes, file_pattern, derivative_used=False, tracers=tracers, return_as_dict=return_as_dict)
 
     def _cached_values_for_points(self, points, calculate_function_for_points, file_pattern, derivative_used):
         # load cached values and separate not cached points
@@ -240,14 +246,14 @@ class Model_With_F_File_and_MemoryCached(simulation.model.eval.Model_With_F_Memo
 
 class Model_With_F_And_DF_File_and_MemoryCached(Model_With_F_File_and_MemoryCached, simulation.model.eval.Model_With_F_And_DF_MemoryCached):
 
-    def df_all(self, time_dim, tracers=None, partial_derivative_kind='model_parameters'):
+    def df_all(self, time_dim, tracers=None, partial_derivative_kind='model_parameters', return_as_dict=True):
         super_df_all = super().df_all
 
         def calculate_function_for_all(time_dim, tracers):
             return super_df_all(time_dim, tracers=tracers, partial_derivative_kind=partial_derivative_kind)
 
         file_pattern = os.path.join(simulation.model.constants.DATABASE_POINTS_OUTPUT_DIRNAME, simulation.model.constants.DATABASE_DF_FILENAME.format(derivative_kind=partial_derivative_kind))
-        return self._cached_values_for_boxes(time_dim, calculate_function_for_all, file_pattern, derivative_used=True, tracers=tracers)
+        return self._cached_values_for_boxes(time_dim, calculate_function_for_all, file_pattern, derivative_used=True, tracers=tracers, return_as_dict=return_as_dict)
 
     def df_points(self, points, partial_derivative_kind='model_parameters'):
         super_df_points = super().df_points

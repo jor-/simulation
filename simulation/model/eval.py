@@ -609,7 +609,7 @@ class Model_With_F(Model_Database):
                 if tracer not in self.model_options.tracers:
                     raise ValueError('Tracer {} is not supported for model {}.'.format(tracer, self.model_options.model_name))
         else:
-            tracers = self.model_options.tracers
+            tracers = sorted(self.model_options.tracers)
         return tracers
 
     # *** access to model values (auxiliary) *** #
