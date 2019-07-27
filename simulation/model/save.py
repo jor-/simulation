@@ -10,7 +10,9 @@ import measurements.all.data
 import util.logging
 
 
-def save(model_name, time_step=1, spinup_years=10000, spinup_tolerance=0, spinup_satisfy_years_and_tolerance=False, concentrations=None, concentrations_index=None, parameters=None, parameter_set_index=None, derivative_years=None, derivative_step_size=None, derivative_accuracy_order=None, eval_function_value=True, eval_grad_value=True, all_values_time_dim=None, min_standard_deviations=None, min_measurements_standard_deviations=None, min_measurements_correlations=None, max_box_distance_to_water=None, debug_output=True):
+def prepare_model_options(model_name, time_step=1, concentrations=None, concentrations_index=None, parameters=None, parameter_set_index=None,
+                          spinup_years=None, spinup_tolerance=None, spinup_satisfy_years_and_tolerance=True,
+                          derivative_years=None, derivative_step_size=None, derivative_accuracy_order=None):
 
     # prepare model options
     model_options = simulation.model.options.ModelOptions()
@@ -18,12 +20,19 @@ def save(model_name, time_step=1, spinup_years=10000, spinup_tolerance=0, spinup
     model_options.time_step = time_step
 
     # set spinup options
-    if spinup_satisfy_years_and_tolerance:
-        combination = 'and'
-    else:
-        combination = 'or'
-    spinup_options = {'years': spinup_years, 'tolerance': spinup_tolerance, 'combination': combination}
-    model_options.spinup_options = spinup_options
+    if spinup_years is not None and spinup_tolerance is None:
+        spinup_tolerance = 0
+        spinup_satisfy_years_and_tolerance = False
+    if spinup_tolerance is not None and spinup_years is None:
+        spinup_years = 10**10
+        spinup_satisfy_years_and_tolerance = False
+    if spinup_years is not None and spinup_tolerance is not None:
+        if spinup_satisfy_years_and_tolerance:
+            combination = 'and'
+        else:
+            combination = 'or'
+        spinup_options = {'years': spinup_years, 'tolerance': spinup_tolerance, 'combination': combination}
+        model_options.spinup_options = spinup_options
 
     # set derivative options
     derivative_options = {}
@@ -33,7 +42,41 @@ def save(model_name, time_step=1, spinup_years=10000, spinup_tolerance=0, spinup
         derivative_options['years'] = derivative_years
     if derivative_accuracy_order is not None:
         derivative_options['accuracy_order'] = derivative_accuracy_order
-    model_options.derivative_options = derivative_options
+    if len(derivative_options) > 0:
+        model_options.derivative_options = derivative_options
+
+    # create model
+    model = simulation.model.cache.Model(model_options=model_options)
+
+    # set initial concentration
+    if concentrations is not None:
+        c = np.array(concentrations)
+    elif concentrations_index is not None:
+        c = model._constant_concentrations_db.get_value(concentrations_index)
+    if concentrations is not None or concentrations_index is not None:
+        model_options.initial_concentration_options.concentrations = c
+
+    # set model parameters
+    if parameters is not None:
+        p = np.array(parameters)
+    elif parameter_set_index is not None:
+        p = model._parameters_db.get_value(parameter_set_index)
+    if parameters is not None or parameter_set_index is not None:
+        model_options.parameters = p
+
+    return model_options
+
+
+def save(model_name, time_step=1, concentrations=None, concentrations_index=None, parameters=None, parameter_set_index=None,
+         spinup_years=None, spinup_tolerance=None, spinup_satisfy_years_and_tolerance=True, derivative_years=None, derivative_step_size=None, derivative_accuracy_order=None,
+         min_measurements_standard_deviations=None, min_standard_deviations=None, min_measurements_correlations=None, min_diag_correlations=None, max_box_distance_to_water=None,
+         debug_output=True, eval_function_value=True, eval_grad_value=True, all_values_time_dim=None):
+
+    # prepare model options
+    model_options = prepare_model_options(
+        model_name, time_step=time_step, concentrations=concentrations, concentrations_index=concentrations_index, parameters=parameters, parameter_set_index=parameter_set_index,
+        spinup_years=spinup_years, spinup_tolerance=spinup_tolerance, spinup_satisfy_years_and_tolerance=spinup_satisfy_years_and_tolerance,
+        derivative_years=derivative_years, derivative_step_size=derivative_step_size, derivative_accuracy_order=derivative_accuracy_order)
 
     # prepare job option
     job_options = {'name': 'NDOP'}
@@ -45,20 +88,6 @@ def save(model_name, time_step=1, spinup_years=10000, spinup_tolerance=0, spinup
     with util.logging.Logger(disp_stdout=debug_output):
         model = simulation.model.cache.Model(model_options=model_options, job_options=job_options)
 
-        # set initial concentration
-        if concentrations is not None:
-            c = np.array(concentrations)
-        else:
-            c = model._constant_concentrations_db.get_value(concentrations_index)
-        model_options.initial_concentration_options.concentrations = c
-
-        # set model parameters
-        if parameters is not None:
-            p = np.array(parameters)
-        else:
-            p = model._parameters_db.get_value(parameter_set_index)
-        model_options.parameters = p
-
         # eval all box values
         if all_values_time_dim is not None:
             if eval_function_value:
@@ -69,9 +98,10 @@ def save(model_name, time_step=1, spinup_years=10000, spinup_tolerance=0, spinup
         else:
             measurements_object = measurements.all.data.all_measurements(
                 tracers=model_options.tracers,
-                min_standard_deviation=min_standard_deviations,
                 min_measurements_standard_deviation=min_measurements_standard_deviations,
+                min_standard_deviation=min_standard_deviations,
                 min_measurements_correlation=min_measurements_correlations,
+                min_diag_correlations=min_diag_correlations,
                 max_box_distance_to_water=max_box_distance_to_water,
                 water_lsm='TMM',
                 sample_lsm='TMM')
@@ -129,9 +159,6 @@ def _main():
     parser.add_argument('--parameters', type=float, nargs='+', help='The model parameters that should be used.')
     parser.add_argument('--parameter_set_index', type=int, help='The model parameter index that should be used if no model parameters are specified.')
 
-    parser.add_argument('--eval_function_value', '-f', action='store_true', help='Save the value of the model.')
-    parser.add_argument('--eval_grad_value', '-df', action='store_true', help='Save the values of the derivative of the model.')
-
     parser.add_argument('--spinup_years', type=int, default=10000, help='The number of years for the spinup.')
     parser.add_argument('--spinup_tolerance', type=float, default=0, help='The tolerance for the spinup.')
     parser.add_argument('--spinup_satisfy_years_and_tolerance', action='store_true', help='If used, the spinup is terminated if years and tolerance have been satisfied. Otherwise, the spinup is terminated as soon as years or tolerance have been satisfied.')
@@ -140,12 +167,16 @@ def _main():
     parser.add_argument('--derivative_years', type=int, default=None, help='The number of years for the finite difference approximation spinup.')
     parser.add_argument('--derivative_accuracy_order', type=int, default=None, help='The accuracy order used for the finite difference approximation. 1 = forward differences. 2 = central differences.')
 
-    parser.add_argument('--all_values_time_dim', type=int, help='Set time dim for box values. If None, eval measurement values.')
-
-    parser.add_argument('--min_standard_deviations', nargs='+', type=float, default=None, help='The minimal standard deviations assumed for the measurement errors applied to each dataset.')
     parser.add_argument('--min_measurements_standard_deviations', nargs='+', type=int, default=None, help='The minimal number of measurements used to calculate standard deviations applied to each dataset.')
+    parser.add_argument('--min_standard_deviations', nargs='+', type=float, default=None, help='The minimal standard deviations assumed for the measurement errors applied to each dataset.')
     parser.add_argument('--min_measurements_correlations', nargs='+', type=int, default=None, help='The minimal number of measurements used to calculate correlations applied to each dataset.')
+    parser.add_argument('--min_diag_correlations', type=float, default=None, help='The minimal value aplied to the diagonal of the decomposition of the correlation matrix applied to each dataset.')
     parser.add_argument('--max_box_distance_to_water', type=int, default=float('inf'), help='The maximal distance to water boxes to accept measurements.')
+
+    parser.add_argument('--eval_function_value', '-f', action='store_true', help='Save the value of the model.')
+    parser.add_argument('--eval_grad_value', '-df', action='store_true', help='Save the values of the derivative of the model.')
+
+    parser.add_argument('--all_values_time_dim', type=int, help='Set time dim for box values. If None, eval measurement values.')
 
     parser.add_argument('-d', '--debug', action='store_true', help='Print debug infos.')
 
@@ -172,13 +203,14 @@ def _main():
              derivative_years=args.derivative_years,
              derivative_step_size=args.derivative_step_size,
              derivative_accuracy_order=args.derivative_accuracy_order,
+             min_measurements_standard_deviations=args.min_measurements_standard_deviations,
+             min_standard_deviations=args.min_standard_deviations,
+             min_measurements_correlations=args.min_measurements_correlations,
+             min_diag_correlations=args.min_diag_correlations,
+             max_box_distance_to_water=args.max_box_distance_to_water,
              eval_function_value=args.eval_function_value,
              eval_grad_value=args.eval_grad_value,
              all_values_time_dim=args.all_values_time_dim,
-             min_standard_deviations=args.min_standard_deviations,
-             min_measurements_standard_deviations=args.min_measurements_standard_deviations,
-             min_measurements_correlations=args.min_measurements_correlations,
-             max_box_distance_to_water=args.max_box_distance_to_water,
              debug_output=args.debug)
 
 
