@@ -159,7 +159,7 @@ def _main():
 
         # init cost function
         cf = cf_class(measurements_object=measurements_object, model_options=model_options, model_job_options=prepare_model_job_options())
-        cf.parameters = parameters
+        cf.model_parameters = parameters
 
         # if necessary start calculation job
         eval_function_value = args.eval_function_value
@@ -180,7 +180,7 @@ def _main():
                     max_box_distance_to_water=args.max_box_distance_to_water,
                     eval_f=eval_function_value,
                     eval_df=eval_grad_value,
-                    include_initial_concentrations_factor_by_default=cf.parameters_include_initial_concentrations_factor,
+                    include_initial_concentrations_factor_to_model_parameters=cf.include_initial_concentrations_factor_to_model_parameters,
                     remove_output_dir_on_close=True) as cf_job:
                 cf_job.start()
                 cf_job.wait_until_finished()

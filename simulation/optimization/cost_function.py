@@ -7,11 +7,11 @@ import scipy.sparse.linalg
 import matrix.approximation.positive_semidefinite
 import matrix.calculate
 
-import simulation.model.cache
 import simulation.model.constants
 import simulation.model.options
 import simulation.optimization.constants
 import simulation.optimization.database
+import simulation.util.cache
 
 import measurements.all.data
 import measurements.universal.data
@@ -19,153 +19,35 @@ import measurements.universal.data
 
 # Base
 
-class Base():
+class Base(simulation.util.cache.Cache):
 
-    def __init__(self, measurements_object, model_options=None, model_job_options=None, include_initial_concentrations_factor_by_default=False, use_global_value_database=True):
-        # set measurements
-        self.measurements = measurements_object
+    def __init__(self, measurements_object, model_options=None, model_job_options=None, include_initial_concentrations_factor_to_model_parameters=True, use_global_value_database=True):
+        base_dir = simulation.optimization.constants.COST_FUNCTION_DIRNAME
 
-        # prepare job options
         if model_job_options is None:
             model_job_options = {}
         try:
             model_job_options['name']
         except KeyError:
-            model_job_options['name'] = str(self)
+            self.measurements = measurements_object
+            model_job_options['name'] = f'CF_{str(self)}'
 
-        try:
-            model_job_options['nodes_setup']
-        except KeyError:
-            try:
-                model_job_options['spinup']
-            except KeyError:
-                model_job_options['spinup'] = {}
-            try:
-                model_job_options['spinup']['nodes_setup']
-            except KeyError:
-                try:
-                    model_job_options['spinup']['nodes_setup'] = simulation.model.constants.NODES_SETUP_SPINUP.copy()
-                except AttributeError:
-                    pass
-            try:
-                model_job_options['derivative']
-            except KeyError:
-                model_job_options['derivative'] = {}
-            try:
-                model_job_options['derivative']['nodes_setup']
-            except KeyError:
-                try:
-                    model_job_options['derivative']['nodes_setup'] = simulation.model.constants.NODES_SETUP_DERIVATIVE.copy()
-                except AttributeError:
-                    pass
-            try:
-                model_job_options['trajectory']
-            except KeyError:
-                model_job_options['trajectory'] = {}
-            try:
-                model_job_options['trajectory']['nodes_setup']
-            except KeyError:
-                try:
-                    model_job_options['trajectory']['nodes_setup'] = simulation.model.constants.NODES_SETUP_TRAJECTORY.copy()
-                except AttributeError:
-                    pass
+        super().__init__(base_dir, measurements_object, model_options=model_options, model_job_options=model_job_options,
+                         include_initial_concentrations_factor_to_model_parameters=include_initial_concentrations_factor_to_model_parameters)
 
-        # include_initial_concentrations_factor_by_default
-        self.include_initial_concentrations_factor_by_default = include_initial_concentrations_factor_by_default
-
-        # set model
-        self.model = simulation.model.cache.Model(model_options=model_options, job_options=model_job_options)
-
-        # init database
         if use_global_value_database:
             self.global_value_database = simulation.optimization.database.database_for_cost_function(self)
 
     # model options
-    @property
-    def model_options(self):
-        return self.model.model_options
-
-    @model_options.setter
+    @simulation.util.cache.Cache.model_options.setter
     def model_options(self, model_options):
-        self.model.model_options = model_options
+        simulation.util.cache.Cache.model_options.fset(self, model_options)
         try:
             self.global_value_database
         except AttributeError:
             pass
         else:
             self.global_value_database = simulation.optimization.database.database_for_cost_function(self)
-
-    # cache, measurements, parameters
-    @property
-    def cache(self):
-        return self.model._cache
-
-    @property
-    def measurements(self):
-        return self._measurements
-
-    @measurements.setter
-    def measurements(self, measurements_object):
-        measurements_object = measurements.universal.data.as_measurements_collection(measurements_object)
-        self._measurements = measurements_object
-
-    @property
-    def initial_base_concentrations(self):
-        model_name = self.model_options.model_name
-        initial_base_concentrations = simulation.model.constants.MODEL_DEFAULT_INITIAL_CONCENTRATION[model_name]
-        return np.asanyarray(initial_base_concentrations)
-
-    @property
-    def parameters(self):
-        try:
-            parameters = self._parameters
-        except AttributeError:
-            parameters = self.model_options.parameters
-            if self.include_initial_concentrations_factor_by_default:
-                parameters = np.concatenate([parameters, np.array([1])])
-        return parameters
-
-    @parameters.setter
-    def parameters(self, parameters):
-        parameters = np.asanyarray(parameters)
-
-        model_parameters_len = self.model_options.parameters_len
-        if len(parameters) == model_parameters_len:
-            self.model_options.parameters = parameters
-        elif len(parameters) == model_parameters_len + 1:
-            self.model_options.parameters = parameters[:-1]
-            self.model_options.initial_concentration_options.concentrations = self.initial_base_concentrations * parameters[-1]
-        else:
-            raise ValueError('The parameters for the model {} must be a vector of length {} or {}, but its length is {}.'.format(self.model_options.model_name, model_parameters_len, model_parameters_len + 1, len(parameters)))
-
-        self._parameters = parameters
-
-    @property
-    def parameters_include_initial_concentrations_factor(self):
-        return len(self.parameters) == self.model_options.parameters_len + 1
-
-    # names
-
-    @property
-    def name(self):
-        return self.__class__.__name__
-
-    @property
-    def _measurements_name(self):
-        return str(self.measurements)
-
-    def __str__(self):
-        return '{}({})'.format(self.name, self._measurements_name)
-
-    def _filename(self, filename, base_dir=None):
-        if base_dir is None:
-            base_dir = simulation.optimization.constants.COST_FUNCTION_DIRNAME
-        file = os.path.join(base_dir,
-                            simulation.model.constants.DATABASE_CACHE_SPINUP_DIRNAME,
-                            self._measurements_name,
-                            self.name,
-                            filename)
-        return file
 
     # cost function values
 
@@ -195,30 +77,28 @@ class Base():
 
     def f(self, normalized=True):
         if normalized:
-            filename = self._filename(simulation.optimization.constants.COST_FUNCTION_F_FILENAME.format(normalized=True))
-            file = self.cache.get_file(filename, derivative_used=False)
-            value = self.cache.get_value(file, self.f_calculate_normalized, save_as_txt=True, save_as_np=False)
+            value = self._value_from_file_cache(simulation.optimization.constants.COST_FUNCTION_F_FILENAME.format(normalized=True),
+                                                self.f_calculate_normalized, derivative_used=False)
             self._add_value_to_database(value, overwrite=False)
             return value
         else:
             return self.unnormalize(self.f(normalized=True))
 
     def f_available(self, normalized=True):
-        filename = self._filename(simulation.optimization.constants.COST_FUNCTION_F_FILENAME.format(normalized=True))
-        file = self.cache.get_file(filename, derivative_used=False)
-        return self.cache.has_value(file)
+        return self._value_in_file_cache(simulation.optimization.constants.COST_FUNCTION_F_FILENAME.format(normalized=True),
+                                         derivative_used=False)
 
-    def df_calculate_unnormalized(self, derivative_kind):
+    def df_calculate_unnormalized(self, derivative_kind=None):
         raise NotImplementedError("Please implement this method.")
 
-    def df_calculate_normalized(self, derivative_kind):
-        return self.normalize(self.df_calculate_unnormalized(derivative_kind))
+    def df_calculate_normalized(self, derivative_kind=None):
+        return self.normalize(self.df_calculate_unnormalized(derivative_kind=derivative_kind))
 
     def df(self, derivative_kind=None, normalized=True):
         # get needed derivative kinds
         if derivative_kind is None:
             derivative_kinds = ['model_parameters']
-            if self.parameters_include_initial_concentrations_factor:
+            if self.include_initial_concentrations_factor_to_model_parameters:
                 derivative_kinds.append('total_concentration_factor')
         else:
             derivative_kinds = [derivative_kind]
@@ -228,10 +108,9 @@ class Base():
             # calculate method for current kind
             if normalized:
                 def calculation_method():
-                    return self.df_calculate_normalized(derivative_kind)
-                filename = self._filename(simulation.optimization.constants.COST_FUNCTION_DF_FILENAME.format(normalized=normalized, derivative_kind=derivative_kind))
-                file = self.cache.get_file(filename, derivative_used=True)
-                df_i = self.cache.get_value(file, calculation_method, save_as_txt=True, save_as_np=False)
+                    return self.df_calculate_normalized(derivative_kind=derivative_kind)
+                df_i = self._value_from_file_cache(simulation.optimization.constants.COST_FUNCTION_DF_FILENAME.format(normalized=normalized, derivative_kind=derivative_kind),
+                                                   calculation_method, derivative_used=True)
             else:
                 df_i = self.unnormalize(self.df(derivative_kind=derivative_kind, normalized=True))
             df.append(df_i)
@@ -240,41 +119,21 @@ class Base():
         df = np.concatenate(df, axis=-1)
 
         # return
-        assert df.shape[-1] == len(self.parameters)
+        assert df.shape[-1] == len(self.model_parameters)
         return df
 
     def df_available(self, derivative_kind=None, normalized=True):
         # get needed derivative kinds
         if derivative_kind is None:
             derivative_kinds = ['model_parameters']
-            if self.parameters_include_initial_concentrations_factor:
+            if self.include_initial_concentrations_factor_to_model_parameters:
                 derivative_kinds.append('total_concentration_factor')
         else:
             derivative_kinds = [derivative_kind]
 
         # check cache for each kind
-        filenames = (self._filename(simulation.optimization.constants.COST_FUNCTION_DF_FILENAME.format(normalized=normalized, derivative_kind=derivative_kind)) for derivative_kind in derivative_kinds)
-        files = (self.cache.get_file(filename, derivative_used=True) for filename in filenames)
-        return all(self.cache.has_value(file) for file in files)
-
-    # model and data values
-
-    def model_f(self):
-        f = self.model.f_measurements(*self.measurements)
-        f = self.measurements.convert_measurements_dict_to_array(f)
-        assert len(f) == self.measurements.number_of_measurements
-        return f
-
-    def model_df(self, derivative_kind):
-        df = self.model.df_measurements(*self.measurements, partial_derivative_kind=derivative_kind)
-        df = self.measurements.convert_measurements_dict_to_array(df)
-        assert len(df) == self.measurements.number_of_measurements
-        return df
-
-    def results(self):
-        results = self.measurements.values
-        assert len(results) == self.measurements.number_of_measurements
-        return results
+        return all(self._value_in_file_cache(simulation.optimization.constants.COST_FUNCTION_DF_FILENAME.format(normalized=normalized, derivative_kind=derivative_kind),
+                                             derivative_used=True) for derivative_kind in derivative_kinds)
 
 
 class BaseUsingStandardDeviation(Base):
@@ -305,14 +164,14 @@ class OLS(Base):
 
     def f_calculate_unnormalized(self):
         F = self.model_f()
-        results = self.results()
+        results = self.measurements_results()
         f = np.sum((F - results)**2)
         return f
 
-    def df_calculate_unnormalized(self, derivative_kind):
+    def df_calculate_unnormalized(self, derivative_kind=None):
         F = self.model_f()
-        DF = self.model_df(derivative_kind)
-        results = self.results()
+        DF = self.model_df(derivative_kind=derivative_kind)
+        results = self.measurements_results()
         df_factors = F - results
         df = 2 * np.sum(df_factors[:, np.newaxis] * DF, axis=0)
         return df
@@ -322,16 +181,16 @@ class WLS(BaseUsingStandardDeviation):
 
     def f_calculate_unnormalized(self):
         F = self.model_f()
-        results = self.results()
+        results = self.measurements_results()
         inverse_variances = 1 / self.measurements.variances
 
         f = np.sum((F - results)**2 * inverse_variances)
         return f
 
-    def df_calculate_unnormalized(self, derivative_kind):
+    def df_calculate_unnormalized(self, derivative_kind=None):
         F = self.model_f()
-        DF = self.model_df(derivative_kind)
-        results = self.results()
+        DF = self.model_df(derivative_kind=derivative_kind)
+        results = self.measurements_results()
         inverse_variances = 1 / self.measurements.variances
 
         df_factors = (F - results) * inverse_variances
@@ -343,19 +202,19 @@ class GLS(BaseUsingCorrelation):
 
     def f_calculate_unnormalized(self):
         F = self.model_f()
-        results = self.results()
+        results = self.measurements_results()
         inverse_deviations = 1 / self.measurements.standard_deviations
         weighted_residual = (F - results) * inverse_deviations
         correlation_matrix_decomposition = self.measurements.correlations_own_decomposition
         f = correlation_matrix_decomposition.inverse_matrix_both_sides_multiplication(weighted_residual)
         return f
 
-    def df_calculate_unnormalized(self, derivative_kind):
+    def df_calculate_unnormalized(self, derivative_kind=None):
         F = self.model_f()
-        results = self.results()
+        results = self.measurements_results()
         inverse_deviations = 1 / self.measurements.standard_deviations
         weighted_residual = (F - results) * inverse_deviations
-        DF = self.model_df(derivative_kind)
+        DF = self.model_df(derivative_kind=derivative_kind)
         correlation_matrix_decomposition = self.measurements.correlations_own_decomposition
         inverse_correlation_matrix_right_side_multiplied_weighted_residual = correlation_matrix_decomposition.inverse_matrix_right_side_multiplication(weighted_residual)
         df_factors = inverse_correlation_matrix_right_side_multiplied_weighted_residual * inverse_deviations
@@ -380,14 +239,14 @@ class BaseLog(Base):
     def model_f(self):
         return np.maximum(super().model_f(), self.min_value)
 
-    def model_df(self, derivative_kind):
+    def model_df(self, derivative_kind=None):
         min_mask = super().model_f() < self.min_value
-        df = super().model_df(derivative_kind)
+        df = super().model_df(derivative_kind=derivative_kind)
         df[min_mask] = 0
         return df
 
-    def results(self):
-        return np.maximum(super().results(), self.min_value)
+    def measurements_results(self):
+        return np.maximum(super().measurements_results(), self.min_value)
 
 
 class LWLS(BaseLog, BaseUsingStandardDeviation):
@@ -425,7 +284,7 @@ class LWLS(BaseLog, BaseUsingStandardDeviation):
         return df_sigma_diagonal
 
     def f_calculate_unnormalized(self):
-        results = self.results()
+        results = self.measurements_results()
         my = self.distribution_parameter_my()
         sigma_diagonal = self.distribution_parameter_sigma_diagonal()
         f = np.sum(np.log(sigma_diagonal))
@@ -433,7 +292,7 @@ class LWLS(BaseLog, BaseUsingStandardDeviation):
         return f
 
     def df_calculate_unnormalized(self, derivative_kind):
-        results = self.results()
+        results = self.measurements_results()
         my = self.distribution_parameter_my()
         sigma_diagonal = self.distribution_parameter_sigma_diagonal()
         df_my = self.df_distribution_parameter_my(derivative_kind)
@@ -484,7 +343,7 @@ class LGLS(BaseUsingCorrelation, BaseLog):
         return decomposition
 
     def f_calculate_unnormalized(self):
-        results = self.results()
+        results = self.measurements_results()
         my = self.distribution_parameter_my()
         sigma_decomposition = self.distribution_parameter_sigma_decomposition()
         diff = np.log(results) - my

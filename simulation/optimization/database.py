@@ -10,11 +10,11 @@ import simulation.optimization.cost_function
 
 def database_for_cost_function(cost_function):
     # get array file
-    model_dir = cost_function.model.model_dir
-    base_dir = os.path.join(model_dir, 'cf_values')
-    filename = 'cf_values.npy'
-    array_file = cost_function._filename(filename, base_dir=base_dir)
-    array_file = array_file.replace(os.sep + simulation.model.constants.DATABASE_CACHE_SPINUP_DIRNAME, '')
+    array_file = os.path.join(cost_function.model.model_dir,
+                              'cf_values',
+                              str(cost_function.measurements),
+                              cost_function.name,
+                              'cf_values.npy')
     # init database
     db = util.database.array_based.Database(array_file, value_length=1)
     return db

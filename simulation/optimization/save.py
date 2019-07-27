@@ -60,7 +60,7 @@ def save_for_all_measurements_serial(cost_function_names=None, model_names=None,
         model_options=model_options)
     if eval_df:
         for cost_function in cost_functions:
-            cost_function.include_initial_concentrations_factor_by_default = True
+            cost_function.include_initial_concentrations_factor_to_model_parameters = True
     # save values
     save(cost_functions, model_names=model_names, eval_f=eval_f, eval_df=eval_df)
 
@@ -69,7 +69,7 @@ def save_for_all_measurements_as_jobs(cost_function_names=None, model_names=None
     if eval_f or eval_df:
         # prepare
         model_job_options = None
-        include_initial_concentrations_factor_by_default = True
+        include_initial_concentrations_factor_to_model_parameters = True
 
         nodes_setup = simulation.optimization.constants.NODES_SETUP_JOB.copy()
         if node_kind is not None:
@@ -124,7 +124,7 @@ def save_for_all_measurements_as_jobs(cost_function_names=None, model_names=None
                         measurements_object,
                         model_options=model_options,
                         model_job_options=model_job_options,
-                        include_initial_concentrations_factor_by_default=include_initial_concentrations_factor_by_default)
+                        include_initial_concentrations_factor_to_model_parameters=include_initial_concentrations_factor_to_model_parameters)
 
                     try:
                         # check if evaluation is needed
@@ -151,7 +151,7 @@ def save_for_all_measurements_as_jobs(cost_function_names=None, model_names=None
                                     eval_f=eval_f_for_cf,
                                     eval_df=eval_df_for_cf,
                                     cost_function_job_options=cost_function_job_options,
-                                    include_initial_concentrations_factor_by_default=include_initial_concentrations_factor_by_default,
+                                    include_initial_concentrations_factor_to_model_parameters=include_initial_concentrations_factor_to_model_parameters,
                                     remove_output_dir_on_close=False) as cf_job:
                                 cf_job.start()
 
