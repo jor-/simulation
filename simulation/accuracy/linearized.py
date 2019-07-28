@@ -54,7 +54,8 @@ class Base(simulation.util.cache.Cache):
         assert M.shape == (n, n) and M.dtype == self.dtype
         return M
 
-    def model_parameter_covariance_matrix_calculate(self, information_matrix=None):
+    def model_parameter_covariance_matrix_calculate(self,
+                                                    information_matrix=None):
         util.logging.debug('Calculating model parameter covariance matrix.')
         if information_matrix is None:
             information_matrix = self.model_parameter_information_matrix()
@@ -63,14 +64,16 @@ class Base(simulation.util.cache.Cache):
         covariance_matrix = scipy.linalg.inv(information_matrix)
         return covariance_matrix
 
-    def model_parameter_covariance_matrix(self, information_matrix=None):
+    def model_parameter_covariance_matrix(self,
+                                          information_matrix=None):
         if information_matrix is not None:
             return self.model_parameter_covariance_matrix_calculate(information_matrix=information_matrix)
         else:
             return self._value_from_file_cache(simulation.accuracy.constants.COVARIANCE_MATRIX_FILENAME,
                                                self.model_parameter_covariance_matrix_calculate)
 
-    def model_parameter_correlation_matrix(self, information_matrix=None):
+    def model_parameter_correlation_matrix(self,
+                                           information_matrix=None):
         util.logging.debug('Calculating model parameter correlation matrix.')
         covariance_matrix = self.model_parameter_covariance_matrix(information_matrix=information_matrix)
         inverse_derivatives = np.sqrt(covariance_matrix.diagonal())
@@ -78,32 +81,35 @@ class Base(simulation.util.cache.Cache):
         correlation_matrix = inverse_derivative_diagonal_marix @ covariance_matrix @ inverse_derivative_diagonal_marix
         return correlation_matrix
 
-    def model_parameter_confidence_calculate(self, information_matrix=None, alpha=0.99, relative=True):
-        assert 0 < alpha < 1
+    def model_parameter_confidence_calculate(self, alpha=0.99, relative=True,
+                                             information_matrix=None, model_parameter_covariance_matrix=None):
         util.logging.debug(f'Calculating model parameter confidence with confidence level {alpha} and relative {relative}.')
-        covariance_matrix = self.model_parameter_covariance_matrix(information_matrix=information_matrix)
-        diagonal = covariance_matrix.diagonal()
+        if model_parameter_covariance_matrix is None:
+            model_parameter_covariance_matrix = self.model_parameter_covariance_matrix(information_matrix=information_matrix)
+        diagonal = model_parameter_covariance_matrix.diagonal()
         gamma = self.confidence_factor(alpha)
         confidences = np.sqrt(diagonal) * gamma
         if relative:
             confidences /= self.model_parameters
         return confidences
 
-    def model_parameter_confidence(self, information_matrix=None, alpha=0.99, relative=True):
-        if information_matrix is not None:
-            return self.model_parameter_confidence_calculate(information_matrix, alpha=alpha, relative=relative)
+    def model_parameter_confidence(self, alpha=0.99, relative=True,
+                                   information_matrix=None, model_parameter_covariance_matrix=None):
+        if information_matrix is not None or model_parameter_covariance_matrix is not None:
+            return self.model_parameter_confidence_calculate(alpha=alpha, relative=relative, information_matrix=information_matrix, model_parameter_covariance_matrix=model_parameter_covariance_matrix)
         else:
             return self._value_from_file_cache(simulation.accuracy.constants.PARAMETER_CONFIDENCE_FILENAME.format(alpha=alpha, relative=relative),
                                                lambda: self.model_parameter_confidence_calculate(alpha=alpha, relative=relative))
 
-    def average_model_parameter_confidence(self, information_matrix=None, alpha=0.99, relative=True):
+    def average_model_parameter_confidence(self, alpha=0.99, relative=True,
+                                           information_matrix=None, model_parameter_covariance_matrix=None):
         util.logging.debug(f'Calculating average model parameter confidence with confidence level {alpha} and relative {relative}.')
-        return self.model_parameter_confidence(information_matrix=information_matrix, alpha=alpha, relative=relative).mean(dtype=self.dtype)
+        return self.model_parameter_confidence(alpha=alpha, relative=relative, information_matrix=information_matrix, model_parameter_covariance_matrix=model_parameter_covariance_matrix).mean(dtype=self.dtype)
 
     # *** uncertainty in model output *** #
 
-    def model_confidence_calculate_for_index(self, confidence_index, model_parameter_covariance_matrix, df_all, time_step_size, gamma, mask_is_sea, value_mask=None):
-        if mask_is_sea[confidence_index[2:]] and (value_mask is None or value_mask[confidence_index]):
+    def model_confidence_calculate_for_index(self, confidence_index, model_parameter_covariance_matrix, df_all, time_step_size, gamma, mask_is_sea):
+        if mask_is_sea[confidence_index[2:]]:
             time_index_start = confidence_index[1] * time_step_size
             # average
             confidence = 0.0
@@ -117,7 +123,8 @@ class Base(simulation.util.cache.Cache):
             confidence = np.nan
         return confidence
 
-    def model_confidence_calculate(self, information_matrix=None, alpha=0.99, time_dim_confidence=12, time_dim_model=2880, parallel=True):
+    def model_confidence_calculate(self, alpha=0.99, time_dim_confidence=12, time_dim_model=2880, parallel=True,
+                                   information_matrix=None, model_parameter_covariance_matrix=None):
         util.logging.debug(f'Calculating model confidence with confidence level {alpha}, desired time dim {time_dim_confidence} of the confidence and time dim {time_dim_model}.')
 
         # calculate needed values
@@ -126,7 +133,8 @@ class Base(simulation.util.cache.Cache):
         else:
             raise ValueError(f'The desired time dimension {time_dim_confidence} of the confidence can not be satisfied because the time dimension of the model {time_dim_model} is not divisible by {time_dim_confidence}.')
 
-        model_parameter_covariance_matrix = self.model_parameter_covariance_matrix(information_matrix=information_matrix)
+        if model_parameter_covariance_matrix is None:
+            model_parameter_covariance_matrix = self.model_parameter_covariance_matrix(information_matrix=information_matrix)
         gamma = self.confidence_factor(alpha)
         df_all = self.model_df_all_boxes(time_dim_model)
         mask_is_sea = ~ np.isnan(df_all[0, 0, :, :, :, 0])
@@ -147,11 +155,12 @@ class Base(simulation.util.cache.Cache):
 
         return confidence
 
-    def model_confidence(self, information_matrix=None, alpha=0.99, time_dim_confidence=12, time_dim_model=2880, parallel=True):
-        if information_matrix is not None:
-            return self.model_confidence_calculate(information_matrix=information_matrix, alpha=alpha,
+    def model_confidence(self, alpha=0.99, time_dim_confidence=12, time_dim_model=2880, parallel=True,
+                         information_matrix=None, model_parameter_covariance_matrix=None):
+        if information_matrix is not None or model_parameter_covariance_matrix is not None:
+            return self.model_confidence_calculate(alpha=alpha, parallel=parallel,
                                                    time_dim_confidence=time_dim_confidence, time_dim_model=time_dim_model,
-                                                   parallel=parallel)
+                                                   information_matrix=information_matrix, model_parameter_covariance_matrix=model_parameter_covariance_matrix)
         else:
             return self._value_from_file_cache(simulation.accuracy.constants.MODEL_CONFIDENCE_FILENAME.format(
                                                alpha=alpha, time_dim_confidence=time_dim_confidence, time_dim_model=time_dim_model),
@@ -159,16 +168,17 @@ class Base(simulation.util.cache.Cache):
                                                alpha=alpha, time_dim_confidence=time_dim_confidence, time_dim_model=time_dim_model, parallel=parallel),
                                                save_as_txt=False, save_as_np=True)
 
-    def average_model_confidence_calculate(self, information_matrix=None, alpha=0.99, time_dim_model=2880, relative=True, parallel=True):
+    def average_model_confidence_calculate(self, alpha=0.99, time_dim_model=2880, relative=True, parallel=True,
+                                           information_matrix=None, model_parameter_covariance_matrix=None):
         util.logging.debug(f'Calculating average model output confidence with confidence level {alpha}, relative {relative} and model time dim {time_dim_model}.')
         # model confidence
-        if information_matrix is None:
+        if information_matrix is None and model_parameter_covariance_matrix is None:
             time_dim_confidence = 12
         else:
             time_dim_confidence = 1
-        model_confidence = self.model_confidence(information_matrix=information_matrix, alpha=alpha,
+        model_confidence = self.model_confidence(alpha=alpha, parallel=parallel,
                                                  time_dim_confidence=time_dim_confidence, time_dim_model=time_dim_model,
-                                                 parallel=parallel)
+                                                 information_matrix=information_matrix, model_parameter_covariance_matrix=model_parameter_covariance_matrix)
         # averaging
         model_confidence = np.nanmean(model_confidence, axis=tuple(range(1, model_confidence.ndim)), dtype=self.dtype)
         if relative:
@@ -180,11 +190,12 @@ class Base(simulation.util.cache.Cache):
         util.logging.debug(f'Average model confidence {model_confidence} calculated for confidence level {alpha} and model time dim {time_dim_model} using relative values {relative}.')
         return model_confidence
 
-    def average_model_confidence(self, information_matrix=None, alpha=0.99, time_dim_model=2880, relative=True, parallel=True):
-        if information_matrix is not None:
-            return self.average_model_confidence_calculate(information_matrix=information_matrix, alpha=alpha,
+    def average_model_confidence(self, alpha=0.99, time_dim_model=2880, relative=True, parallel=True,
+                                 information_matrix=None, model_parameter_covariance_matrix=None):
+        if information_matrix is not None or model_parameter_covariance_matrix is not None:
+            return self.average_model_confidence_calculate(alpha=alpha, parallel=parallel,
                                                            time_dim_model=time_dim_model, relative=relative,
-                                                           parallel=parallel)
+                                                           information_matrix=information_matrix, model_parameter_covariance_matrix=model_parameter_covariance_matrix)
         else:
             return self._value_from_file_cache(simulation.accuracy.constants.AVERAGE_MODEL_CONFIDENCE_FILENAME.format(
                                                alpha=alpha, time_dim_model=time_dim_model, relative=relative),
@@ -195,26 +206,8 @@ class Base(simulation.util.cache.Cache):
     def average_model_confidence_increase_calculate(self, number_of_measurements=1, alpha=0.99, time_dim_confidence_increase=12, time_dim_model=2880, relative=True, parallel=True):
         util.logging.debug(f'Calculating average model output confidence increase with confidence level {alpha}, relative {relative}, model time dim {time_dim_model}, condifence time dim {time_dim_confidence_increase} and number_of_measurements {number_of_measurements}.')
 
-        # get lengths
-        k = self.measurements.number_of_measurements
-        m = k + number_of_measurements
-        n = self.model.model_options.parameters_len
-
-        # make extended df
-        df_points = np.empty((m, n), dtype=self.dtype)
-        df_points[:k] = self.model_df()
+        # get all df
         df_all = self.model_df_all_boxes(time_dim_model)
-
-        # make extended standard deviation vector
-        standard_deviations = np.empty(m, dtype=self.dtype)
-        standard_deviations[:k] = self.measurements.standard_deviations
-        standard_deviations_for_sample_lsm = self.measurements.standard_deviations_for_sample_lsm[index_measurements]
-
-        # make extended correlation matrix
-        correlations_matrix = self.measurements.correlations_own()
-        correlations_matrix = correlations_matrix.reshape((m, m), copy=False)
-        for i in range(k, m):
-            correlations_matrix[i, i] = 1
 
         # make average_model_confidence_increase array
         average_model_confidence_increase_shape = (df_all.shape[0], time_dim_confidence_increase) + df_all.shape[2:-1]
@@ -226,22 +219,26 @@ class Base(simulation.util.cache.Cache):
         model_lsm.t_dim = time_dim_model
 
         # calculate new average_model_confidence for each index
-        for index_model in np.ndindex(*average_model_confidence_increase_shape):
-            df_at_index = df_all[index_model]
-            util.logging.debug(f'Calculating average model output confidence increase for index {index_model} with confidecne shape {average_model_confidence_increase_shape}.')
-            if not np.any(np.isnan(df_at_index)):
-                # update df
-                df_points[n:k] = df_at_index
-                # update standard deviations
-                coordinate = model_lsm.map_index_to_coordinate(*index_model)
-                index_measurements = self.measurements.sample_lsm.coordinate_to_map_index(*coordinate, discard_year=True)
-                standard_deviations[n:k] = standard_deviations_for_sample_lsm[index_measurements]
+        for index in np.ndindex(*average_model_confidence_increase_shape):
+            df_additional = df_all[index]
+            util.logging.debug(f'Calculating average model output confidence increase for index {index} with confidecne shape {average_model_confidence_increase_shape}.')
+            if not np.any(np.isnan(df_additional)):
+                # get standard deviation
+                coordinate = model_lsm.map_index_to_coordinate(*index[1:])
+                measurements_i = self.measurements.measurements_list[index[0]]
+                index_measurements = measurements_i.sample_lsm.coordinate_to_map_index(*coordinate, discard_year=True)
+                standard_deviations_additional = measurements_i.standard_deviations_for_sample_lsm()[tuple(index_measurements)]
+                assert not np.any(np.isnan(standard_deviations_additional))
+                # repeat several times if needed
+                if number_of_measurements > 1:
+                    df_additional = np.tile(df_additional, number_of_measurements)
+                    standard_deviations_additional = np.tile(standard_deviations_additional, number_of_measurements)
                 # calculate confidence
-                information_matrix = self.model_parameter_information_matrix(df=df_points, standard_deviations=standard_deviations, correlations_matrix=correlations_matrix)
-                confidence_at_index = self.average_model_confidence(information_matrix=information_matrix, alpha=alpha, time_dim_model=time_dim_model, relative=relative, parallel=parallel)
+                model_parameter_covariance_matrix_additional_independent = self.model_parameter_covariance_matrix_additional_independent(df_additional, standard_deviations_additional)
+                confidence_at_index = self.average_model_confidence(alpha=alpha, time_dim_model=time_dim_model, relative=relative, parallel=parallel, model_parameter_covariance_matrix=model_parameter_covariance_matrix_additional_independent)
             else:
                 confidence_at_index = np.nan
-            average_model_confidence_increase[index_model] = confidence_at_index
+            average_model_confidence_increase[index] = confidence_at_index
 
         # restore time dim in model lsm
         model_lsm.t_dim = old_time_dim_model
@@ -259,6 +256,35 @@ class Base(simulation.util.cache.Cache):
                                            number_of_measurements=number_of_measurements, alpha=alpha, relative=relative,
                                            time_dim_confidence_increase=time_dim_confidence_increase, time_dim_model=time_dim_model, parallel=parallel),
                                            save_as_txt=False, save_as_np=True)
+
+    # *** additional methods *** #
+
+    def model_parameter_information_matrix_additional_independent_increase(self, df_additional, standard_deviations_additional):
+        correlation_matrix = scipy.sparse.eye(len(standard_deviations_additional))
+        model_parameter_information_matrix = self.model_parameter_information_matrix(df=df_additional, standard_deviations=standard_deviations_additional, correlation_matrix=correlation_matrix)
+        return model_parameter_information_matrix
+
+    def model_parameter_information_matrix_additional_independent(self, df_additional, standard_deviations_additional):
+        matrix = self.model_parameter_information_matrix()
+        increase = self.model_parameter_information_matrix_additional_independent_increase(df_additional, standard_deviations_additional)
+        return matrix + increase
+
+    def model_parameter_covariance_matrix_additional_independent_increase(self, df_additional, standard_deviations_additional):
+        A = np.asarray(df_additional, dtype=self.dtype)
+        C = self.model_parameter_covariance_matrix()
+        D = np.asarray(standard_deviations_additional, dtype=self.dtype)
+        if D.size > 1:
+            D = np.diag(D)
+            E = - C @ A.T @ np.linalg.inv(D + A @ C @ A.T) @ A @ C
+        else:
+            v = C @ A
+            E = - np.outer(v, v) / (D + A @ C @ A)
+        return E
+
+    def model_parameter_covariance_matrix_additional_independent(self, df_additional, standard_deviations_additional):
+        matrix = self.model_parameter_covariance_matrix()
+        increase = self.model_parameter_covariance_matrix_additional_independent_increase(df_additional, standard_deviations_additional)
+        return matrix + increase
 
 
 class OLS(Base):
