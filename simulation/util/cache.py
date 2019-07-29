@@ -2,6 +2,7 @@ import os.path
 
 import numpy as np
 
+import util.cache.memory
 import util.parallel.with_multiprocessing
 
 import measurements.universal.data
@@ -158,12 +159,14 @@ class Cache():
 
     # model and data values
 
+    @util.cache.memory.method_decorator()
     def model_f(self):
         f = self.model.f_measurements(*self.measurements)
         f = self.measurements.convert_measurements_dict_to_array(f)
         assert len(f) == self.measurements.number_of_measurements
         return f
 
+    @util.cache.memory.method_decorator()
     def model_f_all_boxes(self, time_dim, as_shared_array=False):
         f = self.model.f_all(time_dim, return_as_dict=False)
         assert f.shape[1] == time_dim
@@ -183,6 +186,7 @@ class Cache():
             df = calculate(partial_derivative_kind=derivative_kind)
         return df
 
+    @util.cache.memory.method_decorator()
     def model_df(self, derivative_kind=None):
         def calculate(partial_derivative_kind):
             df = self.model.df_measurements(*self.measurements, partial_derivative_kind=partial_derivative_kind)
@@ -191,6 +195,7 @@ class Cache():
             return df
         return self._model_df(calculate, derivative_kind=derivative_kind)
 
+    @util.cache.memory.method_decorator()
     def model_df_all_boxes(self, time_dim, derivative_kind=None, as_shared_array=False):
         def calculate(partial_derivative_kind):
             df = self.model.df_all(time_dim, partial_derivative_kind=partial_derivative_kind, return_as_dict=False)
@@ -201,6 +206,7 @@ class Cache():
             df = util.parallel.with_multiprocessing.shared_array(df)
         return df
 
+    @util.cache.memory.method_decorator()
     def measurements_results(self):
         measurements_results = self.measurements.values
         assert len(measurements_results) == self.measurements.number_of_measurements
