@@ -9,7 +9,8 @@ import simulation.model.save
 def save(cost_function_name,
          model_name, time_step=1, concentrations=None, concentrations_index=None, parameters=None, parameter_set_index=None,
          spinup_years=None, spinup_tolerance=None, spinup_satisfy_years_and_tolerance=True, derivative_years=None, derivative_step_size=None, derivative_accuracy_order=None,
-         min_measurements_standard_deviations=None, min_standard_deviations=None, min_measurements_correlations=None, min_diag_correlations=None, max_box_distance_to_water=None):
+         min_measurements_standard_deviations=None, min_standard_deviations=None, min_measurements_correlations=None, min_diag_correlations=None, max_box_distance_to_water=None,
+         alpha=0.99):
 
     # prepare model options
     model_options = simulation.model.save.prepare_model_options(
@@ -40,7 +41,6 @@ def save(cost_function_name,
     accuracy_object = accuracy_class(measurements_object, model_options=model_options)
 
     relative = True
-    alpha = 0.95
     time_dim_model = 2880
     time_dim_confidence = 12
     parallel = True
@@ -49,7 +49,7 @@ def save(cost_function_name,
     accuracy_object.model_parameter_confidence(alpha=alpha, relative=relative)
     accuracy_object.model_confidence(alpha=alpha, time_dim_confidence=time_dim_confidence, time_dim_model=time_dim_model, parallel=parallel)
     accuracy_object.average_model_confidence(alpha=alpha, time_dim_model=time_dim_model, relative=relative, parallel=parallel)
-    accuracy_object.average_model_confidence_increase(number_of_measurements=1, alpha=alpha, time_dim_confidence_increase=time_dim_confidence, time_dim_model=time_dim_model, relative=relative, parallel=parallel)
+    accuracy_object.average_model_confidence_increase(alpha=alpha, time_dim_confidence_increase=time_dim_confidence, time_dim_model=time_dim_model, relative=relative, parallel=parallel, number_of_measurements=1)
 
 
 # *** main function for script call *** #
@@ -86,6 +86,8 @@ def _main():
     parser.add_argument('--min_diag_correlations', type=float, default=None, help='The minimal value aplied to the diagonal of the decomposition of the correlation matrix applied to each dataset.')
     parser.add_argument('--max_box_distance_to_water', type=int, default=float('inf'), help='The maximal distance to water boxes to accept measurements.')
 
+    parser.add_argument('--alpha', type=float, default=0.99, help='The confidence level.')
+
     parser.add_argument('-d', '--debug', action='store_true', help='Print debug infos.')
 
     parser.add_argument('--version', action='version', version='%(prog)s {}'.format(simulation.__version__))
@@ -116,7 +118,8 @@ def _main():
              min_standard_deviations=args.min_standard_deviations,
              min_measurements_correlations=args.min_measurements_correlations,
              min_diag_correlations=args.min_diag_correlations,
-             max_box_distance_to_water=args.max_box_distance_to_water)
+             max_box_distance_to_water=args.max_box_distance_to_water,
+             alpha=args.alpha)
         util.logging.info('Finished.')
 
 
