@@ -2,6 +2,8 @@ import os.path
 
 import numpy as np
 
+import util.parallel.with_multiprocessing
+
 import measurements.universal.data
 
 import simulation.model.cache
@@ -162,9 +164,11 @@ class Cache():
         assert len(f) == self.measurements.number_of_measurements
         return f
 
-    def model_f_all_boxes(self, time_dim):
+    def model_f_all_boxes(self, time_dim, as_shared_array=False):
         f = self.model.f_all(time_dim, return_as_dict=False)
         assert f.shape[1] == time_dim
+        if as_shared_array:
+            f = util.parallel.with_multiprocessing.shared_array(f)
         return f
 
     def _model_df(self, calculate, derivative_kind=None):
@@ -187,12 +191,15 @@ class Cache():
             return df
         return self._model_df(calculate, derivative_kind=derivative_kind)
 
-    def model_df_all_boxes(self, time_dim, derivative_kind=None):
+    def model_df_all_boxes(self, time_dim, derivative_kind=None, as_shared_array=False):
         def calculate(partial_derivative_kind):
             df = self.model.df_all(time_dim, partial_derivative_kind=partial_derivative_kind, return_as_dict=False)
             assert df.shape[1] == time_dim
             return df
-        return self._model_df(calculate, derivative_kind=derivative_kind)
+        df = self._model_df(calculate, derivative_kind=derivative_kind)
+        if as_shared_array:
+            df = util.parallel.with_multiprocessing.shared_array(df)
+        return df
 
     def measurements_results(self):
         measurements_results = self.measurements.values
