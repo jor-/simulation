@@ -108,8 +108,8 @@ class Base(simulation.util.cache.Cache):
 
     # *** uncertainty in model output *** #
 
-    def model_confidence_calculate_for_index(self, confidence_index, model_parameter_covariance_matrix, df_all, time_step_size, gamma, mask_is_sea):
-        if mask_is_sea[confidence_index[2:]]:
+    def _model_confidence_calculate_for_index(self, confidence_index, model_parameter_covariance_matrix, df_all, time_step_size, gamma):
+        if not np.all(np.isnan(df_all[confidence_index])):
             time_index_start = confidence_index[1] * time_step_size
             # average
             confidence = 0.0
@@ -135,15 +135,12 @@ class Base(simulation.util.cache.Cache):
 
         if model_parameter_covariance_matrix is None:
             model_parameter_covariance_matrix = self.model_parameter_covariance_matrix(information_matrix=information_matrix)
+        df_all = self.model_df_all_boxes(time_dim_model, as_shared_array=parallel)
         gamma = self.confidence_factor(alpha)
-        df_all = self.model_df_all_boxes(time_dim_model)
-        mask_is_sea = ~ np.isnan(df_all[0, 0, :, :, :, 0])
         confidence_shape = (df_all.shape[0], time_dim_confidence) + df_all.shape[2:-1]
 
         # prepare parallel execution
         if parallel:
-            df_all = util.parallel.with_multiprocessing.shared_array(df_all)
-            mask_is_sea = util.parallel.with_multiprocessing.shared_array(mask_is_sea)
             parallel_mode = util.parallel.universal.MODES['multiprocessing']
             chunksize = np.sort(confidence_shape)[-2:].prod()
         else:
@@ -151,7 +148,7 @@ class Base(simulation.util.cache.Cache):
             chunksize = None
 
         # calculate confidence
-        confidence = util.parallel.universal.create_array(confidence_shape, self.model_confidence_calculate_for_index, model_parameter_covariance_matrix, df_all, time_step_size, gamma, mask_is_sea, parallel_mode=parallel_mode, chunksize=chunksize)
+        confidence = util.parallel.universal.create_array(confidence_shape, self.model_confidence_calculate_for_index, model_parameter_covariance_matrix, df_all, time_step_size, gamma, parallel_mode=parallel_mode, chunksize=chunksize)
 
         return confidence
 
@@ -182,7 +179,7 @@ class Base(simulation.util.cache.Cache):
         # averaging
         model_confidence = np.nanmean(model_confidence, axis=tuple(range(1, model_confidence.ndim)), dtype=self.dtype)
         if relative:
-            model_output = self.model_f_all_boxes(time_dim_model)
+            model_output = self.model_f_all_boxes(time_dim_model, as_shared_array=parallel)
             model_output = np.nanmean(model_output, axis=tuple(range(1, model_output.ndim)), dtype=self.dtype)
             model_confidence = model_confidence / model_output
         model_confidence = np.mean(model_confidence, dtype=self.dtype)
@@ -207,7 +204,7 @@ class Base(simulation.util.cache.Cache):
         util.logging.debug(f'Calculating average model output confidence increase with confidence level {alpha}, relative {relative}, model time dim {time_dim_model}, condifence time dim {time_dim_confidence_increase} and number_of_measurements {number_of_measurements}.')
 
         # get all df
-        df_all = self.model_df_all_boxes(time_dim_model)
+        df_all = self.model_df_all_boxes(time_dim_model, as_shared_array=parallel)
 
         # make average_model_confidence_increase array
         average_model_confidence_increase_shape = (df_all.shape[0], time_dim_confidence_increase) + df_all.shape[2:-1]
