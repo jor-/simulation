@@ -4,6 +4,7 @@ import scipy.stats
 
 import matrix
 
+import util.cache.memory
 import util.logging
 import util.parallel.universal
 import util.parallel.with_multiprocessing
@@ -44,6 +45,7 @@ class Base(simulation.util.cache.Cache):
     def model_parameter_information_matrix_calculate(self, **kwargs):
         raise NotImplementedError("Please implement this method")
 
+    @util.cache.memory.method_decorator()
     def model_parameter_information_matrix(self, **kwargs):
         if len(kwargs):
             M = self.model_parameter_information_matrix_calculate(**kwargs)
@@ -64,6 +66,7 @@ class Base(simulation.util.cache.Cache):
         covariance_matrix = scipy.linalg.inv(information_matrix)
         return covariance_matrix
 
+    @util.cache.memory.method_decorator()
     def model_parameter_covariance_matrix(self,
                                           information_matrix=None):
         if information_matrix is not None:
