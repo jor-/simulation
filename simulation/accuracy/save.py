@@ -1,3 +1,5 @@
+import multiprocessing  # for using multiprocessing logger
+
 import util.logging
 
 import measurements.all.data
