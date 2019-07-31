@@ -145,7 +145,7 @@ class Base(simulation.util.cache.Cache):
         # prepare parallel execution
         if parallel:
             parallel_mode = util.parallel.universal.MODES['multiprocessing']
-            chunksize = np.sort(confidence_shape)[-2:].prod()
+            chunksize = np.sort(confidence_shape)[-1]
         else:
             parallel_mode = util.parallel.universal.MODES['serial']
             chunksize = None
@@ -188,6 +188,7 @@ class Base(simulation.util.cache.Cache):
         model_confidence = np.mean(model_confidence, dtype=self.dtype)
 
         util.logging.debug(f'Average model confidence {model_confidence} calculated for confidence level {alpha} and model time dim {time_dim_model} using relative values {relative}.')
+        assert not np.isnan(model_confidence)
         return model_confidence
 
     def average_model_confidence(self, alpha=0.99, time_dim_model=2880, relative=True, parallel=True,
@@ -221,7 +222,7 @@ class Base(simulation.util.cache.Cache):
         # calculate new average_model_confidence for each index
         for index in np.ndindex(*average_model_confidence_increase_shape):
             df_additional = df_all[index]
-            util.logging.debug(f'Calculating average model output confidence increase for index {index} with confidecne shape {average_model_confidence_increase_shape}.')
+            util.logging.debug(f'Calculating average model output confidence increase for index {index} with confidence shape {average_model_confidence_increase_shape}.')
             if not np.any(np.isnan(df_additional)):
                 # get standard deviation
                 coordinate = model_lsm.map_index_to_coordinate(*index[1:])
