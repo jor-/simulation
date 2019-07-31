@@ -12,7 +12,7 @@ def save(cost_function_name,
          model_name, time_step=1, concentrations=None, concentrations_index=None, parameters=None, parameter_set_index=None,
          spinup_years=None, spinup_tolerance=None, spinup_satisfy_years_and_tolerance=True, derivative_years=None, derivative_step_size=None, derivative_accuracy_order=None,
          min_measurements_standard_deviations=None, min_standard_deviations=None, min_measurements_correlations=None, min_diag_correlations=None, max_box_distance_to_water=None,
-         alpha=0.99, parallel=True):
+         alpha=0.99, time_dim_model=None, parallel=True):
 
     # prepare model options
     model_options = simulation.model.save.prepare_model_options(
@@ -43,7 +43,6 @@ def save(cost_function_name,
     accuracy_object = accuracy_class(measurements_object, model_options=model_options)
 
     relative = True
-    time_dim_model = 2880
     time_dim_confidence = 12
     accuracy_object.model_parameter_covariance_matrix()
     accuracy_object.model_parameter_correlation_matrix()
@@ -88,6 +87,7 @@ def _main():
     parser.add_argument('--max_box_distance_to_water', type=int, default=float('inf'), help='The maximal distance to water boxes to accept measurements.')
 
     parser.add_argument('--alpha', type=float, default=0.99, help='The confidence level.')
+    parser.add_argument('--time_dim_model', type=int, default=None, help='Used time dim of model.')
     parser.add_argument('--parallel', action='store_true', help='Run in parallel.')
 
     parser.add_argument('-d', '--debug', action='store_true', help='Print debug infos.')
@@ -122,6 +122,7 @@ def _main():
              min_diag_correlations=args.min_diag_correlations,
              max_box_distance_to_water=args.max_box_distance_to_water,
              alpha=args.alpha,
+             time_dim_model=args.time_dim_model,
              parallel=args.parallel)
         util.logging.info('Finished.')
 
