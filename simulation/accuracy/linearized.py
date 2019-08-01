@@ -161,15 +161,19 @@ class Base(simulation.util.cache.Cache):
         if time_dim_model is None:
             time_dim_model = self.model.model_lsm.t_dim
         if information_matrix is not None or model_parameter_covariance_matrix is not None:
-            return self._model_confidence_calculate(alpha=alpha, parallel=parallel,
-                                                    time_dim_confidence=time_dim_confidence, time_dim_model=time_dim_model,
-                                                    information_matrix=information_matrix, model_parameter_covariance_matrix=model_parameter_covariance_matrix)
+            model_confidence = self._model_confidence_calculate(alpha=alpha, parallel=parallel,
+                                                                time_dim_confidence=time_dim_confidence, time_dim_model=time_dim_model,
+                                                                information_matrix=information_matrix, model_parameter_covariance_matrix=model_parameter_covariance_matrix)
         else:
-            return self._value_from_file_cache(simulation.accuracy.constants.MODEL_CONFIDENCE_FILENAME.format(
-                                               alpha=alpha, time_dim_confidence=time_dim_confidence, time_dim_model=time_dim_model),
-                                               lambda: self._model_confidence_calculate(
-                                               alpha=alpha, time_dim_confidence=time_dim_confidence, time_dim_model=time_dim_model, parallel=parallel),
-                                               save_as_txt=False, save_as_np=True)
+            model_confidence = self._value_from_file_cache(simulation.accuracy.constants.MODEL_CONFIDENCE_FILENAME.format(
+                alpha=alpha, time_dim_confidence=time_dim_confidence, time_dim_model=time_dim_model),
+                lambda: self._model_confidence_calculate(
+                alpha=alpha, time_dim_confidence=time_dim_confidence, time_dim_model=time_dim_model, parallel=parallel),
+                save_as_txt=False, save_as_np=True)
+
+        assert model_confidence.shape[1] == time_dim_confidence
+        assert not np.all(np.isnan(model_confidence))
+        return model_confidence
 
     def _average_model_confidence_calculate(self, alpha=0.99, time_dim_model=None, relative=True, parallel=True,
                                             information_matrix=None, model_parameter_covariance_matrix=None):
@@ -183,31 +187,33 @@ class Base(simulation.util.cache.Cache):
                                                  time_dim_confidence=time_dim_confidence, time_dim_model=time_dim_model,
                                                  information_matrix=information_matrix, model_parameter_covariance_matrix=model_parameter_covariance_matrix)
         # averaging
-        model_confidence = np.nanmean(model_confidence, axis=tuple(range(1, model_confidence.ndim)), dtype=self.dtype)
+        average_model_confidence = np.nanmean(model_confidence, axis=tuple(range(1, model_confidence.ndim)), dtype=self.dtype)
         if relative:
             model_output = self.model_f_all_boxes(time_dim_model, as_shared_array=parallel)
-            model_output = np.nanmean(model_output, axis=tuple(range(1, model_output.ndim)), dtype=self.dtype)
-            model_confidence = model_confidence / model_output
-        model_confidence = np.mean(model_confidence, dtype=self.dtype)
+            average_model_output = np.nanmean(model_output, axis=tuple(range(1, model_output.ndim)), dtype=self.dtype)
+            average_model_confidence = average_model_confidence / average_model_output
+        average_model_confidence = np.mean(average_model_confidence, dtype=self.dtype)
 
-        util.logging.debug(f'Average model confidence {model_confidence} calculated for confidence level {alpha} and model time dim {time_dim_model} using relative values {relative}.')
-        assert not np.isnan(model_confidence)
-        return model_confidence
+        util.logging.debug(f'Average model confidence {average_model_confidence} calculated for confidence level {alpha} and model time dim {time_dim_model} using relative values {relative}.')
+        return average_model_confidence
 
     def average_model_confidence(self, alpha=0.99, time_dim_model=None, relative=True, parallel=True,
                                  information_matrix=None, model_parameter_covariance_matrix=None):
         if time_dim_model is None:
             time_dim_model = self.model.model_lsm.t_dim
         if information_matrix is not None or model_parameter_covariance_matrix is not None:
-            return self._average_model_confidence_calculate(alpha=alpha, parallel=parallel,
-                                                            time_dim_model=time_dim_model, relative=relative,
-                                                            information_matrix=information_matrix, model_parameter_covariance_matrix=model_parameter_covariance_matrix)
+            average_model_confidence = self._average_model_confidence_calculate(
+                alpha=alpha, parallel=parallel,
+                time_dim_model=time_dim_model, relative=relative,
+                information_matrix=information_matrix, model_parameter_covariance_matrix=model_parameter_covariance_matrix)
         else:
-            return self._value_from_file_cache(simulation.accuracy.constants.AVERAGE_MODEL_CONFIDENCE_FILENAME.format(
-                                               alpha=alpha, time_dim_model=time_dim_model, relative=relative),
-                                               lambda: self._average_model_confidence_calculate(
-                                               alpha=alpha, time_dim_model=time_dim_model, relative=relative,
-                                               parallel=parallel))
+            average_model_confidence = self._value_from_file_cache(simulation.accuracy.constants.AVERAGE_MODEL_CONFIDENCE_FILENAME.format(
+                alpha=alpha, time_dim_model=time_dim_model, relative=relative),
+                lambda: self._average_model_confidence_calculate(
+                alpha=alpha, time_dim_model=time_dim_model, relative=relative,
+                parallel=parallel))
+        assert not np.isnan(average_model_confidence)
+        return average_model_confidence
 
     def _average_model_confidence_increase_calculate(self, number_of_measurements=1, alpha=0.99, time_dim_confidence_increase=12, time_dim_model=None, relative=True, parallel=True):
         util.logging.debug(f'Calculating average model output confidence increase with confidence level {alpha}, relative {relative}, model time dim {time_dim_model}, condifence time dim {time_dim_confidence_increase} and number_of_measurements {number_of_measurements}.')
@@ -257,13 +263,16 @@ class Base(simulation.util.cache.Cache):
     def average_model_confidence_increase(self, number_of_measurements=1, alpha=0.99, time_dim_confidence_increase=12, time_dim_model=None, relative=True, parallel=True):
         if time_dim_model is None:
             time_dim_model = self.model.model_lsm.t_dim
-        return self._value_from_file_cache(simulation.accuracy.constants.AVERAGE_MODEL_CONFIDENCE_INCREASE_FILENAME.format(
-                                           number_of_measurements=number_of_measurements, alpha=alpha, relative=relative,
-                                           time_dim_confidence_increase=time_dim_confidence_increase, time_dim_model=time_dim_model),
-                                           lambda: self._average_model_confidence_increase_calculate(
-                                           number_of_measurements=number_of_measurements, alpha=alpha, relative=relative,
-                                           time_dim_confidence_increase=time_dim_confidence_increase, time_dim_model=time_dim_model, parallel=parallel),
-                                           save_as_txt=False, save_as_np=True)
+        average_model_confidence_increase = self._value_from_file_cache(simulation.accuracy.constants.AVERAGE_MODEL_CONFIDENCE_INCREASE_FILENAME.format(
+            number_of_measurements=number_of_measurements, alpha=alpha, relative=relative,
+            time_dim_confidence_increase=time_dim_confidence_increase, time_dim_model=time_dim_model),
+            lambda: self._average_model_confidence_increase_calculate(
+            number_of_measurements=number_of_measurements, alpha=alpha, relative=relative,
+            time_dim_confidence_increase=time_dim_confidence_increase, time_dim_model=time_dim_model, parallel=parallel),
+            save_as_txt=False, save_as_np=True)
+
+        assert not np.all(np.isnan(average_model_confidence_increase))
+        return average_model_confidence_increase
 
     # *** additional methods *** #
 
