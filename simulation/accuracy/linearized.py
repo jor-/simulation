@@ -340,6 +340,14 @@ class Base(simulation.util.cache.Cache):
 
 class OLS(Base):
 
+    @property
+    def name(self):
+        name = super().name
+        standard_deviation_id = self.measurements.standard_deviation_id
+        if len(standard_deviation_id) > 0:
+            name = name + '(' + standard_deviation_id + ')'
+        return name
+
     def _model_parameter_information_matrix_calculate(self, df=None):
         # prepare df
         if df is None:
@@ -361,6 +369,14 @@ class OLS(Base):
 
 
 class WLS(Base):
+
+    @property
+    def name(self):
+        name = super().name
+        standard_deviation_id = self.measurements.standard_deviation_id
+        if len(standard_deviation_id) > 0:
+            name = name + '(' + standard_deviation_id + ')'
+        return name
 
     def _model_parameter_information_matrix_calculate(self, df=None, standard_deviations=None):
         # prepare df and standard deviations
@@ -387,6 +403,14 @@ class WLS(Base):
 
 
 class GLS(Base):
+
+    @property
+    def name(self):
+        name = super().name
+        correlation_id = self.measurements.correlation_id
+        if len(correlation_id) > 0:
+            name = name + '(' + correlation_id + ')'
+        return name
 
     def _model_parameter_information_matrix_calculate(self, df=None, standard_deviations=None, correlation_matrix=None, correlation_matrix_decomposition=None):
         # prepare df and standard deviations and correlation matrix decomposition
