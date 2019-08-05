@@ -160,6 +160,8 @@ class Base(simulation.util.cache.Cache):
                 number_of_processes=None, chunksize=chunksize, share_args=True)
 
         # return
+        assert model_confidence.shape[1] == time_dim_confidence
+        assert not np.all(np.isnan(model_confidence))
         return model_confidence
 
     def model_confidence(self, alpha=0.99, time_dim_confidence=12, time_dim_model=None, parallel=True,
@@ -176,9 +178,6 @@ class Base(simulation.util.cache.Cache):
                 lambda: self._model_confidence_calculate(
                 alpha=alpha, time_dim_confidence=time_dim_confidence, time_dim_model=time_dim_model, parallel=parallel),
                 save_as_txt=False, save_as_np=True)
-
-        assert model_confidence.shape[1] == time_dim_confidence
-        assert not np.all(np.isnan(model_confidence))
         return model_confidence
 
     def _average_model_confidence_calculate(self, alpha=0.99, time_dim_model=None, per_tracer=False, relative=True, parallel=True,
@@ -211,7 +210,9 @@ class Base(simulation.util.cache.Cache):
         if not per_tracer:
             average_model_confidence = np.mean(average_model_confidence, dtype=self.dtype)
 
+        # return
         util.logging.debug(f'Average model confidence {average_model_confidence} calculated for confidence level {alpha} and model time dim {time_dim_model} using relative values {relative}.')
+        assert not np.any(np.isnan(average_model_confidence))
         return average_model_confidence
 
     def average_model_confidence(self, alpha=0.99, time_dim_model=None, per_tracer=False, relative=True, parallel=True,
@@ -231,7 +232,6 @@ class Base(simulation.util.cache.Cache):
                 lambda: self._average_model_confidence_calculate(
                 alpha=alpha, time_dim_model=time_dim_model,
                 per_tracer=per_tracer, relative=relative, parallel=parallel))
-        assert not np.any(np.isnan(average_model_confidence))
         return average_model_confidence
 
     def _average_model_confidence_increase_calculate_for_index(self, confidence_index, df_all, number_of_measurements, alpha, time_dim_model, relative, parallel):
