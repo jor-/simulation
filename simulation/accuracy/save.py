@@ -42,13 +42,14 @@ def save(cost_function_name,
         raise ValueError(f'Unknown cost_function_name {cost_function_name}.')
     accuracy_object = accuracy_class(measurements_object, model_options=model_options)
 
-    relative = True
     time_dim_confidence = 12
     accuracy_object.model_parameter_covariance_matrix()
     accuracy_object.model_parameter_correlation_matrix()
-    accuracy_object.model_parameter_confidence(alpha=alpha, relative=relative)
     accuracy_object.model_confidence(alpha=alpha, time_dim_confidence=time_dim_confidence, time_dim_model=time_dim_model, parallel=parallel)
-    accuracy_object.average_model_confidence(alpha=alpha, time_dim_model=time_dim_model, relative=relative, parallel=parallel)
+    for relative in (True, False):
+        accuracy_object.model_parameter_confidence(alpha=alpha, relative=relative)
+        for per_tracer in (True, False):
+            accuracy_object.average_model_confidence(alpha=alpha, time_dim_model=time_dim_model, per_tracer=per_tracer, relative=relative, parallel=parallel)
     accuracy_object.average_model_confidence_increase(alpha=alpha, time_dim_confidence_increase=time_dim_confidence, time_dim_model=time_dim_model, relative=relative, parallel=parallel, number_of_measurements=1)
 
 

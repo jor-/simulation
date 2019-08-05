@@ -181,9 +181,9 @@ class Base(simulation.util.cache.Cache):
         assert not np.all(np.isnan(model_confidence))
         return model_confidence
 
-    def _average_model_confidence_calculate(self, alpha=0.99, time_dim_model=None, relative=True, parallel=True,
+    def _average_model_confidence_calculate(self, alpha=0.99, time_dim_model=None, per_tracer=False, relative=True, parallel=True,
                                             information_matrix=None, model_parameter_covariance_matrix=None):
-        util.logging.debug(f'Calculating average model output confidence with confidence level {alpha}, relative {relative} and model time dim {time_dim_model}.')
+        util.logging.debug(f'Calculating average model output confidence with confidence level {alpha}, per_tracer {per_tracer}, relative {relative} and model time dim {time_dim_model}.')
         # model confidence
         if information_matrix is None and model_parameter_covariance_matrix is None:
             time_dim_confidence = 12
@@ -208,28 +208,30 @@ class Base(simulation.util.cache.Cache):
             model_output = self.model_f_all_boxes(time_dim_model, as_shared_array=parallel)
             for i in range(n):
                 average_model_confidence[i] /= fnanmean(model_output[i])
-        average_model_confidence = np.mean(average_model_confidence, dtype=self.dtype)
+        if not per_tracer:
+            average_model_confidence = np.mean(average_model_confidence, dtype=self.dtype)
 
         util.logging.debug(f'Average model confidence {average_model_confidence} calculated for confidence level {alpha} and model time dim {time_dim_model} using relative values {relative}.')
         return average_model_confidence
 
-    def average_model_confidence(self, alpha=0.99, time_dim_model=None, relative=True, parallel=True,
+    def average_model_confidence(self, alpha=0.99, time_dim_model=None, per_tracer=False, relative=True, parallel=True,
                                  information_matrix=None, model_parameter_covariance_matrix=None):
         if time_dim_model is None:
             time_dim_model = self.model.model_lsm.t_dim
 
         if information_matrix is not None or model_parameter_covariance_matrix is not None:
             average_model_confidence = self._average_model_confidence_calculate(
-                alpha=alpha, parallel=parallel,
-                time_dim_model=time_dim_model, relative=relative,
+                alpha=alpha, time_dim_model=time_dim_model,
+                per_tracer=per_tracer, relative=relative, parallel=parallel,
                 information_matrix=information_matrix, model_parameter_covariance_matrix=model_parameter_covariance_matrix)
         else:
             average_model_confidence = self._value_from_file_cache(simulation.accuracy.constants.AVERAGE_MODEL_CONFIDENCE_FILENAME.format(
-                alpha=alpha, time_dim_model=time_dim_model, relative=relative),
+                alpha=alpha, time_dim_model=time_dim_model,
+                per_tracer=per_tracer, relative=relative),
                 lambda: self._average_model_confidence_calculate(
-                alpha=alpha, time_dim_model=time_dim_model, relative=relative,
-                parallel=parallel))
-        assert not np.isnan(average_model_confidence)
+                alpha=alpha, time_dim_model=time_dim_model,
+                per_tracer=per_tracer, relative=relative, parallel=parallel))
+        assert not np.any(np.isnan(average_model_confidence))
         return average_model_confidence
 
     def _average_model_confidence_increase_calculate_for_index(self, confidence_index, df_all, number_of_measurements, alpha, time_dim_model, relative, parallel):
@@ -248,7 +250,7 @@ class Base(simulation.util.cache.Cache):
                 standard_deviations_additional = np.tile(standard_deviations_additional, number_of_measurements)
             # calculate confidence
             model_parameter_covariance_matrix_additional_independent = self.model_parameter_covariance_matrix_additional_independent(df_additional, standard_deviations_additional)
-            average_model_confidence_increase_at_index = self.average_model_confidence(alpha=alpha, time_dim_model=time_dim_model, relative=relative, parallel=False, model_parameter_covariance_matrix=model_parameter_covariance_matrix_additional_independent)
+            average_model_confidence_increase_at_index = self.average_model_confidence(alpha=alpha, time_dim_model=time_dim_model, per_tracer=False, relative=relative, parallel=False, model_parameter_covariance_matrix=model_parameter_covariance_matrix_additional_independent)
             assert average_model_confidence_increase_at_index is not None
         else:
             average_model_confidence_increase_at_index = np.nan
