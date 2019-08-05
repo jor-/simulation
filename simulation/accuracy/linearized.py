@@ -1,3 +1,5 @@
+import math
+
 import numpy as np
 import scipy.linalg
 import scipy.stats
@@ -190,12 +192,22 @@ class Base(simulation.util.cache.Cache):
         model_confidence = self.model_confidence(alpha=alpha, parallel=parallel,
                                                  time_dim_confidence=time_dim_confidence, time_dim_model=time_dim_model,
                                                  information_matrix=information_matrix, model_parameter_covariance_matrix=model_parameter_covariance_matrix)
+
         # averaging
-        average_model_confidence = np.nanmean(model_confidence, axis=tuple(range(1, model_confidence.ndim)), dtype=self.dtype)
+        def fnanmean(a):
+            a = a[~ np.isnan(a)]
+            sum = math.fsum(a)
+            mean = sum / len(a)
+            return mean
+
+        n = model_confidence.shape[0]
+        average_model_confidence = np.empty(n, dtype=self.dtype)
+        for i in range(n):
+            average_model_confidence[i] = fnanmean(model_confidence[i])
         if relative:
             model_output = self.model_f_all_boxes(time_dim_model, as_shared_array=parallel)
-            average_model_output = np.nanmean(model_output, axis=tuple(range(1, model_output.ndim)), dtype=self.dtype)
-            average_model_confidence = average_model_confidence / average_model_output
+            for i in range(n):
+                average_model_confidence[i] /= fnanmean(model_output[i])
         average_model_confidence = np.mean(average_model_confidence, dtype=self.dtype)
 
         util.logging.debug(f'Average model confidence {average_model_confidence} calculated for confidence level {alpha} and model time dim {time_dim_model} using relative values {relative}.')
