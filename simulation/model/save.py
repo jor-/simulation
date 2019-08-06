@@ -12,7 +12,9 @@ import util.logging
 
 def prepare_model_options(model_name, time_step=1, concentrations=None, concentrations_index=None, parameters=None, parameter_set_index=None,
                           spinup_years=None, spinup_tolerance=None, spinup_satisfy_years_and_tolerance=True,
-                          derivative_years=None, derivative_step_size=None, derivative_accuracy_order=None):
+                          derivative_years=None, derivative_step_size=None, derivative_accuracy_order=None,
+                          model_parameters_relative_tolerance=None, model_parameters_absolute_tolerance=None,
+                          initial_concentrations_relative_tolerance=None, initial_concentrations_absolute_tolerance=None):
 
     # prepare model options
     model_options = simulation.model.options.ModelOptions()
@@ -44,6 +46,22 @@ def prepare_model_options(model_name, time_step=1, concentrations=None, concentr
         derivative_options['accuracy_order'] = derivative_accuracy_order
     if len(derivative_options) > 0:
         model_options.derivative_options = derivative_options
+
+    # set model parameters tolerance options
+    if model_parameters_relative_tolerance is not None or model_parameters_absolute_tolerance is not None:
+        parameter_tolerance_options = model_options['parameter_tolerance_options']
+        if model_parameters_relative_tolerance is not None:
+            parameter_tolerance_options['relative'] = model_parameters_relative_tolerance
+        if model_parameters_absolute_tolerance is not None:
+            parameter_tolerance_options['absolute'] = model_parameters_absolute_tolerance
+
+    # set initial concentration tolerance options
+    if initial_concentrations_relative_tolerance is not None or initial_concentrations_absolute_tolerance is not None:
+        tolerance_options = model_options['initial_concentration_options']['tolerance_options']
+        if initial_concentrations_relative_tolerance is not None:
+            tolerance_options['relative'] = initial_concentrations_relative_tolerance
+        if initial_concentrations_absolute_tolerance is not None:
+            tolerance_options['absolute'] = initial_concentrations_absolute_tolerance
 
     # create model
     model = simulation.model.cache.Model(model_options=model_options)
