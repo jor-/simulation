@@ -11,6 +11,7 @@ def _main():
     import simulation
     import simulation.model.constants
     import simulation.model.options
+    import simulation.model.save
     import simulation.optimization.cost_function
     import simulation.optimization.job
 
@@ -68,51 +69,12 @@ def _main():
     args = parser.parse_args()
 
     # prepare model options
-    model_options = simulation.model.options.ModelOptions()
-
-    # set model name
-    if args.model_name is not None:
-        model_options['model_name'] = args.model_name
-
-    # set time step
-    model_options['time_step'] = args.time_step
-
-    # set initial concentration
-    if args.initial_concentrations is not None:
-        model_options['initial_concentration_options'] = {'concentrations': args.initial_concentrations}
-
-    # set spinup options
-    if args.spinup_satisfy_years_and_tolerance:
-        combination = 'and'
-    else:
-        combination = 'or'
-    model_options['spinup_options'] = {'years': args.spinup_years, 'tolerance': args.spinup_tolerance, 'combination': combination}
-
-    # set derivative options
-    if args.derivative_step_size is not None or args.derivative_years is not None or args.derivative_accuracy_order is not None:
-        derivative_options = model_options['derivative_options']
-        if args.derivative_step_size is not None:
-            derivative_options['step_size'] = args.derivative_step_size
-        if args.derivative_years is not None:
-            derivative_options['years'] = args.derivative_years
-        if args.derivative_accuracy_order is not None:
-            derivative_options['accuracy_order'] = args.derivative_accuracy_order
-
-    # set model parameters tolerance options
-    if args.model_parameters_relative_tolerance is not None or args.model_parameters_absolute_tolerance is not None:
-        parameter_tolerance_options = model_options['parameter_tolerance_options']
-        if args.model_parameters_relative_tolerance is not None:
-            parameter_tolerance_options['relative'] = np.array(args.model_parameters_relative_tolerance)
-        if args.model_parameters_absolute_tolerance is not None:
-            parameter_tolerance_options['absolute'] = np.array(args.model_parameters_absolute_tolerance)
-
-    # set initial concentration tolerance options
-    if args.initial_concentrations_relative_tolerance is not None or args.initial_concentrations_absolute_tolerance is not None:
-        tolerance_options = model_options['initial_concentration_options']['tolerance_options']
-        if args.initial_concentrations_relative_tolerance is not None:
-            tolerance_options['relative'] = args.model_parameters_relative_tolerance
-        if args.initial_concentrations_absolute_tolerance is not None:
-            tolerance_options['absolute'] = args.initial_concentrations_absolute_tolerance
+    model_options = simulation.model.save.prepare_model_options(
+        args.model_name, time_step=args.time_step, concentrations=args.initial_concentrations,
+        spinup_years=args.spinup_years, spinup_tolerance=args.spinup_tolerance, spinup_satisfy_years_and_tolerance=args.spinup_satisfy_years_and_tolerance,
+        derivative_years=args.derivative_years, derivative_step_size=args.derivative_step_size, derivative_accuracy_order=args.derivative_accuracy_order,
+        model_parameters_relative_tolerance=args.model_parameters_relative_tolerance, model_parameters_absolute_tolerance=args.model_parameters_absolute_tolerance,
+        initial_concentrations_relative_tolerance=args.initial_concentrations_relative_tolerance, initial_concentrations_absolute_tolerance=args.initial_concentrations_absolute_tolerance)
 
     # set job setup
     def prepare_model_job_options():
