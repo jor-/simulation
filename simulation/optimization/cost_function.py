@@ -80,9 +80,10 @@ class Base(simulation.util.cache.Cache):
             value = self._value_from_file_cache(simulation.optimization.constants.COST_FUNCTION_F_FILENAME.format(normalized=True),
                                                 self.f_calculate_normalized, derivative_used=False)
             self._add_value_to_database(value, overwrite=False)
-            return value
         else:
-            return self.unnormalize(self.f(normalized=True))
+            value = self.unnormalize(self.f(normalized=True))
+        assert np.isfinite(value)
+        return value
 
     def f_available(self, normalized=True):
         return self._value_in_file_cache(simulation.optimization.constants.COST_FUNCTION_F_FILENAME.format(normalized=True),
@@ -120,6 +121,7 @@ class Base(simulation.util.cache.Cache):
 
         # return
         assert df.shape[-1] == len(self.model_parameters)
+        assert np.all(np.isfinite(df))
         return df
 
     def df_available(self, derivative_kind=None, normalized=True):
@@ -166,6 +168,7 @@ class OLS(Base):
         F = self.model_f()
         results = self.measurements_results()
         f = np.sum((F - results)**2)
+        assert np.isfinite(f)
         return f
 
     def df_calculate_unnormalized(self, derivative_kind=None):
@@ -174,6 +177,7 @@ class OLS(Base):
         results = self.measurements_results()
         df_factors = F - results
         df = 2 * np.sum(df_factors[:, np.newaxis] * DF, axis=0)
+        assert np.all(np.isfinite(df))
         return df
 
 
@@ -185,6 +189,7 @@ class WLS(BaseUsingStandardDeviation):
         inverse_variances = 1 / self.measurements.variances
 
         f = np.sum((F - results)**2 * inverse_variances)
+        assert np.isfinite(f)
         return f
 
     def df_calculate_unnormalized(self, derivative_kind=None):
@@ -195,6 +200,7 @@ class WLS(BaseUsingStandardDeviation):
 
         df_factors = (F - results) * inverse_variances
         df = 2 * np.sum(df_factors[:, np.newaxis] * DF, axis=0)
+        assert np.all(np.isfinite(df))
         return df
 
 
@@ -207,6 +213,7 @@ class GLS(BaseUsingCorrelation):
         weighted_residual = (F - results) * inverse_deviations
         correlation_matrix_decomposition = self.measurements.correlations_own_decomposition
         f = correlation_matrix_decomposition.inverse_matrix_both_sides_multiplication(weighted_residual, dtype=np.float128)
+        assert np.isfinite(f)
         return f
 
     def df_calculate_unnormalized(self, derivative_kind=None):
@@ -219,6 +226,7 @@ class GLS(BaseUsingCorrelation):
         inverse_correlation_matrix_right_side_multiplied_weighted_residual = correlation_matrix_decomposition.inverse_matrix_right_side_multiplication(weighted_residual, dtype=np.float128)
         df_factors = inverse_correlation_matrix_right_side_multiplied_weighted_residual * inverse_deviations
         df = 2 * np.sum(df_factors[:, np.newaxis] * DF, axis=0)
+        assert np.all(np.isfinite(df))
         return df
 
 
