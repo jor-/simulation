@@ -206,7 +206,7 @@ class GLS(BaseUsingCorrelation):
         inverse_deviations = 1 / self.measurements.standard_deviations
         weighted_residual = (F - results) * inverse_deviations
         correlation_matrix_decomposition = self.measurements.correlations_own_decomposition
-        f = correlation_matrix_decomposition.inverse_matrix_both_sides_multiplication(weighted_residual)
+        f = correlation_matrix_decomposition.inverse_matrix_both_sides_multiplication(weighted_residual, dtype=np.float128)
         return f
 
     def df_calculate_unnormalized(self, derivative_kind=None):
@@ -216,7 +216,7 @@ class GLS(BaseUsingCorrelation):
         weighted_residual = (F - results) * inverse_deviations
         DF = self.model_df(derivative_kind=derivative_kind)
         correlation_matrix_decomposition = self.measurements.correlations_own_decomposition
-        inverse_correlation_matrix_right_side_multiplied_weighted_residual = correlation_matrix_decomposition.inverse_matrix_right_side_multiplication(weighted_residual)
+        inverse_correlation_matrix_right_side_multiplied_weighted_residual = correlation_matrix_decomposition.inverse_matrix_right_side_multiplication(weighted_residual, dtype=np.float128)
         df_factors = inverse_correlation_matrix_right_side_multiplied_weighted_residual * inverse_deviations
         df = 2 * np.sum(df_factors[:, np.newaxis] * DF, axis=0)
         return df
@@ -325,16 +325,12 @@ class LGLS(BaseUsingCorrelation, BaseLog):
 
         correlation_matrix.data[correlation_matrix.data < 0] = 0        # set negative correlations to zero (since it must hold C_ij >= - E_i E_j)
         correlation_matrix.eliminate_zeros()
-        correlation_matrix = matrix.approximation.positive_semidefinite.decomposition(
+        correlation_matrix_decomposition = matrix.approximation.positive_semidefinite.decomposition(
             correlation_matrix, min_diag_B=1, max_diag_B=1,
             min_diag_D=self.measurements.min_diag_value_decomposition_correlation,
             permutation=self.measurements.permutation_method_decomposition_correlation,
             return_type=matrix.constants.LDL_DECOMPOSITION_TYPE, overwrite_A=True)
-
-        covariance_matrix = standard_deviations_diag_matrix * correlation_matrix * standard_deviations_diag_matrix
-
-        inverse_expectations_diag_matrix = scipy.sparse.diags(1 / expectations)
-        sigma = inverse_expectations_diag_matrix * covariance_matrix * inverse_expectations_diag_matrix
+        sigma = correlation_matrix_decomposition.inverse_matrix_both_sides_multiplication(weighted_residual, dtype=np.float128)
         sigma.data = np.log(sigma.data + 1)
         return sigma
 
