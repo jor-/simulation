@@ -883,9 +883,10 @@ class Model_With_F_And_DF(Model_With_F):
         MODEL_DERIVATIVE_SPINUP_YEARS = self.model_options.derivative_options.years
         MODEL_DERIVATIVE_STEP_SIZE = self.model_options.derivative_options.step_size
         MODEL_DERIVATIVE_ACCURACY_ORDER = self.model_options.derivative_options.accuracy_order
+        partial_derivative_options = {'years': MODEL_DERIVATIVE_SPINUP_YEARS, 'tolerance': 0, 'combination': 'or'}
         spinup_options = self.model_options.spinup_options
 
-        # get direavtive dir and spinup run dir
+        # get derivative dir and spinup run dir
         derivative_dir = self.derivative_dir
         spinup_matching_run_dir = self.matching_run_dir(spinup_options)
         spinup_matching_run_years = self.real_years(spinup_matching_run_dir)
@@ -936,7 +937,7 @@ class Model_With_F_And_DF(Model_With_F):
                     partial_derivative_spinup_run_dir = None
 
             # make new run if run not matching
-            if not self.is_run_matching_options(partial_derivative_run_dir, {'years': MODEL_DERIVATIVE_SPINUP_YEARS, 'tolerance': 0, 'combination': 'or'}) or not self.is_run_matching_options(partial_derivative_spinup_run_dir, spinup_options):
+            if not self.is_run_matching_options(partial_derivative_run_dir, partial_derivative_options) or not self.is_run_matching_options(partial_derivative_spinup_run_dir, spinup_options):
 
                 # remove old run
                 if partial_derivative_run_dir is not None:
@@ -992,7 +993,7 @@ class Model_With_F_And_DF(Model_With_F):
 
         # calculate deviation
         for function in (start_partial_derivative_run, get_partial_derivative_run_value):
-            df_concatenated = util.math.finite_differences.calculate(function, partial_derivative_parameters_undisturbed, f_x=f_parameters, typical_x=partial_derivative_parameters_typical_values, bounds=partial_derivative_parameters_bounds, accuracy_order=MODEL_DERIVATIVE_ACCURACY_ORDER, eps=MODEL_DERIVATIVE_STEP_SIZE, use_always_typical_x=True)
+            df_concatenated = util.math.finite_differences.first_derivative(function, partial_derivative_parameters_undisturbed, f_x=f_parameters, typical_x=partial_derivative_parameters_typical_values, bounds=partial_derivative_parameters_bounds, accuracy_order=MODEL_DERIVATIVE_ACCURACY_ORDER, eps=MODEL_DERIVATIVE_STEP_SIZE, use_always_typical_x=True)
         df_concatenated = np.moveaxis(df_concatenated, 0, -1)
 
         # unpack concatenation
