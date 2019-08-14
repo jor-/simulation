@@ -33,8 +33,7 @@ class Base(simulation.util.cache.Cache):
         self.dtype = np.float128
 
     def model_df(self):
-        df = super().model_df(derivative_kind=None).astype(self.dtype)
-        assert df.shape == (self.measurements.number_of_measurements, self.model_parameters_len)
+        df = super().model_df().astype(self.dtype)
         return df
 
     # *** uncertainty model parameters *** #

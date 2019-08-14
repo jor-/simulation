@@ -304,7 +304,7 @@ class Model_Database:
         spinup_dir = self.spinup_dir
         last_run_dir = self.last_run_dir(spinup_dir)
         spinup_options = self.model_options.spinup_options
-        is_matching = self.is_run_matching_options(last_run_dir, spinup_options)
+        is_matching = self.is_run_matching_options(last_run_dir, spinup_options, include_previous_runs=True)
         return is_matching
 
     def run_dirs(self, search_path):
@@ -370,11 +370,11 @@ class Model_Database:
         last_run_dir = self.last_run_dir(spinup_dir)
 
         # matching run found
-        if self.is_run_matching_options(last_run_dir, spinup_options):
+        if self.is_run_matching_options(last_run_dir, spinup_options, include_previous_runs=True):
             run_dir = last_run_dir
             if spinup_options.match_type == 'equal_or_nearest_better':
                 previous_run_dir = self.previous_run_dir(run_dir)
-                while self.is_run_matching_options(previous_run_dir, spinup_options):
+                while self.is_run_matching_options(previous_run_dir, spinup_options, include_previous_runs=True):
                     run_dir = previous_run_dir
                     previous_run_dir = self.previous_run_dir(run_dir)
 
@@ -405,7 +405,7 @@ class Model_Database:
 
                 # start from another run
                 if last_run_dir is not None:
-                    last_years = self.real_years(last_run_dir)
+                    last_years = self.real_years(last_run_dir, include_previous_runs=True)
                     util.logging.debug('Found previous run(s) with total {} years.'.format(last_years))
                     years = years - last_years
                     parameters = self.parameters
@@ -462,7 +462,7 @@ class Model_Database:
             job.make_read_only_output(make_read_only)
             job.remove_tracer_info_files(force=False, not_exist_okay=True)
 
-    def is_run_matching_options(self, run_dir, spinup_options):
+    def is_run_matching_options(self, run_dir, spinup_options, include_previous_runs=True):
         if run_dir is not None:
             model_spinup_max_years = self.model_spinup_max_years
             spinup_options = util.options.as_options(spinup_options, simulation.model.options.SpinupOptions)
@@ -471,7 +471,7 @@ class Model_Database:
             tolerance = spinup_options.tolerance
             combination = spinup_options.combination
 
-            run_years = self.real_years(run_dir)
+            run_years = self.real_years(run_dir, include_previous_runs=include_previous_runs)
             run_tolerance = self.real_tolerance(run_dir)
 
             if combination == 'and':
@@ -493,15 +493,20 @@ class Model_Database:
 
         return is_matching
 
-    def real_years(self, run_dir=None):
+    def real_years(self, run_dir=None, include_previous_runs=True):
         if run_dir is None:
             run_dir = self.run_dir
         real_years = 0
-        while run_dir is not None:
+        next = True
+        while next:
             with simulation.model.job.Metos3D_Job(run_dir, force_load=True) as job:
                 years = job.last_year
             real_years += years
-            run_dir = self.previous_run_dir(run_dir)
+            if include_previous_runs:
+                run_dir = self.previous_run_dir(run_dir)
+                next = run_dir is not None
+            else:
+                next = False
         return real_years
 
     def real_tolerance(self, run_dir):
@@ -842,11 +847,11 @@ class Model_With_F_And_DF(Model_With_F):
     @property
     def derivative_dir(self):
         derivative_options = self.model_options.derivative_options
-        derivative_dir = os.path.join(self.parameter_set_dir, simulation.model.constants.DATABASE_DERIVATIVE_DIRNAME.format(spinup_real_years=self.real_years(), derivative_step_size=derivative_options.step_size, derivative_years=derivative_options.years))
+        derivative_dir = os.path.join(self.parameter_set_dir, simulation.model.constants.DATABASE_DERIVATIVE_DIRNAME.format(spinup_real_years=self.real_years(include_previous_runs=True), derivative_step_size=derivative_options.step_size, derivative_years=derivative_options.years))
         util.logging.debug('Returning derivative directory {}.'.format(derivative_dir))
         return derivative_dir
 
-    def _df(self, trajectory_load_function, partial_derivative_kind, tracers=None):
+    def _df(self, trajectory_load_function, tracers=None, include_total_concentration=False):
         # check tracers
         tracers = self.check_tracers(tracers)
 
@@ -856,28 +861,25 @@ class Model_With_F_And_DF(Model_With_F):
 
         # model parameters
         model_parameter = self.parameters
+        parameters_len = self.model_options.parameters_len
+        if include_total_concentration:
+            parameters_len += 1
 
-        # apply partial_derivative_kind
-        if partial_derivative_kind == 'model_parameters':
-            def convert_partial_derivative_parameters_to_start_run_parameters(partial_derivative_parameters):
-                assert len(partial_derivative_parameters) == self.model_options.parameters_len
+        # apply include_total_concentration
+        def convert_partial_derivative_parameters_to_start_run_parameters(partial_derivative_parameters):
+            assert len(partial_derivative_parameters) == parameters_len
+            if include_total_concentration:
+                return {'model_parameters': partial_derivative_parameters[:-1], 'total_concentration_factor': partial_derivative_parameters[-1]}
+            else:
                 return {'model_parameters': partial_derivative_parameters, 'total_concentration_factor': 1}
 
-            partial_derivative_parameters_bounds = self.model_options.parameters_bounds
-            partial_derivative_parameters_typical_values = self.model_options.derivative_options.parameters_typical_values
-            partial_derivative_parameters_undisturbed = model_parameter
-
-        elif partial_derivative_kind == 'total_concentration_factor':
-            def convert_partial_derivative_parameters_to_start_run_parameters(partial_derivative_parameters):
-                assert len(partial_derivative_parameters) == 1
-                return {'model_parameters': model_parameter, 'total_concentration_factor': partial_derivative_parameters[0]}
-
-            partial_derivative_parameters_bounds = np.array([[0, np.inf]])
-            partial_derivative_parameters_typical_values = np.array([1])
-            partial_derivative_parameters_undisturbed = np.array([1])
-
-        else:
-            raise ValueError('Partial derivative kind {} is not supported.'.format(partial_derivative_kind))
+        partial_derivative_parameters_bounds = self.model_options.parameters_bounds
+        partial_derivative_parameters_typical_values = self.model_options.derivative_options.parameters_typical_values
+        partial_derivative_parameters_undisturbed = model_parameter
+        if include_total_concentration:
+            partial_derivative_parameters_bounds = np.concatenate([partial_derivative_parameters_bounds, np.array([[0, np.inf]])])
+            partial_derivative_parameters_typical_values = np.concatenate([partial_derivative_parameters_typical_values, np.array([1])])
+            partial_derivative_parameters_undisturbed = np.concatenate([partial_derivative_parameters_undisturbed, np.array([1])])
 
         # get needed model options
         MODEL_DERIVATIVE_SPINUP_YEARS = self.model_options.derivative_options.years
@@ -889,7 +891,7 @@ class Model_With_F_And_DF(Model_With_F):
         # get derivative dir and spinup run dir
         derivative_dir = self.derivative_dir
         spinup_matching_run_dir = self.matching_run_dir(spinup_options)
-        spinup_matching_run_years = self.real_years(spinup_matching_run_dir)
+        spinup_matching_run_years = self.real_years(spinup_matching_run_dir, include_previous_runs=True)
 
         # get f if accuracy_order is 1
         if MODEL_DERIVATIVE_ACCURACY_ORDER == 1:
@@ -904,48 +906,46 @@ class Model_With_F_And_DF(Model_With_F):
         # define evaluation functions for finite differences
 
         job_options = self.job_options_for_kind('derivative')
-        partial_derivative_run_dirs = {}
+        partial_derivative_dirs = {}
 
         def start_partial_derivative_run(partial_derivative_parameters):
-            parameter_index = np.where(partial_derivative_parameters != partial_derivative_parameters_undisturbed)[0]
-            if len(parameter_index) == 1:
-                parameter_index = parameter_index[0]
-                h = partial_derivative_parameters[parameter_index] - partial_derivative_parameters_undisturbed[parameter_index]
-                h_factor = int(np.sign(h))
-            elif len(parameter_index) == 0:
-                parameter_index = -1
-                h_factor = 0
+            # get changed parameters and corresponding ids
+            changed_parameters_indices = np.where(partial_derivative_parameters != partial_derivative_parameters_undisturbed)[0]
+            if len(changed_parameters_indices) == 0:
+                factor_id = simulation.model.constants.DATABASE_PARTIAL_DERIVATIVE_FACTOR_ID.format(index=-1, h_factor=0)
+                factor_ids = [factor_id]
             else:
-                raise ValueError('Partial_derivative_parameters have to be disturbed at maximal 1 index but they are disturbed at {} indices.'.format(len(parameter_index)))
+                factor_ids = []
+                for parameter_index in changed_parameters_indices:
+                    h = partial_derivative_parameters[parameter_index] - partial_derivative_parameters_undisturbed[parameter_index]
+                    h_factor = int(np.sign(h))
+                    factor_id = simulation.model.constants.DATABASE_PARTIAL_DERIVATIVE_FACTOR_ID.format(index=parameter_index, h_factor=h_factor)
+                    factor_ids.append(factor_id)
+            factor_ids = simulation.model.constants.DATABASE_PARTIAL_DERIVATIVE_FACTOR_ID_SEPARATOR.join(factor_ids)
 
-            # get run dir
-            partial_derivative_dirname = simulation.model.constants.DATABASE_PARTIAL_DERIVATIVE_DIRNAME.format(kind=partial_derivative_kind, index=parameter_index, h_factor=h_factor)
+            # make partial_derivative_dirname
+            partial_derivative_dirname = simulation.model.constants.DATABASE_PARTIAL_DERIVATIVE_DIRNAME.format(factor_ids=factor_ids)
             partial_derivative_dir = os.path.join(derivative_dir, partial_derivative_dirname)
-            partial_derivative_run_dir = self.last_run_dir(partial_derivative_dir)
+            os.makedirs(partial_derivative_dir, exist_ok=True)
             util.logging.debug('Checking partial derivative runs in {}.'.format(partial_derivative_dir))
 
-            # get corresponding spinup run dir
-            if partial_derivative_run_dir is not None:
-                try:
-                    with simulation.model.job.Metos3D_Job(partial_derivative_run_dir, force_load=True) as job:
-                        partial_derivative_spinup_run_tracer_input_files = job.model_tracer_input_files
-                    partial_derivative_spinup_run_dir = [os.path.dirname(partial_derivative_spinup_run_tracer_input_file) for partial_derivative_spinup_run_tracer_input_file in partial_derivative_spinup_run_tracer_input_files]
-                    assert all([partial_derivative_spinup_run_dir[0] == a for a in partial_derivative_spinup_run_dir[1:]])
-                    partial_derivative_spinup_run_dir = partial_derivative_spinup_run_dir[0]
-
-                except OSError:
-                    partial_derivative_spinup_run_dir = None
+            # check partial derivative dir
+            try:
+                with simulation.model.job.Metos3D_Job(partial_derivative_dir, force_load=True) as job:
+                    partial_derivative_spinup_run_tracer_input_files = job.model_tracer_input_files
+            except util.batch.universal.system.JobOptionFileError:
+                matching_options = False
+            else:
+                partial_derivative_spinup_run_dir = [os.path.dirname(partial_derivative_spinup_run_tracer_input_file) for partial_derivative_spinup_run_tracer_input_file in partial_derivative_spinup_run_tracer_input_files]
+                assert all([partial_derivative_spinup_run_dir[0] == a for a in partial_derivative_spinup_run_dir[1:]])
+                partial_derivative_spinup_run_dir = partial_derivative_spinup_run_dir[0]
+                matching_options = self.is_run_matching_options(partial_derivative_dir, partial_derivative_options, include_previous_runs=False) and self.is_run_matching_options(partial_derivative_spinup_run_dir, spinup_options, include_previous_runs=True)
 
             # make new run if run not matching
-            if not self.is_run_matching_options(partial_derivative_run_dir, partial_derivative_options) or not self.is_run_matching_options(partial_derivative_spinup_run_dir, spinup_options):
-
+            if not matching_options:
                 # remove old run
-                if partial_derivative_run_dir is not None:
-                    util.logging.debug('Old partial derivative run {} is not matching desired option. It is removed.'.format(partial_derivative_run_dir))
-                    util.io.fs.remove_recursively(partial_derivative_run_dir, not_exist_okay=True, exclude_dir=False)
-
-                # create new run dir
-                partial_derivative_run_dir = self.make_new_run_dir(partial_derivative_dir)
+                util.logging.debug('Old partial derivative run {} is not matching desired option. Its containt is removed.'.format(partial_derivative_dir))
+                util.io.fs.remove_recursively(partial_derivative_dir, not_exist_okay=True, exclude_dir=True)
 
                 # if no job setup available, get best job setup
                 if job_options['nodes_setup'] is None:
@@ -960,22 +960,22 @@ class Model_With_F_And_DF(Model_With_F):
                 start_run_parameters_dict = convert_partial_derivative_parameters_to_start_run_parameters(partial_derivative_parameters)
                 partial_derivative_model_parameters = start_run_parameters_dict['model_parameters']
                 total_concentration_factor = start_run_parameters_dict['total_concentration_factor']
-                self.start_run(partial_derivative_model_parameters, partial_derivative_run_dir, MODEL_DERIVATIVE_SPINUP_YEARS, tolerance=0, job_options=job_options, tracer_input_files=tracer_input_files, wait_until_finished=False, total_concentration_factor=total_concentration_factor)
+                self.start_run(partial_derivative_model_parameters, partial_derivative_dir, MODEL_DERIVATIVE_SPINUP_YEARS, tolerance=0, job_options=job_options, tracer_input_files=tracer_input_files, wait_until_finished=False, total_concentration_factor=total_concentration_factor)
 
-            partial_derivative_run_dirs[tuple(partial_derivative_parameters)] = partial_derivative_run_dir
-
+            # save partial_derivative_dir
+            partial_derivative_dirs[tuple(partial_derivative_parameters)] = partial_derivative_dir
             return 0
 
         tracer_start_stop_indices = [0]
 
         def get_partial_derivative_run_value(partial_derivative_parameters):
             # wait partial derivative run to finish
-            partial_derivative_run_dir = partial_derivative_run_dirs[tuple(partial_derivative_parameters)]
-            self.wait_until_run_finished(partial_derivative_run_dir)
+            partial_derivative_dir = partial_derivative_dirs[tuple(partial_derivative_parameters)]
+            self.wait_until_run_finished(partial_derivative_dir)
 
             # get trajectory
             partial_derivative_model_parameters = convert_partial_derivative_parameters_to_start_run_parameters(partial_derivative_parameters)['model_parameters']
-            trajectory_dict = self._trajectory_with_load_function(trajectory_load_function, partial_derivative_run_dir, partial_derivative_model_parameters)
+            trajectory_dict = self._trajectory_with_load_function(trajectory_load_function, partial_derivative_dir, partial_derivative_model_parameters)
             trajectory_list = [trajectory_dict[tracer] for tracer in tracers]
 
             # store length of each tracer
@@ -988,13 +988,13 @@ class Model_With_F_And_DF(Model_With_F):
 
             # concatenate and return
             trajectory = np.concatenate(trajectory_list)
-
             return trajectory
 
         # calculate deviation
         for function in (start_partial_derivative_run, get_partial_derivative_run_value):
-            df_concatenated = util.math.finite_differences.first_derivative(function, partial_derivative_parameters_undisturbed, f_x=f_parameters, typical_x=partial_derivative_parameters_typical_values, bounds=partial_derivative_parameters_bounds, accuracy_order=MODEL_DERIVATIVE_ACCURACY_ORDER, eps=MODEL_DERIVATIVE_STEP_SIZE, use_always_typical_x=True)
-        df_concatenated = np.moveaxis(df_concatenated, 0, -1)
+            df_concatenated = util.math.finite_differences.first_derivative(function, partial_derivative_parameters_undisturbed, f_x=f_parameters, typical_x=partial_derivative_parameters_typical_values, bounds=partial_derivative_parameters_bounds, eps=MODEL_DERIVATIVE_STEP_SIZE, use_always_typical_x=True, accuracy_order=MODEL_DERIVATIVE_ACCURACY_ORDER)
+            assert df_concatenated.shape[0] == parameters_len
+            df_concatenated = np.moveaxis(df_concatenated, 0, -1)
 
         # unpack concatenation
         util.logging.debug('Unpacking derivative with shape {} for tracers with tracer_start_stop_indices {}.'.format(df_concatenated.shape, tracer_start_stop_indices))
@@ -1013,31 +1013,35 @@ class Model_With_F_And_DF(Model_With_F):
 
     # *** access to model values *** #
 
-    def df_all(self, time_dim, tracers=None, partial_derivative_kind='model_parameters'):
+    def df_all(self, time_dim, tracers=None, include_total_concentration=False):
         tracers = self.check_tracers(tracers)
 
-        util.logging.debug('Calculating all df values for tracers {} with time dimension {} and partial_derivative_kind {}.'.format(tracers, time_dim, partial_derivative_kind))
+        util.logging.debug(f'Calculating all df values for tracers {tracers} with time dimension {time_dim}, include_total_concentration {include_total_concentration}.')
 
-        df = self._df(self._trajectory_load_function_for_all(time_dim=time_dim), partial_derivative_kind=partial_derivative_kind, tracers=tracers)
+        df = self._df(self._trajectory_load_function_for_all(time_dim=time_dim),
+                      include_total_concentration=include_total_concentration,
+                      tracers=tracers)
         return df
 
-    def df_points(self, points, partial_derivative_kind='model_parameters'):
-        util.logging.debug('Calculating df values at points {} and partial_derivative_kind {}.'.format(tuple(map(len, points)), partial_derivative_kind))
+    def df_points(self, points, include_total_concentration=False):
+        util.logging.debug(f'Calculating df values at points {tuple(map(len, points))}, include_total_concentration {include_total_concentration}.')
 
         tracers = points.keys()
         points, split_dict = self._merge_data_sets(points)
-        df = self._df(self._trajectory_load_function_for_points(points), partial_derivative_kind=partial_derivative_kind, tracers=tracers)
+        df = self._df(self._trajectory_load_function_for_points(points),
+                      include_total_concentration=include_total_concentration)
         df = self._split_data_sets(df, split_dict)
 
         return df
 
-    def df_measurements(self, *measurements_list, partial_derivative_kind='model_parameters'):
-        util.logging.debug('Calculating df values for measurements {} and partial_derivative_kind {}.'.format(tuple(map(str, measurements_list)), partial_derivative_kind))
+    def df_measurements(self, *measurements_list, include_total_concentration=False):
+        util.logging.debug(f'Calculating df values for measurements {tuple(map(str, measurements_list))}, include_total_concentration {include_total_concentration}.')
 
         measurements_collection = measurements.universal.data.MeasurementsCollection(*measurements_list)
         points_dict = measurements_collection.points_dict
 
-        return self.df_points(points_dict, partial_derivative_kind=partial_derivative_kind)
+        return self.df_points(points_dict,
+                              include_total_concentration=include_total_concentration)
 
 
 # Cached versions

@@ -171,14 +171,15 @@ class Model_With_F_File_and_MemoryCached(simulation.model.eval.Model_With_F_Memo
                     not_cached_points_dict[tracer][data_set_name] = data_set_points
 
         # interpolate not cached values
-        calculated_results_dict = calculate_function_for_points(not_cached_points_dict)
+        if len(not_cached_points_dict) > 0:
+            calculated_results_dict = calculate_function_for_points(not_cached_points_dict)
 
-        # save interpolated values and store in results dict
-        for tracer, tracer_calculated_results_dict in calculated_results_dict.items():
-            for data_set_name, data_set_results in tracer_calculated_results_dict.items():
-                file = self._cache.get_file(file_pattern, derivative_used=derivative_used, tracer=tracer, data_set_name=data_set_name)
-                self._cache.save_value(file, data_set_results)
-                results_dict[tracer][data_set_name] = data_set_results
+            # save interpolated values and store in results dict
+            for tracer, tracer_calculated_results_dict in calculated_results_dict.items():
+                for data_set_name, data_set_results in tracer_calculated_results_dict.items():
+                    file = self._cache.get_file(file_pattern, derivative_used=derivative_used, tracer=tracer, data_set_name=data_set_name)
+                    self._cache.save_value(file, data_set_results)
+                    results_dict[tracer][data_set_name] = data_set_results
 
         # return
         return results_dict
@@ -216,7 +217,8 @@ class Model_With_F_File_and_MemoryCached(simulation.model.eval.Model_With_F_Memo
                     base_measurements = current_measurements.base_measurements
                     base_results_dict = convert_back(results_dict, [base_measurements])
                     base_results = base_results_dict[base_measurements.tracer][base_measurements.data_set_name]
-                    projected_results = current_measurements.near_water_projection_matrix * base_results
+                    near_water_projection_mask = current_measurements.near_water_projection_mask
+                    projected_results = base_results[near_water_projection_mask]
                     assert current_measurements.tracer == base_measurements.tracer
                     del results_dict[base_measurements.tracer][base_measurements.data_set_name]
                     results_dict[current_measurements.tracer][current_measurements.data_set_name] = projected_results
@@ -246,29 +248,28 @@ class Model_With_F_File_and_MemoryCached(simulation.model.eval.Model_With_F_Memo
 
 class Model_With_F_And_DF_File_and_MemoryCached(Model_With_F_File_and_MemoryCached, simulation.model.eval.Model_With_F_And_DF_MemoryCached):
 
-    def df_all(self, time_dim, tracers=None, partial_derivative_kind='model_parameters', return_as_dict=True):
+    def df_all(self, time_dim, tracers=None, include_total_concentration=True, return_as_dict=True):
         super_df_all = super().df_all
 
         def calculate_function_for_all(time_dim, tracers):
-            return super_df_all(time_dim, tracers=tracers, partial_derivative_kind=partial_derivative_kind)
+            return super_df_all(time_dim, tracers=tracers, include_total_concentration=include_total_concentration)
 
-        file_pattern = os.path.join(simulation.model.constants.DATABASE_POINTS_OUTPUT_DIRNAME, simulation.model.constants.DATABASE_DF_FILENAME.format(derivative_kind=partial_derivative_kind))
+        file_pattern = os.path.join(simulation.model.constants.DATABASE_POINTS_OUTPUT_DIRNAME, simulation.model.constants.DATABASE_DF_FILENAME.format(include_total_concentration=include_total_concentration))
         return self._cached_values_for_boxes(time_dim, calculate_function_for_all, file_pattern, derivative_used=True, tracers=tracers, return_as_dict=return_as_dict)
 
-    def df_points(self, points, partial_derivative_kind='model_parameters'):
+    def df_points(self, points, include_total_concentration=True):
         super_df_points = super().df_points
 
         def calculate_function_for_points(points):
-            return super_df_points(points, partial_derivative_kind=partial_derivative_kind)
+            return super_df_points(points, include_total_concentration=include_total_concentration)
 
-        file_pattern = os.path.join(simulation.model.constants.DATABASE_POINTS_OUTPUT_DIRNAME, simulation.model.constants.DATABASE_DF_FILENAME.format(derivative_kind=partial_derivative_kind))
+        file_pattern = os.path.join(simulation.model.constants.DATABASE_POINTS_OUTPUT_DIRNAME, simulation.model.constants.DATABASE_DF_FILENAME.format(include_total_concentration=include_total_concentration))
         return self._cached_values_for_points(points, calculate_function_for_points, file_pattern, derivative_used=True)
 
-    def df_measurements(self, *measurements_list, partial_derivative_kind='model_parameters'):
-        util.logging.debug(f'Calculating df values for measurements {tuple(map(str, measurements_list))} and partial_derivative_kind {partial_derivative_kind}.')
-
+    def df_measurements(self, *measurements_list, include_total_concentration=True):
         def calculate_function_for_points(points):
-            return self.df_points(points, partial_derivative_kind=partial_derivative_kind)
+            return self.df_points(points, include_total_concentration=include_total_concentration)
+
         return self._cached_values_for_measurements(calculate_function_for_points, *measurements_list)
 
 

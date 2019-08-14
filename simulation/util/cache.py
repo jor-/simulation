@@ -174,34 +174,17 @@ class Cache():
             f = util.parallel.with_multiprocessing.shared_array(f)
         return f
 
-    def _model_df(self, calculate, derivative_kind=None):
-        if derivative_kind is None:
-            derivative_kinds = ['model_parameters']
-            if self.include_initial_concentrations_factor_to_model_parameters:
-                derivative_kinds.append('total_concentration_factor')
-            dfs = tuple(self._model_df(calculate, derivative_kind=derivative_kind) for derivative_kind in derivative_kinds)
-            df = np.concatenate(dfs, axis=-1)
-            assert df.shape[-1] == self.model_parameters_len
-        else:
-            df = calculate(partial_derivative_kind=derivative_kind)
+    @util.cache.memory.method_decorator()
+    def model_df(self):
+        df = self.model.df_measurements(*self.measurements, include_total_concentration=self.include_initial_concentrations_factor_to_model_parameters)
+        df = self.measurements.convert_measurements_dict_to_array(df)
+        assert df.shape == (self.measurements.number_of_measurements, self.model_parameters_len)
         return df
 
     @util.cache.memory.method_decorator()
-    def model_df(self, derivative_kind=None):
-        def calculate(partial_derivative_kind):
-            df = self.model.df_measurements(*self.measurements, partial_derivative_kind=partial_derivative_kind)
-            df = self.measurements.convert_measurements_dict_to_array(df)
-            assert df.ndim == 2 and df.shape[0] == self.measurements.number_of_measurements
-            return df
-        return self._model_df(calculate, derivative_kind=derivative_kind)
-
-    @util.cache.memory.method_decorator()
-    def model_df_all_boxes(self, time_dim, derivative_kind=None, as_shared_array=False):
-        def calculate(partial_derivative_kind):
-            df = self.model.df_all(time_dim, partial_derivative_kind=partial_derivative_kind, return_as_dict=False)
-            assert df.shape[1] == time_dim
-            return df
-        df = self._model_df(calculate, derivative_kind=derivative_kind)
+    def model_df_all_boxes(self, time_dim, as_shared_array=False):
+        df = self.model.df_all(time_dim, include_total_concentration=self.include_initial_concentrations_factor_to_model_parameters, return_as_dict=False)
+        assert df.shape[1] == time_dim and df.shape[-1] == self.model_parameters_len
         if as_shared_array:
             df = util.parallel.with_multiprocessing.shared_array(df)
         return df

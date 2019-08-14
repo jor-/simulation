@@ -89,53 +89,34 @@ class Base(simulation.util.cache.Cache):
         return self._value_in_file_cache(simulation.optimization.constants.COST_FUNCTION_F_FILENAME.format(normalized=True),
                                          derivative_used=False)
 
-    def df_calculate_unnormalized(self, derivative_kind=None):
+    def df_calculate_unnormalized(self):
         raise NotImplementedError("Please implement this method.")
 
-    def df_calculate_normalized(self, derivative_kind=None):
-        return self.normalize(self.df_calculate_unnormalized(derivative_kind=derivative_kind))
+    def df_calculate_normalized(self):
+        return self.normalize(self.df_calculate_unnormalized())
 
-    def df(self, derivative_kind=None, normalized=True):
-        # get needed derivative kinds
-        if derivative_kind is None:
-            derivative_kinds = ['model_parameters']
-            if self.include_initial_concentrations_factor_to_model_parameters:
-                derivative_kinds.append('total_concentration_factor')
+    def df(self, normalized=True):
+        # calculate df
+        if normalized:
+            def calculation_method():
+                return self.df_calculate_normalized()
+            file = simulation.optimization.constants.COST_FUNCTION_DF_FILENAME.format(
+                normalized=normalized,
+                include_total_concentration=self.include_initial_concentrations_factor_to_model_parameters)
+            df = self._value_from_file_cache(file, calculation_method, derivative_used=True)
         else:
-            derivative_kinds = [derivative_kind]
-
-        df = []
-        for derivative_kind in derivative_kinds:
-            # calculate method for current kind
-            if normalized:
-                def calculation_method():
-                    return self.df_calculate_normalized(derivative_kind=derivative_kind)
-                df_i = self._value_from_file_cache(simulation.optimization.constants.COST_FUNCTION_DF_FILENAME.format(normalized=normalized, derivative_kind=derivative_kind),
-                                                   calculation_method, derivative_used=True)
-            else:
-                df_i = self.unnormalize(self.df(derivative_kind=derivative_kind, normalized=True))
-            df.append(df_i)
-
-        # concatenate to one df
-        df = np.concatenate(df, axis=-1)
+            df = self.unnormalize(self.df(normalized=True))
 
         # return
         assert df.shape[-1] == len(self.model_parameters)
         assert np.all(np.isfinite(df))
         return df
 
-    def df_available(self, derivative_kind=None, normalized=True):
-        # get needed derivative kinds
-        if derivative_kind is None:
-            derivative_kinds = ['model_parameters']
-            if self.include_initial_concentrations_factor_to_model_parameters:
-                derivative_kinds.append('total_concentration_factor')
-        else:
-            derivative_kinds = [derivative_kind]
-
-        # check cache for each kind
-        return all(self._value_in_file_cache(simulation.optimization.constants.COST_FUNCTION_DF_FILENAME.format(normalized=normalized, derivative_kind=derivative_kind),
-                                             derivative_used=True) for derivative_kind in derivative_kinds)
+    def df_available(self, normalized=True):
+        file = simulation.optimization.constants.COST_FUNCTION_DF_FILENAME.format(
+            normalized=normalized,
+            include_total_concentration=self.include_initial_concentrations_factor_to_model_parameters)
+        return self._value_in_file_cache(file, derivative_used=True)
 
 
 class BaseUsingStandardDeviation(Base):
@@ -171,13 +152,14 @@ class OLS(Base):
         assert np.isfinite(f)
         return f
 
-    def df_calculate_unnormalized(self, derivative_kind=None):
+    def df_calculate_unnormalized(self):
         F = self.model_f()
-        DF = self.model_df(derivative_kind=derivative_kind)
+        DF = self.model_df()
         results = self.measurements_results()
-        df_factors = F - results
-        df = 2 * np.sum(df_factors[:, np.newaxis] * DF, axis=0)
+        residuals = F - results
+        df = 2 * DF.T @ residuals
         assert np.all(np.isfinite(df))
+        assert df.shape == (self.model_parameters_len,)
         return df
 
 
@@ -186,21 +168,21 @@ class WLS(BaseUsingStandardDeviation):
     def f_calculate_unnormalized(self):
         F = self.model_f()
         results = self.measurements_results()
-        inverse_variances = 1 / self.measurements.variances
+        variances = self.measurements.variances
 
-        f = np.sum((F - results)**2 * inverse_variances)
+        f = np.sum((F - results)**2 / variances)
         assert np.isfinite(f)
         return f
 
-    def df_calculate_unnormalized(self, derivative_kind=None):
+    def df_calculate_unnormalized(self):
         F = self.model_f()
-        DF = self.model_df(derivative_kind=derivative_kind)
+        DF = self.model_df(derivative_order=1)
         results = self.measurements_results()
-        inverse_variances = 1 / self.measurements.variances
-
-        df_factors = (F - results) * inverse_variances
-        df = 2 * np.sum(df_factors[:, np.newaxis] * DF, axis=0)
+        variances = self.measurements.variances
+        weighted_residuals = (F - results) / variances
+        df = 2 * DF.T @ weighted_residuals
         assert np.all(np.isfinite(df))
+        assert df.shape == (self.model_parameters_len,)
         return df
 
 
@@ -209,24 +191,25 @@ class GLS(BaseUsingCorrelation):
     def f_calculate_unnormalized(self):
         F = self.model_f()
         results = self.measurements_results()
-        inverse_deviations = 1 / self.measurements.standard_deviations
-        weighted_residual = (F - results) * inverse_deviations
+        standard_deviations = self.measurements.standard_deviations
+        weighted_residual = (F - results) / standard_deviations
         correlation_matrix_decomposition = self.measurements.correlations_own_decomposition
-        f = correlation_matrix_decomposition.inverse_matrix_both_sides_multiplication(weighted_residual, dtype=np.float128)
+        f = correlation_matrix_decomposition.inverse_matrix_both_sides_multiplication(weighted_residual)
         assert np.isfinite(f)
         return f
 
-    def df_calculate_unnormalized(self, derivative_kind=None):
+    def df_calculate_unnormalized(self, derivative_order=1):
         F = self.model_f()
+        DF = self.model_df(derivative_order=1)
         results = self.measurements_results()
-        inverse_deviations = 1 / self.measurements.standard_deviations
-        weighted_residual = (F - results) * inverse_deviations
-        DF = self.model_df(derivative_kind=derivative_kind)
+        standard_deviations = self.measurements.standard_deviations
+        weighted_residuals = (F - results) / standard_deviations
         correlation_matrix_decomposition = self.measurements.correlations_own_decomposition
-        inverse_correlation_matrix_right_side_multiplied_weighted_residual = correlation_matrix_decomposition.inverse_matrix_right_side_multiplication(weighted_residual, dtype=np.float128)
-        df_factors = inverse_correlation_matrix_right_side_multiplied_weighted_residual * inverse_deviations
-        df = 2 * np.sum(df_factors[:, np.newaxis] * DF, axis=0)
+        factors = correlation_matrix_decomposition.inverse_matrix_right_side_multiplication(weighted_residual)
+        factors = factors / standard_deviations
+        df = 2 * DF.T @ factors
         assert np.all(np.isfinite(df))
+        assert df.shape == (self.model_parameters_len,)
         return df
 
 
@@ -247,9 +230,9 @@ class BaseLog(Base):
     def model_f(self):
         return np.maximum(super().model_f(), self.min_value)
 
-    def model_df(self, derivative_kind=None):
+    def model_df(self):
         min_mask = super().model_f() < self.min_value
-        df = super().model_df(derivative_kind=derivative_kind)
+        df = super().model_df()
         df[min_mask] = 0
         return df
 
@@ -269,9 +252,9 @@ class LWLS(BaseLog, BaseUsingStandardDeviation):
         my = 2 * np.log(expectations) - 0.5 * np.log(expectations**2 + variances)
         return my
 
-    def df_distribution_parameter_my(self, derivative_kind):
+    def df_distribution_parameter_my(self):
         expectations = self.model_f()
-        df_expectations = self.model_df(derivative_kind)
+        df_expectations = self.model_df()
         variances = self.variances
         expectations_squared = expectations**2
         df_factor = (2 / expectations) - (expectations / (expectations_squared + variances))
@@ -284,9 +267,9 @@ class LWLS(BaseLog, BaseUsingStandardDeviation):
         sigma_diagonal = np.log(variances / expectations**2 + 1)
         return sigma_diagonal
 
-    def df_distribution_parameter_sigma_diagonal(self, derivative_kind):
+    def df_distribution_parameter_sigma_diagonal(self):
         expectations = self.model_f()
-        df_expectations = self.model_df(derivative_kind)
+        df_expectations = self.model_df()
         df_factor = -2 * expectations / (expectations**2 + 1)
         df_sigma_diagonal = df_factor[:, np.newaxis] * df_expectations
         return df_sigma_diagonal
@@ -299,12 +282,12 @@ class LWLS(BaseLog, BaseUsingStandardDeviation):
         f += np.sum((np.log(results) - my)**2 / sigma_diagonal)
         return f
 
-    def df_calculate_unnormalized(self, derivative_kind):
+    def df_calculate_unnormalized(self):
         results = self.measurements_results()
         my = self.distribution_parameter_my()
         sigma_diagonal = self.distribution_parameter_sigma_diagonal()
-        df_my = self.df_distribution_parameter_my(derivative_kind)
-        df_sigma_diagonal = self.df_distribution_parameter_sigma_diagonal(derivative_kind)
+        df_my = self.df_distribution_parameter_my()
+        df_sigma_diagonal = self.df_distribution_parameter_sigma_diagonal()
         df = np.sum((1 / sigma_diagonal)[:, np.newaxis] * df_sigma_diagonal, axis=0)
         df_factor = (my - np.log(results)) / sigma_diagonal
         df += np.sum(df_factor[:, np.newaxis] * (2 * df_my - df_factor[:, np.newaxis] * df_sigma_diagonal), axis=0)

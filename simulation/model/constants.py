@@ -203,8 +203,10 @@ assert len(MODEL_PARAMETER_TYPICAL['NPZD-DOP']) == len(MODEL_PARAMETER_BOUNDS['N
 DATABASE_MODEL_DIRNAME = 'model_{}'
 DATABASE_TIME_STEP_DIRNAME = 'time_step_{:0>4d}'
 DATABASE_SPINUP_DIRNAME = 'spinup'
-DATABASE_DERIVATIVE_DIRNAME = os.path.join('derivative', 'spinup_years_{spinup_real_years:d}', 'derivative_step_size_{derivative_step_size:g}', 'derivative_spinup_years_{derivative_years:d}')
-DATABASE_PARTIAL_DERIVATIVE_DIRNAME = 'partial_derivative_{kind}_{index:d}_{h_factor:+d}'
+DATABASE_DERIVATIVE_DIRNAME = os.path.join('derivative', 'spinup_years_{spinup_real_years:d}_-_derivative_step_size_{derivative_step_size:g}_-_derivative_spinup_years_{derivative_years:d}')
+DATABASE_PARTIAL_DERIVATIVE_FACTOR_ID = '{index:d}_{h_factor:+d}'
+DATABASE_PARTIAL_DERIVATIVE_FACTOR_ID_SEPARATOR = '_-_'
+DATABASE_PARTIAL_DERIVATIVE_DIRNAME = 'partial_derivative' + DATABASE_PARTIAL_DERIVATIVE_FACTOR_ID_SEPARATOR + '{factor_ids}'
 DATABASE_RUN_DIRNAME = 'run_{:0>5d}'
 
 DATABASE_VECTOR_CONCENTRATIONS_DIRNAME = 'initial_concentration_vector'
@@ -231,7 +233,7 @@ DATABASE_CACHE_DERIVATIVE_DIRNAME = 'derivative_-_step_size_{derivative_step_siz
 DATABASE_POINTS_OUTPUT_DIRNAME = os.path.join('output', DATABASE_CACHE_SPINUP_DIRNAME, '{tracer}_-_{data_set_name}')
 DATABASE_ALL_DATASET_NAME = 'all_model_values_-_time_dim_{time_dim}'
 DATABASE_F_FILENAME = 'f.npz'
-DATABASE_DF_FILENAME = 'df_{derivative_kind}.npz'
+DATABASE_DF_FILENAME = 'df_-_include_total_concentration_{include_total_concentration}.npz'
 DATABASE_CACHE_OPTION_FILE_SUFFIX = '_options'
 
 DATABASE_TMP_DIR = os.path.join(util.constants.TMP_DIR, 'metos3d_simulations')
