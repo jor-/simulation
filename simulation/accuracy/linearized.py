@@ -33,7 +33,7 @@ class Base(simulation.util.cache.Cache):
         self.dtype = np.float128
 
     def model_df(self):
-        df = super().model_df().astype(self.dtype)
+        df = super().model_df(derivative_order=1).astype(self.dtype)
         return df
 
     # *** uncertainty model parameters *** #

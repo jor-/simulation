@@ -233,7 +233,7 @@ DATABASE_CACHE_DERIVATIVE_DIRNAME = 'derivative_-_step_size_{derivative_step_siz
 DATABASE_POINTS_OUTPUT_DIRNAME = os.path.join('output', DATABASE_CACHE_SPINUP_DIRNAME, '{tracer}_-_{data_set_name}')
 DATABASE_ALL_DATASET_NAME = 'all_model_values_-_time_dim_{time_dim}'
 DATABASE_F_FILENAME = 'f.npz'
-DATABASE_DF_FILENAME = 'df_-_include_total_concentration_{include_total_concentration}.npz'
+DATABASE_DF_FILENAME = 'df_-_include_total_concentration_{include_total_concentration}_-_derivative_order_{derivative_order}.npz'
 DATABASE_CACHE_OPTION_FILE_SUFFIX = '_options'
 
 DATABASE_TMP_DIR = os.path.join(util.constants.TMP_DIR, 'metos3d_simulations')

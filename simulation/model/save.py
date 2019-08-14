@@ -88,7 +88,7 @@ def prepare_model_options(model_name, time_step=1, concentrations=None, concentr
 def save(model_name, time_step=1, concentrations=None, concentrations_index=None, parameters=None, parameter_set_index=None,
          spinup_years=None, spinup_tolerance=None, spinup_satisfy_years_and_tolerance=True, derivative_years=None, derivative_step_size=None, derivative_accuracy_order=None,
          min_measurements_standard_deviations=None, min_standard_deviations=None, min_measurements_correlations=None, min_diag_correlations=None, max_box_distance_to_water=None,
-         debug_output=True, eval_function_value=True, eval_grad_value=True, all_values_time_dim=None):
+         debug_output=True, eval_function=True, eval_first_derivative=True, eval_second_derivative=True, all_values_time_dim=None):
 
     # prepare model options
     model_options = prepare_model_options(
@@ -108,9 +108,9 @@ def save(model_name, time_step=1, concentrations=None, concentrations_index=None
 
         # eval all box values
         if all_values_time_dim is not None:
-            if eval_function_value:
+            if eval_function:
                 model.f_all(all_values_time_dim)
-            if eval_grad_value:
+            if eval_first_derivative:
                 model.df_all(all_values_time_dim)
         # eval measurement values
         else:
@@ -123,10 +123,12 @@ def save(model_name, time_step=1, concentrations=None, concentrations_index=None
                 max_box_distance_to_water=max_box_distance_to_water,
                 water_lsm='TMM',
                 sample_lsm='TMM')
-            if eval_function_value:
+            if eval_function:
                 model.f_measurements(*measurements_object)
-            if eval_grad_value:
-                model.df_measurements(*measurements_object)
+            if eval_first_derivative:
+                model.df_measurements(*measurements_object, derivative_order=1)
+            if eval_second_derivative:
+                model.df_measurements(*measurements_object, derivative_order=2)
 
 
 def save_all(concentration_indices=None, time_steps=None, parameter_set_indices=None):
@@ -191,8 +193,9 @@ def _main():
     parser.add_argument('--min_diag_correlations', type=float, default=None, help='The minimal value aplied to the diagonal of the decomposition of the correlation matrix applied to each dataset.')
     parser.add_argument('--max_box_distance_to_water', type=int, default=float('inf'), help='The maximal distance to water boxes to accept measurements.')
 
-    parser.add_argument('--eval_function_value', '-f', action='store_true', help='Save the value of the model.')
-    parser.add_argument('--eval_grad_value', '-df', action='store_true', help='Save the values of the derivative of the model.')
+    parser.add_argument('--eval_function', '-f', action='store_true', help='Save the value of the model.')
+    parser.add_argument('--eval_first_derivative', '-df', action='store_true', help='Save the values of the derivative of the model.')
+    parser.add_argument('--eval_second_derivative', '-d2f', action='store_true', help='Save the values of the second derivative of the model.')
 
     parser.add_argument('--all_values_time_dim', type=int, help='Set time dim for box values. If None, eval measurement values.')
 
@@ -226,8 +229,9 @@ def _main():
              min_measurements_correlations=args.min_measurements_correlations,
              min_diag_correlations=args.min_diag_correlations,
              max_box_distance_to_water=args.max_box_distance_to_water,
-             eval_function_value=args.eval_function_value,
-             eval_grad_value=args.eval_grad_value,
+             eval_function=args.eval_function,
+             eval_first_derivative=args.eval_first_derivative,
+             eval_second_derivative=args.eval_second_derivative,
              all_values_time_dim=args.all_values_time_dim,
              debug_output=args.debug)
 

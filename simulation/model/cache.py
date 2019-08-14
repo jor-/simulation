@@ -248,27 +248,27 @@ class Model_With_F_File_and_MemoryCached(simulation.model.eval.Model_With_F_Memo
 
 class Model_With_F_And_DF_File_and_MemoryCached(Model_With_F_File_and_MemoryCached, simulation.model.eval.Model_With_F_And_DF_MemoryCached):
 
-    def df_all(self, time_dim, tracers=None, include_total_concentration=True, return_as_dict=True):
+    def df_all(self, time_dim, tracers=None, include_total_concentration=True, derivative_order=1, return_as_dict=True):
         super_df_all = super().df_all
 
         def calculate_function_for_all(time_dim, tracers):
-            return super_df_all(time_dim, tracers=tracers, include_total_concentration=include_total_concentration)
+            return super_df_all(time_dim, tracers=tracers, include_total_concentration=include_total_concentration, derivative_order=derivative_order)
 
-        file_pattern = os.path.join(simulation.model.constants.DATABASE_POINTS_OUTPUT_DIRNAME, simulation.model.constants.DATABASE_DF_FILENAME.format(include_total_concentration=include_total_concentration))
+        file_pattern = os.path.join(simulation.model.constants.DATABASE_POINTS_OUTPUT_DIRNAME, simulation.model.constants.DATABASE_DF_FILENAME.format(include_total_concentration=include_total_concentration, derivative_order=derivative_order))
         return self._cached_values_for_boxes(time_dim, calculate_function_for_all, file_pattern, derivative_used=True, tracers=tracers, return_as_dict=return_as_dict)
 
-    def df_points(self, points, include_total_concentration=True):
+    def df_points(self, points, include_total_concentration=True, derivative_order=1):
         super_df_points = super().df_points
 
         def calculate_function_for_points(points):
-            return super_df_points(points, include_total_concentration=include_total_concentration)
+            return super_df_points(points, include_total_concentration=include_total_concentration, derivative_order=derivative_order)
 
-        file_pattern = os.path.join(simulation.model.constants.DATABASE_POINTS_OUTPUT_DIRNAME, simulation.model.constants.DATABASE_DF_FILENAME.format(include_total_concentration=include_total_concentration))
+        file_pattern = os.path.join(simulation.model.constants.DATABASE_POINTS_OUTPUT_DIRNAME, simulation.model.constants.DATABASE_DF_FILENAME.format(include_total_concentration=include_total_concentration, derivative_order=derivative_order))
         return self._cached_values_for_points(points, calculate_function_for_points, file_pattern, derivative_used=True)
 
-    def df_measurements(self, *measurements_list, include_total_concentration=True):
+    def df_measurements(self, *measurements_list, include_total_concentration=True, derivative_order=1):
         def calculate_function_for_points(points):
-            return self.df_points(points, include_total_concentration=include_total_concentration)
+            return self.df_points(points, include_total_concentration=include_total_concentration, derivative_order=derivative_order)
 
         return self._cached_values_for_measurements(calculate_function_for_points, *measurements_list)
 

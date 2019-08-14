@@ -89,32 +89,32 @@ class Base(simulation.util.cache.Cache):
         return self._value_in_file_cache(simulation.optimization.constants.COST_FUNCTION_F_FILENAME.format(normalized=True),
                                          derivative_used=False)
 
-    def df_calculate_unnormalized(self):
+    def df_calculate_unnormalized(self, derivative_order=1):
         raise NotImplementedError("Please implement this method.")
 
-    def df_calculate_normalized(self):
-        return self.normalize(self.df_calculate_unnormalized())
+    def df_calculate_normalized(self, derivative_order=1):
+        return self.normalize(self.df_calculate_unnormalized(derivative_order=derivative_order))
 
-    def df(self, normalized=True):
+    def df(self, derivative_order=1, normalized=True):
         # calculate df
         if normalized:
             def calculation_method():
-                return self.df_calculate_normalized()
+                return self.df_calculate_normalized(derivative_order=derivative_order)
             file = simulation.optimization.constants.COST_FUNCTION_DF_FILENAME.format(
-                normalized=normalized,
+                normalized=normalized, derivative_order=derivative_order,
                 include_total_concentration=self.include_initial_concentrations_factor_to_model_parameters)
             df = self._value_from_file_cache(file, calculation_method, derivative_used=True)
         else:
-            df = self.unnormalize(self.df(normalized=True))
+            df = self.unnormalize(self.df(derivative_order=derivative_order, normalized=True))
 
         # return
         assert df.shape[-1] == len(self.model_parameters)
         assert np.all(np.isfinite(df))
         return df
 
-    def df_available(self, normalized=True):
+    def df_available(self, derivative_order=1, normalized=True):
         file = simulation.optimization.constants.COST_FUNCTION_DF_FILENAME.format(
-            normalized=normalized,
+            normalized=normalized, derivative_order=derivative_order,
             include_total_concentration=self.include_initial_concentrations_factor_to_model_parameters)
         return self._value_in_file_cache(file, derivative_used=True)
 
@@ -152,15 +152,26 @@ class OLS(Base):
         assert np.isfinite(f)
         return f
 
-    def df_calculate_unnormalized(self):
-        F = self.model_f()
-        DF = self.model_df()
-        results = self.measurements_results()
-        residuals = F - results
-        df = 2 * DF.T @ residuals
-        assert np.all(np.isfinite(df))
-        assert df.shape == (self.model_parameters_len,)
-        return df
+    def df_calculate_unnormalized(self, derivative_order=1):
+        if derivative_order in (1, 2):
+            F = self.model_f()
+            DF = self.model_df(derivative_order=1)
+            results = self.measurements_results()
+            residuals = F - results
+
+            if derivative_order == 1:
+                df = 2 * DF.T @ residuals
+                assert np.all(np.isfinite(df))
+                assert df.shape == (self.model_parameters_len,)
+                return df
+            else:
+                D2F = self.model_df(derivative_order=2)
+                d2f = 2 * (DF.T @ DF + np.sum(residuals[:, np.newaxis, np.newaxis] * D2F, axis=0))
+                assert np.all(np.isfinite(d2f))
+                assert d2f.shape == (self.model_parameters_len, self.model_parameters_len)
+                return d2f
+        else:
+            raise ValueError('Derivative order {derivative_order} is not supported.')
 
 
 class WLS(BaseUsingStandardDeviation):
@@ -174,16 +185,28 @@ class WLS(BaseUsingStandardDeviation):
         assert np.isfinite(f)
         return f
 
-    def df_calculate_unnormalized(self):
-        F = self.model_f()
-        DF = self.model_df(derivative_order=1)
-        results = self.measurements_results()
-        variances = self.measurements.variances
-        weighted_residuals = (F - results) / variances
-        df = 2 * DF.T @ weighted_residuals
-        assert np.all(np.isfinite(df))
-        assert df.shape == (self.model_parameters_len,)
-        return df
+    def df_calculate_unnormalized(self, derivative_order=1):
+        if derivative_order in (1, 2):
+            F = self.model_f()
+            DF = self.model_df(derivative_order=1)
+            results = self.measurements_results()
+            variances = self.measurements.variances
+            weighted_residuals = (F - results) / variances
+
+            if derivative_order == 1:
+                df = 2 * DF.T @ weighted_residuals
+                assert np.all(np.isfinite(df))
+                assert df.shape == (self.model_parameters_len,)
+                return df
+            else:
+                D2F = self.model_df(derivative_order=2)
+                DF_weighted = DF / standard_deviations[:, np.newaxis]
+                d2f = 2 * (DF_weighted.T @ DF_weighted + np.inner(D2F, weighted_residuals))
+                assert np.all(np.isfinite(d2f))
+                assert d2f.shape == (self.model_parameters_len, self.model_parameters_len)
+                return d2f
+        else:
+            raise ValueError('Derivative order {derivative_order} is not supported.')
 
 
 class GLS(BaseUsingCorrelation):
@@ -192,25 +215,37 @@ class GLS(BaseUsingCorrelation):
         F = self.model_f()
         results = self.measurements_results()
         standard_deviations = self.measurements.standard_deviations
-        weighted_residual = (F - results) / standard_deviations
+        weighted_residuals = (F - results) / standard_deviations
         correlation_matrix_decomposition = self.measurements.correlations_own_decomposition
-        f = correlation_matrix_decomposition.inverse_matrix_both_sides_multiplication(weighted_residual)
+        f = correlation_matrix_decomposition.inverse_matrix_both_sides_multiplication(weighted_residuals)
         assert np.isfinite(f)
         return f
 
     def df_calculate_unnormalized(self, derivative_order=1):
-        F = self.model_f()
-        DF = self.model_df(derivative_order=1)
-        results = self.measurements_results()
-        standard_deviations = self.measurements.standard_deviations
-        weighted_residuals = (F - results) / standard_deviations
-        correlation_matrix_decomposition = self.measurements.correlations_own_decomposition
-        factors = correlation_matrix_decomposition.inverse_matrix_right_side_multiplication(weighted_residual)
-        factors = factors / standard_deviations
-        df = 2 * DF.T @ factors
-        assert np.all(np.isfinite(df))
-        assert df.shape == (self.model_parameters_len,)
-        return df
+        if derivative_order in (1, 2):
+            F = self.model_f()
+            DF = self.model_df(derivative_order=1)
+            results = self.measurements_results()
+            standard_deviations = self.measurements.standard_deviations
+            weighted_residuals = (F - results) / standard_deviations
+            correlation_matrix_decomposition = self.measurements.correlations_own_decomposition
+            factors = correlation_matrix_decomposition.inverse_matrix_right_side_multiplication(weighted_residuals)
+            factors = factors / standard_deviations
+
+            if derivative_order == 1:
+                df = 2 * DF.T @ factors
+                assert np.all(np.isfinite(df))
+                assert df.shape == (self.model_parameters_len,)
+                return df
+            else:
+                D2F = self.model_df(derivative_order=2)
+                DF_weighted = DF / standard_deviations[:, np.newaxis]
+                d2f = 2 * (correlation_matrix_decomposition.inverse_matrix_both_sides_multiplication(DF_weighted) + np.tensordot(D2F, factors, axes=(0, 0)))
+                assert np.all(np.isfinite(d2f))
+                assert d2f.shape == (self.model_parameters_len, self.model_parameters_len)
+                return d2f
+        else:
+            raise ValueError('Derivative order {derivative_order} is not supported.')
 
 
 # Log normal distribution
@@ -230,9 +265,9 @@ class BaseLog(Base):
     def model_f(self):
         return np.maximum(super().model_f(), self.min_value)
 
-    def model_df(self):
+    def model_df(self, derivative_order=1):
         min_mask = super().model_f() < self.min_value
-        df = super().model_df()
+        df = super().model_df(derivative_order=derivative_order)
         df[min_mask] = 0
         return df
 
@@ -254,7 +289,7 @@ class LWLS(BaseLog, BaseUsingStandardDeviation):
 
     def df_distribution_parameter_my(self):
         expectations = self.model_f()
-        df_expectations = self.model_df()
+        df_expectations = self.model_df(derivative_order=1)
         variances = self.variances
         expectations_squared = expectations**2
         df_factor = (2 / expectations) - (expectations / (expectations_squared + variances))
@@ -269,7 +304,7 @@ class LWLS(BaseLog, BaseUsingStandardDeviation):
 
     def df_distribution_parameter_sigma_diagonal(self):
         expectations = self.model_f()
-        df_expectations = self.model_df()
+        df_expectations = self.model_df(derivative_order=1)
         df_factor = -2 * expectations / (expectations**2 + 1)
         df_sigma_diagonal = df_factor[:, np.newaxis] * df_expectations
         return df_sigma_diagonal
@@ -282,16 +317,19 @@ class LWLS(BaseLog, BaseUsingStandardDeviation):
         f += np.sum((np.log(results) - my)**2 / sigma_diagonal)
         return f
 
-    def df_calculate_unnormalized(self):
-        results = self.measurements_results()
-        my = self.distribution_parameter_my()
-        sigma_diagonal = self.distribution_parameter_sigma_diagonal()
-        df_my = self.df_distribution_parameter_my()
-        df_sigma_diagonal = self.df_distribution_parameter_sigma_diagonal()
-        df = np.sum((1 / sigma_diagonal)[:, np.newaxis] * df_sigma_diagonal, axis=0)
-        df_factor = (my - np.log(results)) / sigma_diagonal
-        df += np.sum(df_factor[:, np.newaxis] * (2 * df_my - df_factor[:, np.newaxis] * df_sigma_diagonal), axis=0)
-        return df
+    def df_calculate_unnormalized(self, derivative_order=1):
+        if derivative_order == 1:
+            results = self.measurements_results()
+            my = self.distribution_parameter_my()
+            sigma_diagonal = self.distribution_parameter_sigma_diagonal()
+            df_my = self.df_distribution_parameter_my(derivative_order=1)
+            df_sigma_diagonal = self.df_distribution_parameter_sigma_diagonal(derivative_order=1)
+            df = np.sum((1 / sigma_diagonal)[:, np.newaxis] * df_sigma_diagonal, axis=0)
+            df_factor = (my - np.log(results)) / sigma_diagonal
+            df += np.sum(df_factor[:, np.newaxis] * (2 * df_my - df_factor[:, np.newaxis] * df_sigma_diagonal), axis=0)
+            return df
+        else:
+            raise ValueError('Derivative order {derivative_order} is not supported.')
 
 
 class LOLS(LWLS):
@@ -321,7 +359,7 @@ class LGLS(BaseUsingCorrelation, BaseLog):
             min_diag_D=self.measurements.min_diag_value_decomposition_correlation,
             permutation=self.measurements.permutation_method_decomposition_correlation,
             return_type=matrix.constants.LDL_DECOMPOSITION_TYPE, overwrite_A=True)
-        sigma = correlation_matrix_decomposition.inverse_matrix_both_sides_multiplication(weighted_residual, dtype=np.float128)
+        sigma = correlation_matrix_decomposition.inverse_matrix_both_sides_multiplication(weighted_residuals, dtype=np.float128)
         sigma.data = np.log(sigma.data + 1)
         return sigma
 
