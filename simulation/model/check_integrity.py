@@ -55,7 +55,7 @@ def check_job_options_in_dir(directory):
         try:
             with simulation.model.job.Metos3D_Job(run_dir, force_load=True) as job:
                 job.check_integrity(force_to_be_started=True, force_to_be_readonly=True)
-        except Exception as e:
+        except util.batch.universal.system.JobError as e:
             util.logging.error(e)
 
 
