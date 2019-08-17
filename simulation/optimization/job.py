@@ -20,10 +20,10 @@ class CostFunctionJob(util.batch.universal.system.Job):
                  output_dir=None, model_job_options=None,
                  min_measurements_standard_deviations=None, min_measurements_correlations=None,
                  min_standard_deviations=None, min_diag_correlations=None,
-                 max_box_distance_to_water=None, eval_f=True, eval_df=True,
+                 max_box_distance_to_water=None, eval_f=True, eval_df=False, eval_d2f=False,
                  cost_function_job_options=None, include_initial_concentrations_factor_to_model_parameters=False,
                  remove_output_dir_on_close=False):
-        util.logging.debug('Initiating cost function job with cf_kind {}, eval_f {} and eval_df {}.'.format(cf_kind, eval_f, eval_df))
+        util.logging.debug('Initiating cost function job with cf_kind {}, eval_f {} and eval_df {} and eval_d2f {}.'.format(cf_kind, eval_f, eval_df, eval_d2f))
 
         # if no output dir, use tmp output dir
         if output_dir is None:
@@ -77,6 +77,10 @@ class CostFunctionJob(util.batch.universal.system.Job):
             walltime = model_options.tracers_len
             if eval_df:
                 walltime += model_options.tracers_len * model_options.parameters_len * 2
+            if eval_d2f:
+                walltime += model_options.tracers_len * model_options.parameters_len * (model_options.parameters_len + 1) * 0.5
+                if not eval_df:
+                    walltime += model_options.tracers_len * model_options.parameters_len
             try:
                 node_kind = nodes_setup['node_kind']
             except KeyError:
@@ -96,6 +100,8 @@ class CostFunctionJob(util.batch.universal.system.Job):
         except AttributeError:
             memory = 30
             if eval_df:
+                memory += 5
+            if eval_d2f:
                 memory += 5
             if cf_kind == 'GLS':
                 memory += 20
@@ -132,7 +138,9 @@ class CostFunctionJob(util.batch.universal.system.Job):
         if eval_f:
             commands += ['    cf.f()']
         if eval_df:
-            commands += ['    cf.df()']
+            commands += ['    cf.df(derivative_order=1)']
+        if eval_d2f:
+            commands += ['    cf.df(derivative_order=2)']
         commands += ['']
 
         script_str = os.linesep.join(commands)
