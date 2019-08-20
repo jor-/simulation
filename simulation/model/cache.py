@@ -217,8 +217,7 @@ class Model_With_F_File_and_MemoryCached(simulation.model.eval.Model_With_F_Memo
                     base_measurements = current_measurements.base_measurements
                     base_results_dict = convert_back(results_dict, [base_measurements])
                     base_results = base_results_dict[base_measurements.tracer][base_measurements.data_set_name]
-                    near_water_projection_mask = current_measurements.near_water_projection_mask
-                    projected_results = base_results[near_water_projection_mask]
+                    projected_results = current_measurements._project_left_side(base_results)
                     assert current_measurements.tracer == base_measurements.tracer
                     del results_dict[base_measurements.tracer][base_measurements.data_set_name]
                     results_dict[current_measurements.tracer][current_measurements.data_set_name] = projected_results
