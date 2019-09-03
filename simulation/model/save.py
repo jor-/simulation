@@ -85,16 +85,22 @@ def prepare_model_options(model_name, time_step=1, concentrations=None, concentr
     return model_options
 
 
-def save(model_name, time_step=1, concentrations=None, concentrations_index=None, parameters=None, parameter_set_index=None,
-         spinup_years=None, spinup_tolerance=None, spinup_satisfy_years_and_tolerance=True, derivative_years=None, derivative_step_size=None, derivative_accuracy_order=None,
-         min_measurements_standard_deviations=None, min_standard_deviations=None, min_measurements_correlations=None, min_diag_correlations=None, max_box_distance_to_water=None,
-         debug_output=True, eval_function=True, eval_first_derivative=True, eval_second_derivative=True, all_values_time_dim=None):
+def prepare_measurements(model_options,
+                         min_measurements_standard_deviations=None, min_standard_deviations=None, min_measurements_correlations=None, min_diag_correlations=None, max_box_distance_to_water=None):
+    measurements_object = measurements.all.data.all_measurements(
+        tracers=model_options.tracers,
+        min_measurements_standard_deviation=min_measurements_standard_deviations,
+        min_standard_deviation=min_standard_deviations,
+        min_measurements_correlation=min_measurements_correlations,
+        min_diag_correlations=min_diag_correlations,
+        max_box_distance_to_water=max_box_distance_to_water,
+        water_lsm='TMM',
+        sample_lsm='TMM')
+    return measurements_object
 
-    # prepare model options
-    model_options = prepare_model_options(
-        model_name, time_step=time_step, concentrations=concentrations, concentrations_index=concentrations_index, parameters=parameters, parameter_set_index=parameter_set_index,
-        spinup_years=spinup_years, spinup_tolerance=spinup_tolerance, spinup_satisfy_years_and_tolerance=spinup_satisfy_years_and_tolerance,
-        derivative_years=derivative_years, derivative_step_size=derivative_step_size, derivative_accuracy_order=derivative_accuracy_order)
+
+def save(model_options, measurements_object,
+         debug_output=True, eval_function=True, eval_first_derivative=True, eval_second_derivative=True, all_values_time_dim=None):
 
     # prepare job option
     job_options = {'name': 'NDOP'}
@@ -114,15 +120,6 @@ def save(model_name, time_step=1, concentrations=None, concentrations_index=None
                 model.df_all(all_values_time_dim)
         # eval measurement values
         else:
-            measurements_object = measurements.all.data.all_measurements(
-                tracers=model_options.tracers,
-                min_measurements_standard_deviation=min_measurements_standard_deviations,
-                min_standard_deviation=min_standard_deviations,
-                min_measurements_correlation=min_measurements_correlations,
-                min_diag_correlations=min_diag_correlations,
-                max_box_distance_to_water=max_box_distance_to_water,
-                water_lsm='TMM',
-                sample_lsm='TMM')
             if eval_function:
                 model.f_measurements(*measurements_object)
             if eval_first_derivative:
@@ -212,23 +209,30 @@ def _main():
 
     # call function
     with util.logging.Logger():
-        save(args.model_name,
-             time_step=args.time_step,
-             spinup_years=args.spinup_years,
-             spinup_tolerance=args.spinup_tolerance,
-             spinup_satisfy_years_and_tolerance=args.spinup_satisfy_years_and_tolerance,
-             concentrations=args.concentrations,
-             concentrations_index=args.concentrations_index,
-             parameters=args.parameters,
-             parameter_set_index=args.parameter_set_index,
-             derivative_years=args.derivative_years,
-             derivative_step_size=args.derivative_step_size,
-             derivative_accuracy_order=args.derivative_accuracy_order,
-             min_measurements_standard_deviations=args.min_measurements_standard_deviations,
-             min_standard_deviations=args.min_standard_deviations,
-             min_measurements_correlations=args.min_measurements_correlations,
-             min_diag_correlations=args.min_diag_correlations,
-             max_box_distance_to_water=args.max_box_distance_to_water,
+
+        model_options = prepare_model_options(
+            args.model_name,
+            time_step=args.time_step,
+            spinup_years=args.spinup_years,
+            spinup_tolerance=args.spinup_tolerance,
+            spinup_satisfy_years_and_tolerance=args.spinup_satisfy_years_and_tolerance,
+            concentrations=args.concentrations,
+            concentrations_index=args.concentrations_index,
+            parameters=args.parameters,
+            parameter_set_index=args.parameter_set_index,
+            derivative_years=args.derivative_years,
+            derivative_step_size=args.derivative_step_size,
+            derivative_accuracy_order=args.derivative_accuracy_order)
+
+        measurements_object = prepare_measurements(
+            model_options,
+            min_measurements_standard_deviations=args.min_measurements_standard_deviations,
+            min_standard_deviations=args.min_standard_deviations,
+            min_measurements_correlations=args.min_measurements_correlations,
+            min_diag_correlations=args.min_diag_correlations,
+            max_box_distance_to_water=args.max_box_distance_to_water)
+
+        save(model_options, measurements_object,
              eval_function=args.eval_function,
              eval_first_derivative=args.eval_first_derivative,
              eval_second_derivative=args.eval_second_derivative,
