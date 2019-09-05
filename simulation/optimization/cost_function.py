@@ -9,6 +9,7 @@ import matrix.calculate
 
 import simulation.model.constants
 import simulation.model.options
+import simulation.model.save
 import simulation.optimization.constants
 import simulation.optimization.database
 import simulation.util.cache
@@ -356,7 +357,7 @@ class LGLS(BaseUsingCorrelation, BaseLog):
         correlation_matrix.eliminate_zeros()
         correlation_matrix_decomposition = matrix.approximation.positive_semidefinite.decomposition(
             correlation_matrix, min_diag_B=1, max_diag_B=1,
-            min_diag_D=self.measurements.min_diag_value_decomposition_correlation,
+            min_diag_D=self.measurements.correlation_decomposition_min_value_D,
             permutation=self.measurements.permutation_method_decomposition_correlation,
             return_type=matrix.constants.LDL_DECOMPOSITION_TYPE, overwrite_A=True)
         sigma = correlation_matrix_decomposition.inverse_matrix_both_sides_multiplication(weighted_residuals, dtype=np.float128)
@@ -390,7 +391,7 @@ ALL_COST_FUNCTION_NAMES = [cost_function_class.__name__ for cost_function_class 
 # iterator
 
 def cost_functions_for_all_measurements(min_measurements_standard_deviations=None, min_measurements_correlations=None,
-                                        min_standard_deviations=None, min_diag_correlations=None,
+                                        min_standard_deviations=None, correlation_decomposition_min_value_D=None,
                                         max_box_distance_to_water=None, cost_function_classes=None, model_options=None):
     # default values
     if cost_function_classes is None:
@@ -406,24 +407,22 @@ def cost_functions_for_all_measurements(min_measurements_standard_deviations=Non
 
     # init all cost functions
     cost_functions = []
-    measurements_collection = measurements.all.data.all_measurements(
-        tracers=model_options.tracers,
+    measurements_object = simulation.model.save.prepare_measurements(
+        model_options,
         min_measurements_standard_deviation=min_measurements_standard_deviations,
         min_measurements_correlation=min_measurements_correlations,
         min_standard_deviation=min_standard_deviations,
-        min_diag_correlations=min_diag_correlations,
-        max_box_distance_to_water=max_box_distance_to_water,
-        water_lsm='TMM',
-        sample_lsm='TMM')
+        correlation_decomposition_min_value_D=correlation_decomposition_min_value_D,
+        max_box_distance_to_water=max_box_distance_to_water)
 
     if len(cost_function_classes_without_standard_deviation) > 0:
-        cost_functions.extend([cost_functions_class(measurements_collection) for cost_functions_class in cost_function_classes_without_standard_deviation])
+        cost_functions.extend([cost_functions_class(measurements_object) for cost_functions_class in cost_function_classes_without_standard_deviation])
 
     if len(cost_function_classes_only_with_standard_deviation) > 0:
-        cost_functions.extend([cost_functions_class(measurements_collection) for cost_functions_class in cost_function_classes_only_with_standard_deviation])
+        cost_functions.extend([cost_functions_class(measurements_object) for cost_functions_class in cost_function_classes_only_with_standard_deviation])
 
     if len(cost_function_classes_with_correlation) > 0 and min_measurements_correlations != float('inf'):
-        cost_functions.extend([cost_functions_class(measurements_collection) for cost_functions_class in cost_function_classes_with_correlation])
+        cost_functions.extend([cost_functions_class(measurements_object) for cost_functions_class in cost_function_classes_with_correlation])
 
     # set same model and model options
     if len(cost_functions) > 0:

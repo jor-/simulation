@@ -12,7 +12,7 @@ def save(cost_function_name,
          model_name, time_step=1, concentrations=None, concentrations_index=None, parameters=None, parameter_set_index=None,
          spinup_years=None, spinup_tolerance=None, spinup_satisfy_years_and_tolerance=True, derivative_years=None, derivative_step_size=None, derivative_accuracy_order=None,
          model_parameters_relative_tolerance=None, model_parameters_absolute_tolerance=None, initial_concentrations_relative_tolerance=None, initial_concentrations_absolute_tolerance=None,
-         min_measurements_standard_deviations=None, min_standard_deviations=None, min_measurements_correlations=None, min_diag_correlations=None, max_box_distance_to_water=None,
+         min_measurements_standard_deviations=None, min_standard_deviations=None, min_measurements_correlations=None, correlation_decomposition_min_value_D=None, max_box_distance_to_water=None,
          alpha=0.99, time_dim_model=None, parallel=True):
 
     # prepare model options
@@ -24,15 +24,13 @@ def save(cost_function_name,
         initial_concentrations_relative_tolerance=initial_concentrations_relative_tolerance, initial_concentrations_absolute_tolerance=initial_concentrations_absolute_tolerance)
 
     # prepare measurement object
-    measurements_object = measurements.all.data.all_measurements(
-        tracers=model_options.tracers,
+    measurements_object = simulation.model.save.prepare_measurements(
+        model_options,
         min_measurements_standard_deviation=min_measurements_standard_deviations,
-        min_standard_deviation=min_standard_deviations,
         min_measurements_correlation=min_measurements_correlations,
-        min_diag_correlations=min_diag_correlations,
-        max_box_distance_to_water=max_box_distance_to_water,
-        water_lsm='TMM',
-        sample_lsm='TMM')
+        min_standard_deviation=min_standard_deviations,
+        correlation_decomposition_min_value_D=correlation_decomposition_min_value_D,
+        max_box_distance_to_water=max_box_distance_to_water)
 
     # create accuracy object
     if cost_function_name == 'OLS':
@@ -88,7 +86,7 @@ def _main():
     parser.add_argument('--min_measurements_standard_deviations', nargs='+', type=int, default=None, help='The minimal number of measurements used to calculate standard deviations applied to each dataset.')
     parser.add_argument('--min_standard_deviations', nargs='+', type=float, default=None, help='The minimal standard deviations assumed for the measurement errors applied to each dataset.')
     parser.add_argument('--min_measurements_correlations', nargs='+', type=int, default=None, help='The minimal number of measurements used to calculate correlations applied to each dataset.')
-    parser.add_argument('--min_diag_correlations', type=float, default=None, help='The minimal value aplied to the diagonal of the decomposition of the correlation matrix applied to each dataset.')
+    parser.add_argument('--correlation_decomposition_min_value_D', type=float, default=None, help='The minimal value aplied to the diagonal of the decomposition of the correlation matrix applied to each dataset.')
     parser.add_argument('--max_box_distance_to_water', type=int, default=float('inf'), help='The maximal distance to water boxes to accept measurements.')
 
     parser.add_argument('--model_parameters_relative_tolerance', type=float, nargs='+', default=10**-6, help='The relative tolerance up to which two model parameter vectors are considered equal.')
@@ -134,7 +132,7 @@ def _main():
              min_measurements_standard_deviations=args.min_measurements_standard_deviations,
              min_standard_deviations=args.min_standard_deviations,
              min_measurements_correlations=args.min_measurements_correlations,
-             min_diag_correlations=args.min_diag_correlations,
+             correlation_decomposition_min_value_D=args.correlation_decomposition_min_value_D,
              max_box_distance_to_water=args.max_box_distance_to_water,
              alpha=args.alpha,
              time_dim_model=args.time_dim_model,

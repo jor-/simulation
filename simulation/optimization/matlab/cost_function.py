@@ -34,7 +34,7 @@ def _main():
     parser.add_argument('--min_measurements_standard_deviations', nargs='+', type=int, default=None, help='The minimal number of measurements used to calculate standard deviations applied to each dataset.')
     parser.add_argument('--min_measurements_correlations', nargs='+', type=int, default=None, help='The minimal number of measurements used to calculate correlations applied to each dataset.')
     parser.add_argument('--min_standard_deviations', nargs='+', type=float, default=None, help='The minimal standard deviations assumed for the measurement errors applied for each dataset.')
-    parser.add_argument('--min_diag_correlations', type=float, default=None, help='The minimal value forced in the diagonal matrix of the decomposition of the correlation matrix.')
+    parser.add_argument('--correlation_decomposition_min_value_D', type=float, default=None, help='The minimal value forced in the diagonal matrix of the decomposition of the correlation matrix.')
 
     parser.add_argument('--exchange_dir', required=True, help='The directory from where to load the parameters and where to save the cost function values.')
     parser.add_argument('--debug_logging_file', default=None, help='File to store debug informations.')
@@ -109,15 +109,13 @@ def _main():
     with util.logging.Logger(log_file=log_file, disp_stdout=log_file is None):
 
         # choose measurements
-        measurements_object = measurements.all.data.all_measurements(
-            tracers=model_options.tracers,
+        measurements_object = simulation.model.save.prepare_measurements(
+            model_options,
             min_measurements_standard_deviation=args.min_measurements_standard_deviations,
             min_measurements_correlation=args.min_measurements_correlations,
             min_standard_deviation=args.min_standard_deviations,
-            min_diag_correlations=args.min_diag_correlations,
-            max_box_distance_to_water=args.max_box_distance_to_water,
-            water_lsm='TMM',
-            sample_lsm='TMM')
+            correlation_decomposition_min_value_D=args.correlation_decomposition_min_value_D,
+            max_box_distance_to_water=args.max_box_distance_to_water)
 
         # init cost function
         cf = cf_class(measurements_object=measurements_object, model_options=model_options, model_job_options=prepare_model_job_options())
@@ -138,7 +136,7 @@ def _main():
                     min_measurements_standard_deviations=args.min_measurements_standard_deviations,
                     min_measurements_correlations=args.min_measurements_correlations,
                     min_standard_deviations=args.min_standard_deviations,
-                    min_diag_correlations=args.min_diag_correlations,
+                    correlation_decomposition_min_value_D=args.correlation_decomposition_min_value_D,
                     max_box_distance_to_water=args.max_box_distance_to_water,
                     eval_f=eval_function_value,
                     eval_df=eval_grad_value,
