@@ -916,15 +916,13 @@ class Model_With_F_And_DF(Model_With_F):
             # get changed parameters and corresponding ids
             changed_parameters_indices = np.where(partial_derivative_parameters != partial_derivative_parameters_undisturbed)[0]
             if len(changed_parameters_indices) == 0:
-                factor_id = simulation.model.constants.DATABASE_PARTIAL_DERIVATIVE_FACTOR_ID.format(index=-1, h_factor=0)
+                factor_id = simulation.model.constants.DATABASE_PARTIAL_DERIVATIVE_FACTOR_ID_INT.format(index=-1, h_factor=0)
                 factor_ids = [factor_id]
             else:
                 factor_ids = []
                 for parameter_index in changed_parameters_indices:
                     h = partial_derivative_parameters[parameter_index] - partial_derivative_parameters_undisturbed[parameter_index]
-                    h_factor = int(np.sign(h))
-
-                    h_typical = partial_derivative_parameters_typical_values[index] * MODEL_DERIVATIVE_STEP_SIZE
+                    h_typical = partial_derivative_parameters_typical_values[parameter_index] * MODEL_DERIVATIVE_STEP_SIZE
                     h_factor = h / h_typical
                     PRECISION = simulation.model.constants.DATABASE_PARTIAL_DERIVATIVE_FACTOR_ID_FLOAT_PRECISION
                     h_factor = np.round(h_factor * 10**PRECISION) / 10**PRECISION
@@ -933,7 +931,6 @@ class Model_With_F_And_DF(Model_With_F):
                         DATABASE_PARTIAL_DERIVATIVE_FACTOR_ID = simulation.model.constants.DATABASE_PARTIAL_DERIVATIVE_FACTOR_ID_INT
                     else:
                         DATABASE_PARTIAL_DERIVATIVE_FACTOR_ID = simulation.model.constants.DATABASE_PARTIAL_DERIVATIVE_FACTOR_ID_FLOAT
-
                     factor_id = DATABASE_PARTIAL_DERIVATIVE_FACTOR_ID.format(index=parameter_index, h_factor=h_factor)
                     factor_ids.append(factor_id)
             factor_ids = simulation.model.constants.DATABASE_PARTIAL_DERIVATIVE_FACTOR_ID_SEPARATOR.join(factor_ids)

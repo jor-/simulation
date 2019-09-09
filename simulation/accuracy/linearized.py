@@ -72,7 +72,7 @@ class Base(simulation.util.cache.Cache):
             self.measurements, model_options=self.model.model_options, model_job_options=self.model.job_options,
             include_initial_concentrations_factor_to_model_parameters=self.include_initial_concentrations_factor_to_model_parameters)
         f = cf.f(normalized=False)
-        factor = f / (self.measurements.number_of_measurements - self.model.model_options.parameters_len)
+        factor = f / self.measurements.number_of_measurements
         return factor
 
     def _model_parameter_covariance_matrix_calculate(self, include_variance_factor=True,
