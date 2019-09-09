@@ -145,15 +145,15 @@ class Cache():
                             filename)
         return file
 
-    def _value_from_file_cache(self, filename, calculate_method, derivative_used=True, save_as_txt=True, save_as_np=False):
+    def _value_from_file_cache(self, filename, calculate_method, derivative_used=True, derivative_accuracy_order=None, save_as_txt=True, save_as_np=False):
         filename = self._filename(filename)
-        file = self.model._cache.get_file(filename, derivative_used=derivative_used)
+        file = self.model._cache.get_file(filename, derivative_used=derivative_used, derivative_accuracy_order=derivative_accuracy_order)
         value = self.model._cache.get_value(file, calculate_method, save_as_txt=save_as_txt, save_as_np=save_as_np)
         return value
 
-    def _value_in_file_cache(self, filename, derivative_used=True):
+    def _value_in_file_cache(self, filename, derivative_used=True, derivative_accuracy_order=None):
         filename = self._filename(filename)
-        file = self.model._cache.get_file(filename, derivative_used=derivative_used)
+        file = self.model._cache.get_file(filename, derivative_used=derivative_used, derivative_accuracy_order=derivative_accuracy_order)
         value = self.model._cache.has_value(file)
         return value
 
@@ -175,15 +175,15 @@ class Cache():
         return f
 
     @util.cache.memory.method_decorator(maxsize=2)
-    def model_df(self, derivative_order=1):
-        df = self.model.df_measurements(*self.measurements, include_total_concentration=self.include_initial_concentrations_factor_to_model_parameters, derivative_order=derivative_order)
+    def model_df(self, derivative_order=1, accuracy_order=None):
+        df = self.model.df_measurements(*self.measurements, include_total_concentration=self.include_initial_concentrations_factor_to_model_parameters, derivative_order=derivative_order, accuracy_order=accuracy_order)
         df = self.measurements.convert_measurements_dict_to_array(df)
-        assert df.shape == (self.measurements.number_of_measurements,) + (self.model_parameters_len,)*derivative_order
+        assert df.shape == (self.measurements.number_of_measurements,) + (self.model_parameters_len,) * derivative_order
         return df
 
     @util.cache.memory.method_decorator(maxsize=2)
-    def model_df_all_boxes(self, time_dim, derivative_order=1, as_shared_array=False):
-        df = self.model.df_all(time_dim, include_total_concentration=self.include_initial_concentrations_factor_to_model_parameters, derivative_order=derivative_order, return_as_dict=False)
+    def model_df_all_boxes(self, time_dim, derivative_order=1, accuracy_order=None, as_shared_array=False):
+        df = self.model.df_all(time_dim, include_total_concentration=self.include_initial_concentrations_factor_to_model_parameters, derivative_order=derivative_order, accuracy_order=accuracy_order, return_as_dict=False)
         assert df.shape[1] == time_dim and df.shape[-1] == self.model_parameters_len
         if as_shared_array:
             df = util.parallel.with_multiprocessing.shared_array(df)

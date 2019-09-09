@@ -90,34 +90,34 @@ class Base(simulation.util.cache.Cache):
         return self._value_in_file_cache(simulation.optimization.constants.COST_FUNCTION_F_FILENAME.format(normalized=True),
                                          derivative_used=False)
 
-    def df_calculate_unnormalized(self, derivative_order=1):
+    def df_calculate_unnormalized(self, derivative_order=1, accuracy_order=2):
         raise NotImplementedError("Please implement this method.")
 
-    def df_calculate_normalized(self, derivative_order=1):
-        return self.normalize(self.df_calculate_unnormalized(derivative_order=derivative_order))
+    def df_calculate_normalized(self, derivative_order=1, accuracy_order=2):
+        return self.normalize(self.df_calculate_unnormalized(derivative_order=derivative_order, accuracy_order=accuracy_order))
 
-    def df(self, derivative_order=1, normalized=True):
+    def df(self, derivative_order=1, accuracy_order=2, normalized=True):
         # calculate df
         if normalized:
             def calculation_method():
-                return self.df_calculate_normalized(derivative_order=derivative_order)
+                return self.df_calculate_normalized(derivative_order=derivative_order, accuracy_order=accuracy_order)
             file = simulation.optimization.constants.COST_FUNCTION_DF_FILENAME.format(
                 normalized=normalized, derivative_order=derivative_order,
                 include_total_concentration=self.include_initial_concentrations_factor_to_model_parameters)
-            df = self._value_from_file_cache(file, calculation_method, derivative_used=True)
+            df = self._value_from_file_cache(file, calculation_method, derivative_used=True, derivative_accuracy_order=accuracy_order)
         else:
-            df = self.unnormalize(self.df(derivative_order=derivative_order, normalized=True))
+            df = self.unnormalize(self.df(derivative_order=derivative_order, accuracy_order=accuracy_order, normalized=True))
 
         # return
         assert df.shape[-1] == len(self.model_parameters)
         assert np.all(np.isfinite(df))
         return df
 
-    def df_available(self, derivative_order=1, normalized=True):
+    def df_available(self, derivative_order=1, accuracy_order=2, normalized=True):
         file = simulation.optimization.constants.COST_FUNCTION_DF_FILENAME.format(
             normalized=normalized, derivative_order=derivative_order,
             include_total_concentration=self.include_initial_concentrations_factor_to_model_parameters)
-        return self._value_in_file_cache(file, derivative_used=True)
+        return self._value_in_file_cache(file, derivative_used=True, derivative_accuracy_order=accuracy_order)
 
 
 class BaseUsingStandardDeviation(Base):
@@ -153,10 +153,10 @@ class OLS(Base):
         assert np.isfinite(f)
         return f
 
-    def df_calculate_unnormalized(self, derivative_order=1):
+    def df_calculate_unnormalized(self, derivative_order=1, accuracy_order=2):
         if derivative_order in (1, 2):
             F = self.model_f()
-            DF = self.model_df(derivative_order=1)
+            DF = self.model_df(derivative_order=1, accuracy_order=accuracy_order)
             results = self.measurements_results()
             residuals = F - results
 
@@ -166,7 +166,7 @@ class OLS(Base):
                 assert df.shape == (self.model_parameters_len,)
                 return df
             else:
-                D2F = self.model_df(derivative_order=2)
+                D2F = self.model_df(derivative_order=2, accuracy_order=accuracy_order)
                 d2f = 2 * (DF.T @ DF + np.sum(residuals[:, np.newaxis, np.newaxis] * D2F, axis=0))
                 assert np.all(np.isfinite(d2f))
                 assert d2f.shape == (self.model_parameters_len, self.model_parameters_len)
@@ -186,10 +186,10 @@ class WLS(BaseUsingStandardDeviation):
         assert np.isfinite(f)
         return f
 
-    def df_calculate_unnormalized(self, derivative_order=1):
+    def df_calculate_unnormalized(self, derivative_order=1, accuracy_order=2):
         if derivative_order in (1, 2):
             F = self.model_f()
-            DF = self.model_df(derivative_order=1)
+            DF = self.model_df(derivative_order=1, accuracy_order=accuracy_order)
             results = self.measurements_results()
             variances = self.measurements.variances
             weighted_residuals = (F - results) / variances
@@ -200,7 +200,7 @@ class WLS(BaseUsingStandardDeviation):
                 assert df.shape == (self.model_parameters_len,)
                 return df
             else:
-                D2F = self.model_df(derivative_order=2)
+                D2F = self.model_df(derivative_order=2, accuracy_order=accuracy_order)
                 DF_weighted = DF / standard_deviations[:, np.newaxis]
                 d2f = 2 * (DF_weighted.T @ DF_weighted + np.inner(D2F, weighted_residuals))
                 assert np.all(np.isfinite(d2f))
@@ -222,10 +222,10 @@ class GLS(BaseUsingCorrelation):
         assert np.isfinite(f)
         return f
 
-    def df_calculate_unnormalized(self, derivative_order=1):
+    def df_calculate_unnormalized(self, derivative_order=1, accuracy_order=2):
         if derivative_order in (1, 2):
             F = self.model_f()
-            DF = self.model_df(derivative_order=1)
+            DF = self.model_df(derivative_order=1, accuracy_order=accuracy_order)
             results = self.measurements_results()
             standard_deviations = self.measurements.standard_deviations
             weighted_residuals = (F - results) / standard_deviations
@@ -239,7 +239,7 @@ class GLS(BaseUsingCorrelation):
                 assert df.shape == (self.model_parameters_len,)
                 return df
             else:
-                D2F = self.model_df(derivative_order=2)
+                D2F = self.model_df(derivative_order=2, accuracy_order=accuracy_order)
                 DF_weighted = DF / standard_deviations[:, np.newaxis]
                 d2f = 2 * (correlation_matrix_decomposition.inverse_matrix_both_sides_multiplication(DF_weighted) + np.tensordot(D2F, factors, axes=(0, 0)))
                 assert np.all(np.isfinite(d2f))

@@ -21,7 +21,7 @@ class Cache:
 
     # *** file *** #
 
-    def get_file(self, filename, derivative_used, **filename_format_dict):
+    def get_file(self, filename, derivative_used, derivative_accuracy_order=None, **filename_format_dict):
         assert filename is not None
 
         model = self.model
@@ -32,7 +32,9 @@ class Cache:
             bottom_dirs, filename = os.path.split(filename)
 
             if derivative_used:
-                derivative_dirname = simulation.model.constants.DATABASE_CACHE_DERIVATIVE_DIRNAME.format(derivative_step_size=self.model.model_options.derivative_options.step_size, derivative_years=self.model.model_options.derivative_options.years, derivative_accuracy_order=self.model.model_options.derivative_options.accuracy_order)
+                if derivative_accuracy_order is None:
+                    derivative_accuracy_order = self.model.model_options.derivative_options.accuracy_order
+                derivative_dirname = simulation.model.constants.DATABASE_CACHE_DERIVATIVE_DIRNAME.format(derivative_step_size=self.model.model_options.derivative_options.step_size, derivative_years=self.model.model_options.derivative_options.years, derivative_accuracy_order=derivative_accuracy_order)
                 bottom_dirs = os.path.join(bottom_dirs, derivative_dirname)
 
             file = os.path.join(model.parameter_set_dir, self.cache_dirname, bottom_dirs, filename)
@@ -111,7 +113,7 @@ class Model_With_F_File_and_MemoryCached(simulation.model.eval.Model_With_F_Memo
         super().__init__(*args, **kargs)
         self._cache = Cache(self)
 
-    def _cached_values_for_boxes(self, time_dim, calculate_function_for_boxes, file_pattern, derivative_used, tracers=None, return_as_dict=True):
+    def _cached_values_for_boxes(self, time_dim, calculate_function_for_boxes, file_pattern, derivative_used, derivative_accuracy_order=None, tracers=None, return_as_dict=True):
         assert callable(calculate_function_for_boxes)
         tracers = self.check_tracers(tracers)
 
@@ -121,7 +123,7 @@ class Model_With_F_File_and_MemoryCached(simulation.model.eval.Model_With_F_Memo
         results_dict = {}
         not_cached_tracers = []
         for tracer in tracers:
-            file = self._cache.get_file(file_pattern, derivative_used=derivative_used, tracer=tracer, data_set_name=data_set_name)
+            file = self._cache.get_file(file_pattern, derivative_used=derivative_used, derivative_accuracy_order=derivative_accuracy_order, tracer=tracer, data_set_name=data_set_name)
             if self._cache.has_value(file):
                 results_dict[tracer] = self._cache.load_value(file)
             else:
@@ -132,7 +134,7 @@ class Model_With_F_File_and_MemoryCached(simulation.model.eval.Model_With_F_Memo
 
         # save calculated values and store in result
         for tracer, tracer_values in calculated_results_dict.items():
-            file = self._cache.get_file(file_pattern, derivative_used=derivative_used, tracer=tracer, data_set_name=data_set_name)
+            file = self._cache.get_file(file_pattern, derivative_used=derivative_used, derivative_accuracy_order=derivative_accuracy_order, tracer=tracer, data_set_name=data_set_name)
             self._cache.save_value(file, tracer_values)
             results_dict[tracer] = tracer_values
         assert (tracers is None and len(results_dict) == self.model_options.tracers_len) or len(results_dict) == len(tracers)
@@ -151,7 +153,7 @@ class Model_With_F_File_and_MemoryCached(simulation.model.eval.Model_With_F_Memo
         file_pattern = os.path.join(simulation.model.constants.DATABASE_POINTS_OUTPUT_DIRNAME, simulation.model.constants.DATABASE_F_FILENAME)
         return self._cached_values_for_boxes(time_dim, calculate_function_for_boxes, file_pattern, derivative_used=False, tracers=tracers, return_as_dict=return_as_dict)
 
-    def _cached_values_for_points(self, points, calculate_function_for_points, file_pattern, derivative_used):
+    def _cached_values_for_points(self, points, calculate_function_for_points, file_pattern, derivative_used, derivative_accuracy_order=None):
         # load cached values and separate not cached points
         not_cached_points_dict = {}
         results_dict = {}
@@ -160,7 +162,7 @@ class Model_With_F_File_and_MemoryCached(simulation.model.eval.Model_With_F_Memo
             results_dict[tracer] = {}
 
             for data_set_name, data_set_points in tracer_points_dict.items():
-                file = self._cache.get_file(file_pattern, derivative_used=derivative_used, tracer=tracer, data_set_name=data_set_name)
+                file = self._cache.get_file(file_pattern, derivative_used=derivative_used, derivative_accuracy_order=derivative_accuracy_order, tracer=tracer, data_set_name=data_set_name)
                 if self._cache.has_value(file):
                     results_dict[tracer][data_set_name] = self._cache.load_value(file)
                 else:
@@ -177,7 +179,7 @@ class Model_With_F_File_and_MemoryCached(simulation.model.eval.Model_With_F_Memo
             # save interpolated values and store in results dict
             for tracer, tracer_calculated_results_dict in calculated_results_dict.items():
                 for data_set_name, data_set_results in tracer_calculated_results_dict.items():
-                    file = self._cache.get_file(file_pattern, derivative_used=derivative_used, tracer=tracer, data_set_name=data_set_name)
+                    file = self._cache.get_file(file_pattern, derivative_used=derivative_used, derivative_accuracy_order=derivative_accuracy_order, tracer=tracer, data_set_name=data_set_name)
                     self._cache.save_value(file, data_set_results)
                     results_dict[tracer][data_set_name] = data_set_results
 
@@ -247,27 +249,27 @@ class Model_With_F_File_and_MemoryCached(simulation.model.eval.Model_With_F_Memo
 
 class Model_With_F_And_DF_File_and_MemoryCached(Model_With_F_File_and_MemoryCached, simulation.model.eval.Model_With_F_And_DF_MemoryCached):
 
-    def df_all(self, time_dim, tracers=None, include_total_concentration=True, derivative_order=1, return_as_dict=True):
+    def df_all(self, time_dim, tracers=None, include_total_concentration=True, derivative_order=1, accuracy_order=None, return_as_dict=True):
         super_df_all = super().df_all
 
         def calculate_function_for_all(time_dim, tracers):
-            return super_df_all(time_dim, tracers=tracers, include_total_concentration=include_total_concentration, derivative_order=derivative_order)
+            return super_df_all(time_dim, tracers=tracers, include_total_concentration=include_total_concentration, derivative_order=derivative_order, accuracy_order=accuracy_order)
 
         file_pattern = os.path.join(simulation.model.constants.DATABASE_POINTS_OUTPUT_DIRNAME, simulation.model.constants.DATABASE_DF_FILENAME.format(include_total_concentration=include_total_concentration, derivative_order=derivative_order))
-        return self._cached_values_for_boxes(time_dim, calculate_function_for_all, file_pattern, derivative_used=True, tracers=tracers, return_as_dict=return_as_dict)
+        return self._cached_values_for_boxes(time_dim, calculate_function_for_all, file_pattern, derivative_used=True, derivative_accuracy_order=accuracy_order, tracers=tracers, return_as_dict=return_as_dict)
 
-    def df_points(self, points, include_total_concentration=True, derivative_order=1):
+    def df_points(self, points, include_total_concentration=True, derivative_order=1, accuracy_order=None):
         super_df_points = super().df_points
 
         def calculate_function_for_points(points):
-            return super_df_points(points, include_total_concentration=include_total_concentration, derivative_order=derivative_order)
+            return super_df_points(points, include_total_concentration=include_total_concentration, derivative_order=derivative_order, accuracy_order=accuracy_order)
 
         file_pattern = os.path.join(simulation.model.constants.DATABASE_POINTS_OUTPUT_DIRNAME, simulation.model.constants.DATABASE_DF_FILENAME.format(include_total_concentration=include_total_concentration, derivative_order=derivative_order))
-        return self._cached_values_for_points(points, calculate_function_for_points, file_pattern, derivative_used=True)
+        return self._cached_values_for_points(points, calculate_function_for_points, file_pattern, derivative_used=True, derivative_accuracy_order=accuracy_order)
 
-    def df_measurements(self, *measurements_list, include_total_concentration=True, derivative_order=1):
+    def df_measurements(self, *measurements_list, include_total_concentration=True, derivative_order=1, accuracy_order=None):
         def calculate_function_for_points(points):
-            return self.df_points(points, include_total_concentration=include_total_concentration, derivative_order=derivative_order)
+            return self.df_points(points, include_total_concentration=include_total_concentration, derivative_order=derivative_order, accuracy_order=accuracy_order)
 
         return self._cached_values_for_measurements(calculate_function_for_points, *measurements_list)
 

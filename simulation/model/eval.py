@@ -851,10 +851,12 @@ class Model_With_F_And_DF(Model_With_F):
         util.logging.debug('Returning derivative directory {}.'.format(derivative_dir))
         return derivative_dir
 
-    def _df(self, trajectory_load_function, tracers=None, include_total_concentration=False, derivative_order=1):
+    def _df(self, trajectory_load_function, tracers=None, include_total_concentration=False, derivative_order=1, accuracy_order=None):
         if derivative_order is None:
             derivative_order = 1
         assert derivative_order in (1, 2)
+        if accuracy_order is None:
+            accuracy_order = self.model_options.derivative_options.accuracy_order
 
         # check tracers
         tracers = self.check_tracers(tracers)
@@ -888,27 +890,14 @@ class Model_With_F_And_DF(Model_With_F):
         # get needed model options
         MODEL_DERIVATIVE_SPINUP_YEARS = self.model_options.derivative_options.years
         MODEL_DERIVATIVE_STEP_SIZE = self.model_options.derivative_options.step_size
-        MODEL_DERIVATIVE_ACCURACY_ORDER = self.model_options.derivative_options.accuracy_order
         partial_derivative_options = {'years': MODEL_DERIVATIVE_SPINUP_YEARS, 'tolerance': 0, 'combination': 'or'}
         spinup_options = self.model_options.spinup_options
 
-        # get derivative dir and spinup run dir
+        # get derivative dir and spinup run dir (starts also spinup if not existing)
         derivative_dir = self.derivative_dir
         spinup_matching_run_dir = self.matching_run_dir(spinup_options)
-        spinup_matching_run_years = self.real_years(spinup_matching_run_dir, include_previous_runs=True)
-
-        # get f if accuracy_order is 1
-        if MODEL_DERIVATIVE_ACCURACY_ORDER == 1:
-            spinup_options_f = {'years': spinup_matching_run_years + MODEL_DERIVATIVE_SPINUP_YEARS, 'tolerance': 0, 'combination': 'or'}
-            spinup_options_f = simulation.model.options.SpinupOptions(spinup_options_f)
-            self.model_options.spinup_options = spinup_options_f
-            f_parameters = self._f(trajectory_load_function)
-            self.model_options.spinup_options = spinup_options
-        else:
-            f_parameters = None
 
         # define evaluation functions for finite differences
-
         job_options = self.job_options_for_kind('derivative')
         partial_derivative_dirs = {}
 
@@ -1005,11 +994,11 @@ class Model_With_F_And_DF(Model_With_F):
         # calculate deviation
         for function in (start_partial_derivative_run, get_partial_derivative_run_value):
             if derivative_order == 1:
-                df_concatenated = util.math.finite_differences.first_derivative(function, partial_derivative_parameters_undisturbed, f_x=f_parameters, typical_x=partial_derivative_parameters_typical_values, bounds=partial_derivative_parameters_bounds, eps=MODEL_DERIVATIVE_STEP_SIZE, use_always_typical_x=True, accuracy_order=MODEL_DERIVATIVE_ACCURACY_ORDER)
+                df_concatenated = util.math.finite_differences.first_derivative(function, partial_derivative_parameters_undisturbed, f_x=None, typical_x=partial_derivative_parameters_typical_values, bounds=partial_derivative_parameters_bounds, eps=MODEL_DERIVATIVE_STEP_SIZE, use_always_typical_x=True, accuracy_order=accuracy_order)
                 assert df_concatenated.shape[0] == parameters_len
                 df_concatenated = np.moveaxis(df_concatenated, 0, -1)
             else:
-                df_concatenated = util.math.finite_differences.second_derivative(function, partial_derivative_parameters_undisturbed, f_x=f_parameters, typical_x=partial_derivative_parameters_typical_values, bounds=partial_derivative_parameters_bounds, eps=MODEL_DERIVATIVE_STEP_SIZE, use_always_typical_x=True, accuracy_order=MODEL_DERIVATIVE_ACCURACY_ORDER)
+                df_concatenated = util.math.finite_differences.second_derivative(function, partial_derivative_parameters_undisturbed, f_x=None, typical_x=partial_derivative_parameters_typical_values, bounds=partial_derivative_parameters_bounds, eps=MODEL_DERIVATIVE_STEP_SIZE, use_always_typical_x=True, accuracy_order=accuracy_order)
                 assert df_concatenated.shape[:2] == (parameters_len, parameters_len)
                 df_concatenated = np.moveaxis(df_concatenated, 0, -1)
                 df_concatenated = np.moveaxis(df_concatenated, 0, -1)
@@ -1031,38 +1020,38 @@ class Model_With_F_And_DF(Model_With_F):
 
     # *** access to model values *** #
 
-    def df_all(self, time_dim, tracers=None, include_total_concentration=False, derivative_order=1):
+    def df_all(self, time_dim, tracers=None, include_total_concentration=False, derivative_order=1, accuracy_order=None):
         tracers = self.check_tracers(tracers)
 
-        util.logging.debug(f'Calculating all df values for tracers {tracers} with time dimension {time_dim}, include_total_concentration {include_total_concentration} and derivative_order {derivative_order}.')
+        util.logging.debug(f'Calculating all df values for tracers {tracers} with time dimension {time_dim}, include_total_concentration {include_total_concentration}, derivative_order {derivative_order} and accuracy_order {accuracy_order}.')
 
         df = self._df(self._trajectory_load_function_for_all(time_dim=time_dim),
                       include_total_concentration=include_total_concentration,
-                      derivative_order=derivative_order,
+                      derivative_order=derivative_order, accuracy_order=accuracy_order,
                       tracers=tracers)
         return df
 
-    def df_points(self, points, include_total_concentration=False, derivative_order=1):
-        util.logging.debug(f'Calculating df values at points {tuple(map(len, points))}, include_total_concentration {include_total_concentration} and derivative_order {derivative_order}.')
+    def df_points(self, points, include_total_concentration=False, derivative_order=1, accuracy_order=None):
+        util.logging.debug(f'Calculating df values at points {tuple(map(len, points))}, include_total_concentration {include_total_concentration}, derivative_order {derivative_order} and accuracy_order {accuracy_order}.')
 
         tracers = points.keys()
         points, split_dict = self._merge_data_sets(points)
         df = self._df(self._trajectory_load_function_for_points(points),
                       include_total_concentration=include_total_concentration,
-                      derivative_order=derivative_order)
+                      derivative_order=derivative_order, accuracy_order=accuracy_order)
         df = self._split_data_sets(df, split_dict)
 
         return df
 
-    def df_measurements(self, *measurements_list, include_total_concentration=False, derivative_order=1):
-        util.logging.debug(f'Calculating df values for measurements {tuple(map(str, measurements_list))}, include_total_concentration {include_total_concentration} and derivative_order {derivative_order}.')
+    def df_measurements(self, *measurements_list, include_total_concentration=False, derivative_order=1, accuracy_order=None):
+        util.logging.debug(f'Calculating df values for measurements {tuple(map(str, measurements_list))}, include_total_concentration {include_total_concentration}, derivative_order {derivative_order} and accuracy_order {accuracy_order}.')
 
         measurements_collection = measurements.universal.data.MeasurementsCollection(*measurements_list)
         points_dict = measurements_collection.points_dict
 
         return self.df_points(points_dict,
                               include_total_concentration=include_total_concentration,
-                              derivative_order=derivative_order)
+                              derivative_order=derivative_order, accuracy_order=accuracy_order)
 
 
 # Cached versions
