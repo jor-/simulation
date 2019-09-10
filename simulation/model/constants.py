@@ -231,7 +231,7 @@ DATABASE_PARAMETERS_FORMAT_STRING = '{:.' + '{}'.format(DATABASE_PARAMETERS_RELI
 
 
 DATABASE_CACHE_SPINUP_DIRNAME = 'spinup_years_{spinup_years:d}'
-DATABASE_CACHE_DERIVATIVE_DIRNAME = 'derivative_-_step_size_{derivative_step_size:g}_-_spinup_years_{derivative_years:d}_-_accuracy_order_{derivative_accuracy_order:d}'
+DATABASE_CACHE_DERIVATIVE_DIRNAME = 'derivative_-_step_size_{derivative_step_size:g}_-_spinup_years_{derivative_years:d}_-_accuracy_order_{derivative_accuracy_order}'
 DATABASE_POINTS_OUTPUT_DIRNAME = os.path.join('output', DATABASE_CACHE_SPINUP_DIRNAME, '{tracer}_-_{data_set_name}')
 DATABASE_ALL_DATASET_NAME = 'all_model_values_-_time_dim_{time_dim}'
 DATABASE_F_FILENAME = 'f.npz'
