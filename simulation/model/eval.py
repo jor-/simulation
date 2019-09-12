@@ -28,7 +28,7 @@ import simulation.model.constants
 class Model_Database:
 
     def __init__(self, model_options=None, job_options=None):
-        util.logging.debug('Model initiated with model_options {} and job setup {}.'.format(model_options, job_options))
+        util.logging.debug(f'Model initiated with model_options {model_options} and job setup {job_options}.')
 
         # set model options
         model_options = util.options.as_options(model_options, simulation.model.options.ModelOptions)
@@ -92,24 +92,10 @@ class Model_Database:
         model_name = self.model_options.model_name
         model_dirname = simulation.model.constants.DATABASE_MODEL_DIRNAME.format(model_name)
         model_dir = os.path.join(self.database_output_dir, model_dirname)
-
-        util.logging.debug('Returning model directory {} for model {}.'.format(model_dir, model_name))
+        util.logging.debug(f'Returning model directory {model_dir} for model {model_name}.')
         return model_dir
 
     # *** concentration dir *** #
-
-    @property
-    def initial_concentration_base_dir(self):
-        use_constant_concentrations = self.model_options.initial_concentration_options.use_constant_concentrations
-
-        if use_constant_concentrations:
-            initial_concentration_base_dirname = simulation.model.constants.DATABASE_CONSTANT_CONCENTRATIONS_DIRNAME
-        else:
-            initial_concentration_base_dirname = simulation.model.constants.DATABASE_VECTOR_CONCENTRATIONS_DIRNAME
-
-        initial_concentration_base_dir = os.path.join(self.model_dir, initial_concentration_base_dirname)
-        util.logging.debug('Returning initial concentration directory {} for use constant concentration {}.'.format(initial_concentration_base_dir, use_constant_concentrations))
-        return initial_concentration_base_dir
 
     @property
     def _constant_concentrations_db(self):
@@ -118,8 +104,8 @@ class Model_Database:
 
         value_file = os.path.join(model_dir, simulation.model.constants.DATABASE_CONSTANT_CONCENTRATIONS_DIRNAME, simulation.model.constants.DATABASE_CONCENTRATIONS_DIRNAME, simulation.model.constants.DATABASE_CONSTANT_CONCENTRATIONS_FILENAME)
         array_file = os.path.join(model_dir, simulation.model.constants.DATABASE_CONSTANT_CONCENTRATIONS_DIRNAME, simulation.model.constants.DATABASE_CONSTANT_CONCENTRATIONS_LOOKUP_ARRAY_FILENAME)
-
         constant_concentrations_db = util.index_database.array_and_txt_file_based.Database(array_file, value_file, value_reliable_decimal_places=simulation.model.constants.DATABASE_CONSTANT_CONCENTRATIONS_RELIABLE_DECIMAL_PLACES, tolerance_options=tolerance_options)
+
         return constant_concentrations_db
 
     @property
@@ -144,21 +130,32 @@ class Model_Database:
         return concentration_db
 
     @property
+    def initial_concentration_base_dir(self):
+        use_constant_concentrations = self.model_options.initial_concentration_options.use_constant_concentrations
+        if use_constant_concentrations:
+            initial_concentration_base_dirname = simulation.model.constants.DATABASE_CONSTANT_CONCENTRATIONS_DIRNAME
+        else:
+            initial_concentration_base_dirname = simulation.model.constants.DATABASE_VECTOR_CONCENTRATIONS_DIRNAME
+
+        initial_concentration_base_dir = os.path.join(self.model_dir, initial_concentration_base_dirname)
+        util.logging.debug(f'Returning initial concentration directory {initial_concentration_base_dir} for use constant concentration {use_constant_concentrations}.')
+        return initial_concentration_base_dir
+
+    @property
     def initial_concentration_dir_index(self):
         initial_concentration_options = self.model_options.initial_concentration_options
-        util.logging.debug('Searching concentration directory for concentration {} .'.format(initial_concentration_options))
-
+        util.logging.debug(f'Searching concentration index for concentration {initial_concentration_options}.')
         concentration_db = self._concentrations_db
         concentrations = initial_concentration_options.concentrations
         index = concentration_db.get_or_add_index(concentrations)
-
+        util.logging.debug(f'Concentration found at index {index}.')
         assert index is not None
         return index
 
     def initial_concentration_dir_with_index(self, index):
         if index is not None:
             dir = os.path.join(self.initial_concentration_base_dir, simulation.model.constants.DATABASE_CONCENTRATIONS_DIRNAME.format(index))
-            util.logging.debug('Returning initial concentration directory {} for index {}.'.format(dir, index))
+            util.logging.debug(f'Returning initial concentration directory {dir} for index {index}.')
             return dir
         else:
             return None
@@ -167,7 +164,7 @@ class Model_Database:
     def initial_concentration_dir(self):
         index = self.initial_concentration_dir_index
         concentration_set_dir = self.initial_concentration_dir_with_index(index)
-        util.logging.debug('Matching directory for concentrations found at {}.'.format(concentration_set_dir))
+        util.logging.debug(f'Matching directory for concentrations found at {concentration_set_dir}.')
         assert concentration_set_dir is not None
         return concentration_set_dir
 
@@ -180,7 +177,7 @@ class Model_Database:
         index = concentration_db.get_or_add_index(concentrations)
         concentrations = concentration_db.get_value(index)
 
-        util.logging.debug('Matching constant concentrations found in db at {} with index {}.'.format(concentrations, index))
+        util.logging.debug(f'Matching constant concentrations found in db at {concentrations} with index {index}.')
         return concentrations
 
     @property
@@ -192,7 +189,7 @@ class Model_Database:
         index = concentration_db.get_or_add_index(concentrations)
         concentration_files = concentration_db.value_files(index)
 
-        util.logging.debug('Using concentration files {}.'.format(concentration_files))
+        util.logging.debug(f'Using concentration files {concentration_files}.')
         assert concentration_files is not None
         return concentration_files
 
@@ -204,18 +201,10 @@ class Model_Database:
         initial_concentration_dir = self.initial_concentration_dir
         time_step_dirname = simulation.model.constants.DATABASE_TIME_STEP_DIRNAME.format(time_step)
         time_step_dir = os.path.join(initial_concentration_dir, time_step_dirname, '')
-        util.logging.debug('Returning time step directory {} for time step {}.'.format(time_step_dir, time_step))
+        util.logging.debug(f'Returning time step directory {time_step_dir} for time step {time_step}.')
         return time_step_dir
 
     # *** parameter set dir *** #
-
-    def parameter_set_dir_with_index(self, index):
-        if index is not None:
-            dir = os.path.join(self.time_step_dir, simulation.model.constants.DATABASE_PARAMETERS_DIRNAME.format(index))
-            util.logging.debug('Returning parameter set directory {} for index {}.'.format(dir, index))
-            return dir
-        else:
-            return None
 
     @property
     def _parameters_db(self):
@@ -230,32 +219,39 @@ class Model_Database:
 
     @property
     def parameters(self):
-        parameters = self.model_options.parameters
-        parameter_db = self._parameters_db
-        index = parameter_db.get_or_add_index(parameters)
-        parameters = parameter_db.get_value(index)
-
-        util.logging.debug('Matching model parameters found in db at {} with index {}.'.format(parameters, index))
+        index = self.parameter_set_dir_index
+        parameters = self._parameters_db.get_value(index)
         return parameters
 
     @property
-    def parameter_set_dir(self):
-        # search for directories with matching parameters
+    def parameter_set_dir_index(self):
         parameters = self.model_options.parameters
-        util.logging.debug('Searching parameter directory for parameters {}.'.format(parameters))
-
+        util.logging.debug(f'Searching parameters {parameters} in database.')
         index = self._parameters_db.get_or_add_index(parameters)
-        parameter_set_dir = self.parameter_set_dir_with_index(index)
+        util.logging.debug(f'Parameter found at index {index}.')
+        assert index is not None
+        return index
 
-        # return
-        util.logging.debug('Matching directory for parameters found at {}.'.format(parameter_set_dir))
+    def parameter_set_dir_with_index(self, index):
+        if index is not None:
+            dir = os.path.join(self.time_step_dir, simulation.model.constants.DATABASE_PARAMETERS_DIRNAME.format(index))
+            util.logging.debug(f'Returning parameter set directory {dir} for index {index}.')
+            return dir
+        else:
+            return None
+
+    @property
+    def parameter_set_dir(self):
+        index = self.parameter_set_dir_index
+        parameter_set_dir = self.parameter_set_dir_with_index(index)
+        util.logging.debug(f'Matching directory for parameters found at {parameter_set_dir}.')
         assert parameter_set_dir is not None
         return parameter_set_dir
 
     @property
     def closest_parameter_set_dir(self):
         parameters = self.model_options.parameters
-        util.logging.debug('Searching for directory for parameters as close as possible to {}.'.format(parameters))
+        util.logging.debug(f'Searching for directory for parameters as close as possible to {parameters}.')
 
         # get closest indices
         closest_index = self._parameters_db.closest_index(parameters)
@@ -266,7 +262,7 @@ class Model_Database:
 
         # get parameter set dir and return
         closest_parameter_set_dir = self.parameter_set_dir_with_index(closest_index)
-        util.logging.debug('Closest parameter set dir is {}.'.format(closest_parameter_set_dir))
+        util.logging.debug(f'Closest parameter set dir is {closest_parameter_set_dir}.')
         return closest_parameter_set_dir
 
     # *** spinup dir *** #
@@ -1102,6 +1098,11 @@ class Model_Database_MemoryCached(Model_Database):
     @util.cache.memory.method_decorator(dependency=('self.time_step_dir', 'self.model_options.parameter_tolerance_options.relative', 'self.model_options.parameter_tolerance_options.absolute'))
     def _parameters_db(self):
         return super()._parameters_db
+
+    @property
+    @util.cache.memory.method_decorator(dependency=('self.time_step_dir', 'self.model_options.parameters', 'self.model_options.parameter_tolerance_options.relative', 'self.model_options.parameter_tolerance_options.absolute'))
+    def parameter_set_dir_index(self):
+        return super().parameter_set_dir_index
 
     @property
     @util.cache.memory.method_decorator(dependency=('self.time_step_dir', 'self.model_options.parameters', 'self.model_options.parameter_tolerance_options.relative', 'self.model_options.parameter_tolerance_options.absolute'))
