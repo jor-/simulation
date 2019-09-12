@@ -72,6 +72,7 @@ class Cache():
 
         # include_initial_concentrations_factor_to_model_parameters
         self.include_initial_concentrations_factor_to_model_parameters = include_initial_concentrations_factor_to_model_parameters
+        self.default_initial_concentrations = np.asarray(self.model.model_options.initial_concentration_options.concentrations)
 
     # *** auxiliary getter and setter *** #
 
@@ -96,10 +97,11 @@ class Cache():
     def model_parameters(self):
         model_parameters = self.model_options.parameters
         if self.include_initial_concentrations_factor_to_model_parameters:
-            model_name = self.model_options.model_name
             initial_concentrations = np.asarray(self.model_options.initial_concentration_options.concentrations)
-            initial_base_concentrations = np.asarray(simulation.model.constants.MODEL_DEFAULT_INITIAL_CONCENTRATION[model_name])
-            concentration_parameter = np.mean(initial_concentrations / initial_base_concentrations)
+            initial_base_concentrations = self.default_initial_concentrations
+            factors = initial_concentrations / initial_base_concentrations
+            assert np.allclose(factors[:-1], factors[1:])
+            concentration_parameter = factors.mean()
             model_parameters = np.array((*model_parameters, concentration_parameter))
         return model_parameters
 
@@ -112,9 +114,7 @@ class Cache():
             self.include_initial_concentrations_factor_to_model_parameters = False
         elif len(model_parameters) == model_parameters_len + 1:
             self.model_options.parameters = model_parameters[:-1]
-            model_name = self.model_options.model_name
-            initial_base_concentrations = np.asarray(simulation.model.constants.MODEL_DEFAULT_INITIAL_CONCENTRATION[model_name])
-            self.model_options.initial_concentration_options.concentrations = initial_base_concentrations * model_parameters[-1]
+            self.model_options.initial_concentration_options.concentrations = self.default_initial_concentrations * model_parameters[-1]
             self.include_initial_concentrations_factor_to_model_parameters = True
         else:
             raise ValueError('The parameters for the model {} must be a vector of length {} or {}, but its length is {}.'.format(self.model_options.model_name, model_parameters_len, model_parameters_len + 1, len(model_parameters)))
