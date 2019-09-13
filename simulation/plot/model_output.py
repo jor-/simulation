@@ -1,19 +1,23 @@
-if __name__ == "__main__":
+def _main():
     import argparse
-    
-    from util.logging import Logger
-    from simulation.plot.interface import model_output
 
-    with Logger():
+    import util.logging
+    import simulation.model.constants
+    import simulation.plot.model
+
+    with util.logging.Logger():
         parser = argparse.ArgumentParser(description='Plotting model output.')
-        parser.add_argument('parameter_set', type=int, default=0)
-        parser.add_argument('kind', choices=['BOXES', 'WOD'], default='BOXES')
-        parser.add_argument('--average_in_time', '-a', action='store_true')
-        parser.add_argument('-v', '--v_max', type=float, nargs=2)
-        
-        args = parser.parse_args()
-        v_max = args.v_max
-        if v_max is None:
-            v_max = (None, None)
 
-        model_output(parameter_set_nr=args.parameter_set, kind=args.kind, y_max=v_max, average_in_time=args.average_in_time)
+        parser.add_argument('model_name', choices=simulation.model.constants.MODEL_NAMES, help='The name of the model that should be used.')
+        parser.add_argument('--concentrations_index', type=int, help='The constant concentration index that should be used if no constant concentration values are specified.')
+        parser.add_argument('--parameter_set_index', type=int, help='The model parameter index that should be used if no model parameters are specified.')
+        parser.add_argument('--tracer', type=str, default=None)
+        parser.add_argument('--time_dim', type=int, default=1)
+        parser.add_argument('--path', type=str, default='/tmp/')
+        parser.add_argument('--y_max', type=float, default=None)
+
+        simulation.plot.model.output(args.model_name, concentrations_index=args.concentrations_index, parameters_index=args.parameters_index, tracer=args.tracer, time_dim=args.time_dim, path=args.path, y_max=args.y_max)
+
+
+if __name__ == "__main__":
+    _main()
