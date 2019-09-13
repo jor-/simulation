@@ -434,7 +434,7 @@ def cost_functions_for_all_measurements(min_measurements_standard_deviations=Non
     return cost_functions
 
 
-def iterator(cost_functions, model_names=None, time_steps=None):
+def iterator(cost_functions, model_names=None, time_steps=None, skip_os_errors=False):
     if cost_functions is None:
         cost_functions = []
 
@@ -464,7 +464,7 @@ def iterator(cost_functions, model_names=None, time_steps=None):
                 measurements_for_model = original_measurements.subset(model_options.tracers)
                 cost_function.measurements = measurements_for_model
             # iterate over other options
-            for model_options in model.iterator(model_names=[model_name], time_steps=time_steps):
+            for model_options in model.iterator(model_names=[model_name], time_steps=time_steps, skip_os_errors=skip_os_errors):
                 for cost_function in cost_functions:
                     cost_function.model_options = model_options
                     yield cost_function

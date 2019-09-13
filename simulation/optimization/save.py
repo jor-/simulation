@@ -12,7 +12,7 @@ import util.logging
 
 
 def save(cost_functions, model_names=None, eval_f=True, eval_df=False, eval_d2f=False):
-    for cost_function in simulation.optimization.cost_function.iterator(cost_functions, model_names=model_names):
+    for cost_function in simulation.optimization.cost_function.iterator(cost_functions, model_names=model_names, skip_os_errors=True):
         eval_f_for_cf = eval_f and not cost_function.f_available()
         eval_df_for_cf = eval_df and not cost_function.df_available(derivative_order=1)
         eval_d2f_for_cf = eval_d2f and not cost_function.df_available(derivative_order=2)

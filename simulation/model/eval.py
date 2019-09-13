@@ -528,7 +528,7 @@ class Model_Database:
 
     # *** iterator *** #
 
-    def iterator(self, model_names=None, time_steps=None):
+    def iterator(self, model_names=None, time_steps=None, skip_os_errors=False):
         if model_names is None:
             model_names = simulation.model.constants.MODEL_NAMES
         if time_steps is None:
@@ -547,14 +547,26 @@ class Model_Database:
                 if os.path.exists(os.path.join(model_dir, simulation.model.constants.DATABASE_VECTOR_CONCENTRATIONS_DIRNAME)):
                     concentration_dbs.append(self._vector_concentrations_db)
                 for concentrations_db in concentration_dbs:
-                    for concentration in concentrations_db.all_values():
-                        model_options.initial_concentration_options.concentrations = concentration
-                        for time_step in time_steps:
-                            model_options.time_step = time_step
-                            if os.path.exists(self.time_step_dir):
-                                for parameters in self._parameters_db.all_values():
-                                    model_options.parameters = parameters
-                                    yield model_options
+                    try:
+                        for concentration in concentrations_db.all_values():
+                            model_options.initial_concentration_options.concentrations = concentration
+                            for time_step in time_steps:
+                                model_options.time_step = time_step
+                                if os.path.exists(self.time_step_dir):
+                                    try:
+                                        for parameters in self._parameters_db.all_values():
+                                            model_options.parameters = parameters
+                                            yield model_options
+                                    except OSError as e:
+                                        if skip_os_errors:
+                                            util.logging.warning(e)
+                                        else:
+                                            raise
+                    except OSError as e:
+                        if skip_os_errors:
+                            util.logging.warning(e)
+                        else:
+                            raise
 
         self.model_options = old_model_options
 
