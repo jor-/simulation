@@ -212,35 +212,6 @@ def optimization(path='/tmp', with_line_search_steps=True):
 
 # model output
 
-def model_output(parameter_set_nr, kind='BOXES', path='/tmp', y_max=(None, None), average_in_time=False):
-    from simulation.model.constants import DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME, DATABASE_TIME_STEP_DIRNAME, DATABASE_PARAMETERS_DIRNAME, DATABASE_PARAMETERS_FILENAME
-    from simulation.util.constants import CACHE_DIRNAME, BOXES_F_FILENAME, WOD_F_FILENAME
-
-    util.logging.debug('Plotting model output for parameter set {}'.format(parameter_set_nr))
-
-    # load parameters
-    parameter_set_dirname = DATABASE_PARAMETERS_DIRNAME.format(parameter_set_nr)
-    p_file = os.path.join(DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME.format('dop_po4'), DATABASE_TIME_STEP_DIRNAME.format(1), parameter_set_dirname, DATABASE_PARAMETERS_FILENAME)
-    p = np.loadtxt(p_file)
-
-    # init data base
-    if kind.upper() == 'BOXES':
-        data_base = simulation.util.data_base.init_data_base('WOA')
-        f = data_base.f_boxes(p)
-        f[f < 0] = 0
-        if average_in_time:
-            f = f.mean(axis=1)
-    else:
-        data_base = simulation.util.data_base.init_data_base('WOD')
-        f = data_base.f(p)
-        f = data_base.convert_to_boxes(f, no_data_value=np.inf)
-
-    file = os.path.join(path, 'model_output_-_' + kind + '_-_' + parameter_set_dirname + '_-_{tracer}.png')
-    tracers = ('dop', 'po4')
-    for i in range(len(tracers)):
-        util.plot.save.data(file.format(tracer=tracers[i]), f[i], land_value=np.nan, no_data_value=np.inf, v_min=0, v_max=y_max[i], contours=True, colorbar=False)
-
-
 def relative_parameter_confidence(parameter_set_nr, kind='WOA_WLS', path='/tmp'):
     from simulation.model.constants import DATABASE_OUTPUT_DIR, DATABASE_MODEL_DIRNAME, DATABASE_TIME_STEP_DIRNAME, DATABASE_PARAMETERS_DIRNAME, DATABASE_PARAMETERS_FILENAME
     from simulation.accuracy.constants import CACHE_DIRNAME, PARAMETER_CONFIDENCE_FILENAME

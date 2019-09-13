@@ -16,6 +16,8 @@ def _main():
         parser.add_argument('--path', type=str, default='/tmp/')
         parser.add_argument('--y_max', type=float, default=None)
 
+        args = parser.parse_args()
+
         simulation.plot.model.output(args.model_name, concentrations_index=args.concentrations_index, parameters_index=args.parameters_index, tracer=args.tracer, time_dim=args.time_dim, path=args.path, y_max=args.y_max)
 
 
