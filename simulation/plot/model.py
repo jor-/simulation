@@ -4,12 +4,10 @@ import numpy as np
 
 import util.plot.save
 
-import simulation.model.save
 import simulation.model.cache
 
 
-def output(model_name, concentrations_index, parameters_index, tracer=None, time_dim=1, path=None, y_max=None):
-    model_options = simulation.model.save.prepare_model_options(model_name, time_step=1, concentrations_index=concentrations_index, parameter_set_index=parameters_index)
+def output(model_options, tracer=None, time_dim=1, path=None, y_max=None):
     model = simulation.model.cache.Model(model_options=model_options)
     if tracer is not None:
         tracers = (tracer,)
@@ -20,7 +18,7 @@ def output(model_name, concentrations_index, parameters_index, tracer=None, time
 
     for tracer in tracers:
         f_all = model.f_all(time_dim, tracers=(tracer,))[tracer]
-        filename = f'model_output_-_{model_name}_-_concentrations_index_{concentrations_index}_-_parameters_index_{parameters_index}_-_time_dim_{time_dim}_-_{tracer}.png'
+        filename = f'model_output_-_{model_options.model_name}_-_concentrations_index_{model.initial_concentration_dir_index}_-_parameters_index_{model.parameter_set_dir_index}_-_time_dim_{time_dim}_-_{tracer}.png'
         plot_file = pathlib.PurePath(filename)
         if path is not None:
             plot_file = path.joinpath(plot_file)

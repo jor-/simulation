@@ -4,21 +4,23 @@ def _main():
     import util.logging
     import simulation.model.constants
     import simulation.plot.model
+    import simulation.util.args
 
     with util.logging.Logger():
         parser = argparse.ArgumentParser(description='Plotting model output.')
 
-        parser.add_argument('model_name', choices=simulation.model.constants.MODEL_NAMES, help='The name of the model that should be used.')
-        parser.add_argument('--concentrations_index', type=int, help='The constant concentration index that should be used if no constant concentration values are specified.')
-        parser.add_argument('--parameter_set_index', type=int, help='The model parameter index that should be used if no model parameters are specified.')
+        simulation.util.args.argparse_add_model_options(parser)
+
         parser.add_argument('--tracer', type=str, default=None)
         parser.add_argument('--time_dim', type=int, default=1)
-        parser.add_argument('--path', type=str, default='/tmp/')
+        parser.add_argument('--path', type=str, default=None)
         parser.add_argument('--y_max', type=float, default=None)
 
         args = parser.parse_args()
 
-        simulation.plot.model.output(args.model_name, concentrations_index=args.concentrations_index, parameters_index=args.parameters_index, tracer=args.tracer, time_dim=args.time_dim, path=args.path, y_max=args.y_max)
+        model_options = simulation.util.args.parse_model_options(args)
+
+        simulation.plot.model.output(model_options, tracer=args.tracer, time_dim=args.time_dim, path=args.path, y_max=args.y_max)
 
 
 if __name__ == "__main__":

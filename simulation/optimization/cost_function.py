@@ -9,10 +9,10 @@ import matrix.calculate
 
 import simulation.model.constants
 import simulation.model.options
-import simulation.model.save
 import simulation.optimization.constants
 import simulation.optimization.database
 import simulation.util.cache
+import simulation.util.args
 
 import measurements.all.data
 import measurements.universal.data
@@ -407,7 +407,7 @@ def cost_functions_for_all_measurements(min_measurements_standard_deviations=Non
 
     # init all cost functions
     cost_functions = []
-    measurements_object = simulation.model.save.prepare_measurements(
+    measurements_object = simulation.util.args.init_measurements(
         model_options,
         min_measurements_standard_deviation=min_measurements_standard_deviations,
         min_measurements_correlation=min_measurements_correlations,

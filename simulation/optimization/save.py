@@ -3,7 +3,7 @@ import simulation.optimization.cost_function
 import simulation.optimization.job
 import simulation.model.constants
 import simulation.model.options
-import simulation.model.save
+import simulation.util.args
 
 import measurements.all.data
 
@@ -112,7 +112,7 @@ def save_for_all_measurements_as_jobs(cost_function_names=None, model_names=None
 
                 for model_options in model.iterator(model_names=[model_name]):
                     # init cost function object
-                    measurements_object = simulation.model.save.prepare_measurements(
+                    measurements_object = simulation.util.args.init_measurements(
                         model_options,
                         min_measurements_standard_deviation=min_measurements_standard_deviations,
                         min_measurements_correlation=min_measurements_correlations,

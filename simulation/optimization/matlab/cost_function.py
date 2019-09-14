@@ -11,9 +11,9 @@ def _main():
     import simulation
     import simulation.model.constants
     import simulation.model.options
-    import simulation.model.save
     import simulation.optimization.cost_function
     import simulation.optimization.job
+    import simulation.util.args
 
     import measurements.all.data
 
@@ -28,13 +28,10 @@ def _main():
     # parse arguments
     parser = argparse.ArgumentParser(description='Evaluating a cost function for matlab.')
 
-    parser.add_argument('--cost_function_name', required=True, choices=COST_FUNCTION_NAMES, help='The cost function which should be evaluated.')
-    parser.add_argument('--max_box_distance_to_water', type=int, default=float('inf'), help='The maximal distance to water boxes to accept measurements.')
+    simulation.util.args.argparse_add_model_options(parser, model_name_optional=True)
+    simulation.util.args.argparse_add_measurement_options(parser)
 
-    parser.add_argument('--min_measurements_standard_deviations', nargs='+', type=int, default=None, help='The minimal number of measurements used to calculate standard deviations applied to each dataset.')
-    parser.add_argument('--min_measurements_correlations', nargs='+', type=int, default=None, help='The minimal number of measurements used to calculate correlations applied to each dataset.')
-    parser.add_argument('--min_standard_deviations', nargs='+', type=float, default=None, help='The minimal standard deviations assumed for the measurement errors applied for each dataset.')
-    parser.add_argument('--correlation_decomposition_min_value_D', type=float, default=None, help='The minimal value forced in the diagonal matrix of the decomposition of the correlation matrix.')
+    parser.add_argument('--cost_function_name', required=True, choices=COST_FUNCTION_NAMES, help='The cost function which should be evaluated.')
 
     parser.add_argument('--exchange_dir', required=True, help='The directory from where to load the parameters and where to save the cost function values.')
     parser.add_argument('--debug_logging_file', default=None, help='File to store debug informations.')
@@ -42,39 +39,16 @@ def _main():
     parser.add_argument('--eval_function_value', action='store_true', help='Save the value of the cost function.')
     parser.add_argument('--eval_grad_value', action='store_true', help='Save the values of the derivative of the cost function.')
 
-    parser.add_argument('--model_name', default=None, choices=simulation.model.constants.MODEL_NAMES, help='The name of the model to use for the simulations.')
-    parser.add_argument('--time_step', type=int, default=1, choices=simulation.model.constants.METOS_TIME_STEPS, help='The time step multiplier to use for the simulations.')
-    parser.add_argument('--initial_concentrations', type=float, nargs='+', default=None, help='The initial tracer concentrations for the spinup of the model.')
-
-    parser.add_argument('--spinup_years', type=int, default=10000, help='The number of years for the spinup.')
-    parser.add_argument('--spinup_tolerance', type=float, default=0, help='The tolerance for the spinup.')
-    parser.add_argument('--spinup_satisfy_years_and_tolerance', action='store_true', help='If used, the spinup is terminated if years and tolerance have been satisfied. Otherwise, the spinup is terminated as soon as years or tolerance have been satisfied.')
-
-    parser.add_argument('--derivative_step_size', type=float, default=None, help='The step size used for the finite difference approximation.')
-    parser.add_argument('--derivative_years', type=int, default=None, help='The number of years for the finite difference approximation spinup.')
-    parser.add_argument('--derivative_accuracy_order', type=int, default=None, help='The accuracy order used for the finite difference approximation. 1 = forward differences. 2 = central differences.')
-
     parser.add_argument('--nodes_setup_node_kind', default=None, help='The node kind to use for the spinup.')
     parser.add_argument('--nodes_setup_number_of_nodes', type=int, default=0, help='The number of nodes to use for the spinup.')
     parser.add_argument('--nodes_setup_number_of_cpus', type=int, default=0, help='The number of cpus to use for the spinup.')
-
-    parser.add_argument('--model_parameters_relative_tolerance', type=float, nargs='+', default=None, help='The relative tolerance up to which two model parameter vectors are considered equal.')
-    parser.add_argument('--model_parameters_absolute_tolerance', type=float, nargs='+', default=None, help='The absolute tolerance up to which two model parameter vectors are considered equal.')
-
-    parser.add_argument('--initial_concentrations_relative_tolerance', type=float, default=None, help='The relative tolerance up to which two initial concentration vectors are considered equal.')
-    parser.add_argument('--initial_concentrations_absolute_tolerance', type=float, default=None, help='The absolute tolerance up to which two initial concentration vectors are considered equal.')
 
     parser.add_argument('--version', action='version', version='%(prog)s {}'.format(simulation.__version__))
 
     args = parser.parse_args()
 
-    # prepare model options
-    model_options = simulation.model.save.prepare_model_options(
-        args.model_name, time_step=args.time_step, concentrations=args.initial_concentrations,
-        spinup_years=args.spinup_years, spinup_tolerance=args.spinup_tolerance, spinup_satisfy_years_and_tolerance=args.spinup_satisfy_years_and_tolerance,
-        derivative_years=args.derivative_years, derivative_step_size=args.derivative_step_size, derivative_accuracy_order=args.derivative_accuracy_order,
-        model_parameters_relative_tolerance=args.model_parameters_relative_tolerance, model_parameters_absolute_tolerance=args.model_parameters_absolute_tolerance,
-        initial_concentrations_relative_tolerance=args.initial_concentrations_relative_tolerance, initial_concentrations_absolute_tolerance=args.initial_concentrations_absolute_tolerance)
+    model_options = simulation.util.args.parse_model_options(args)
+    measurements_object = simulation.util.args.parse_measurements_options(args, model_options)
 
     # set job setup
     def prepare_model_job_options():
@@ -107,15 +81,6 @@ def _main():
     # run cost function evaluation
     log_file = args.debug_logging_file
     with util.logging.Logger(log_file=log_file, disp_stdout=log_file is None):
-
-        # choose measurements
-        measurements_object = simulation.model.save.prepare_measurements(
-            model_options,
-            min_measurements_standard_deviation=args.min_measurements_standard_deviations,
-            min_measurements_correlation=args.min_measurements_correlations,
-            min_standard_deviation=args.min_standard_deviations,
-            correlation_decomposition_min_value_D=args.correlation_decomposition_min_value_D,
-            max_box_distance_to_water=args.max_box_distance_to_water)
 
         # init cost function
         cf = cf_class(measurements_object=measurements_object, model_options=model_options, model_job_options=prepare_model_job_options())
