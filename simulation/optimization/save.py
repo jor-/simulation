@@ -13,33 +13,22 @@ import util.logging
 
 def save(cost_functions, model_names=None, eval_f=True, eval_df=False, eval_d2f=False):
     for cost_function in simulation.optimization.cost_function.iterator(cost_functions, model_names=model_names, skip_os_errors=True):
-        eval_f_for_cf = eval_f and not cost_function.f_available()
-        eval_df_for_cf = eval_df and not cost_function.df_available(derivative_order=1)
-        eval_d2f_for_cf = eval_d2f and not cost_function.df_available(derivative_order=2)
-        if eval_f_for_cf or eval_df_for_cf or eval_d2f_for_cf:
-            if eval_f_for_cf:
-                try:
+        try:
+            eval_f_for_cf = eval_f and not cost_function.f_available()
+            eval_df_for_cf = eval_df and not cost_function.df_available(derivative_order=1)
+            eval_d2f_for_cf = eval_d2f and not cost_function.df_available(derivative_order=2)
+            util.logging.debug(f'Saving cost function values {cost_function.name} in {cost_function.model.parameter_set_dir} for eval_f {eval_f_for_cf} and eval_df {eval_df_for_cf} and eval_d2f {eval_d2f_for_cf} are already available.')
+            if eval_f_for_cf or eval_df_for_cf or eval_d2f_for_cf:
+                if eval_f_for_cf:
                     cost_function.f()
-                except Exception:
-                    util.logging.error('Cost function could not be evaluated.', exc_info=True)
-                else:
-                    util.logging.info(f'Saving cost function {cost_function} f value in {cost_function.model.parameter_set_dir}.')
-            if eval_df_for_cf:
-                try:
+                if eval_df_for_cf:
                     cost_function.df(derivative_order=1)
-                except Exception:
-                    util.logging.error('Cost function derivative could not be evaluated.', exc_info=True)
-                else:
-                    util.logging.info(f'Saving cost function {cost_function} df value in {cost_function.model.parameter_set_dir}.')
-            if eval_d2f_for_cf:
-                try:
+                if eval_d2f_for_cf:
                     cost_function.df(derivative_order=2)
-                except Exception:
-                    util.logging.error('Cost function derivative could not be evaluated.', exc_info=True)
-                else:
-                    util.logging.info(f'Saving cost function {cost_function} d2f value in {cost_function.model.parameter_set_dir}.')
-        else:
-            util.logging.debug(f'Cost function values {cost_function.name} in {cost_function.model.parameter_set_dir} with eval_f={eval_f} and eval_df={eval_df} and eval_d2f={eval_d2f} are already available.')
+            else:
+                util.logging.debug(f'Cost function values {cost_function.name} in {cost_function.model.parameter_set_dir} with eval_f {eval_f} and eval_df {eval_df} and eval_d2f {eval_d2f} are already available.')
+        except Exception:
+            util.logging.error('Cost function could not be evaluated.', exc_info=True)
 
 
 def save_for_all_measurements_serial(cost_function_names=None, model_names=None, min_measurements_standard_deviations=None, min_measurements_correlations=None, min_standard_deviations=None, correlation_decomposition_min_value_D=None, max_box_distance_to_water=None, eval_f=True, eval_df=False, eval_d2f=False):
