@@ -22,16 +22,18 @@ def save(model_options, measurements_object, cost_function_name,
         raise ValueError(f'Unknown cost_function_name {cost_function_name}.')
     accuracy_object = accuracy_class(measurements_object, model_options=model_options)
 
-    time_dim_confidence = 12
-    accuracy_object.model_parameter_correlation_matrix()
-    for include_variance_factor in (True, False):
-        accuracy_object.model_parameter_covariance_matrix(include_variance_factor=include_variance_factor)
-        accuracy_object.model_confidence(alpha=alpha, time_dim_confidence=time_dim_confidence, time_dim_model=time_dim_model, include_variance_factor=include_variance_factor, parallel=parallel)
-        for relative in (True, False):
-            accuracy_object.model_parameter_confidence(alpha=alpha, relative=relative, include_variance_factor=include_variance_factor)
-            for per_tracer in (True, False):
-                accuracy_object.average_model_confidence(alpha=alpha, time_dim_model=time_dim_model, per_tracer=per_tracer, include_variance_factor=include_variance_factor, relative=relative, parallel=parallel)
-    accuracy_object.average_model_confidence_increase(alpha=alpha, time_dim_confidence_increase=time_dim_confidence, time_dim_model=time_dim_model, relative=True, include_variance_factor=True, parallel=parallel, number_of_measurements=1)
+    for matrix_type in ('F', 'H', 'F_H'):
+        accuracy_object.correlation_matrix(matrix_type=matrix_type)
+        for include_variance_factor in (True, False):
+            accuracy_object.covariance_matrix(matrix_type=matrix_type, include_variance_factor=include_variance_factor)
+            for time_dim_confidence in (12, 4, 1):
+                accuracy_object.model_confidence(matrix_type=matrix_type, include_variance_factor=include_variance_factor, alpha=alpha, time_dim_confidence=time_dim_confidence, time_dim_model=time_dim_model, parallel=parallel)
+            for relative in (True, False):
+                accuracy_object.parameter_confidence(matrix_type=matrix_type, include_variance_factor=include_variance_factor, alpha=alpha, relative=relative)
+                for per_tracer in (True, False):
+                    accuracy_object.average_model_confidence(matrix_type=matrix_type, include_variance_factor=include_variance_factor, alpha=alpha, time_dim_model=time_dim_model, per_tracer=per_tracer, relative=relative, parallel=parallel)
+    for time_dim_confidence in (4, 1, 12):
+        accuracy_object.average_model_confidence_increase(alpha=alpha, time_dim_confidence_increase=time_dim_confidence, time_dim_model=time_dim_model, relative=True, include_variance_factor=True, parallel=parallel, number_of_measurements=1)
 
 
 # *** main function for script call *** #
@@ -60,8 +62,8 @@ def _main():
 
     if args.concentrations is None and args.concentrations_index is None:
         raise ValueError('"--concentrations" or "--concentrations_index" must be specified. Use "--help" for more infos.')
-    if args.parameters is None and args.parameter_set_index is None:
-        raise ValueError('"--concentrations" or "--concentrations_index" must be specified. Use "--help" for more infos.')
+    if args.parameters is None and args.parameters_index is None:
+        raise ValueError('"--parameters" or "--parameters_index" must be specified. Use "--help" for more infos.')
 
     # call function
     with util.logging.Logger(disp_stdout=args.debug):
