@@ -28,7 +28,7 @@ def _main():
     # parse arguments
     parser = argparse.ArgumentParser(description='Evaluating a cost function for matlab.')
 
-    simulation.util.args.argparse_add_model_options(parser, model_name_optional=True)
+    simulation.util.args.argparse_add_model_options(parser)
     simulation.util.args.argparse_add_measurement_options(parser)
 
     parser.add_argument('--cost_function_name', required=True, choices=COST_FUNCTION_NAMES, help='The cost function which should be evaluated.')

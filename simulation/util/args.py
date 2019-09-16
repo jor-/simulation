@@ -97,11 +97,8 @@ def init_measurements(model_options,
     return measurements_object
 
 
-def argparse_add_model_options(parser, model_name_optional=False):
-    if model_name_optional:
-        parser.add_argument('--model_name', default=None, choices=simulation.model.constants.MODEL_NAMES, help='The name of the model that should be used.')
-    else:
-        parser.add_argument('model_name', choices=simulation.model.constants.MODEL_NAMES, help='The name of the model that should be used.')
+def argparse_add_model_options(parser):
+    parser.add_argument('model_name', choices=simulation.model.constants.MODEL_NAMES, help='The name of the model that should be used.')
     parser.add_argument('--time_step', type=int, default=1, help='The time step of the model that should be used. Default: 1')
 
     parser.add_argument('--concentrations', type=float, nargs='+', help='The constant concentration values for the tracers in the initial spinup that should be used. If not specified the default model concentrations are used.')
