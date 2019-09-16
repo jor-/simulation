@@ -860,11 +860,19 @@ class Model_With_F_And_DF(Model_With_F):
         return derivative_dir
 
     def _df(self, trajectory_load_function, tracers=None, include_total_concentration=False, derivative_order=1, accuracy_order=None):
+        # prepare needed options
         if derivative_order is None:
             derivative_order = 1
         assert derivative_order in (1, 2)
         if accuracy_order is None:
             accuracy_order = self.model_options.derivative_options.accuracy_order
+
+        partial_derivative_spinup_years = self.model_options.derivative_options.years
+        step_size = self.model_options.derivative_options.step_size
+        partial_derivative_options = {'years': partial_derivative_spinup_years, 'tolerance': 0, 'combination': 'or'}
+        spinup_options = self.model_options.spinup_options
+
+        util.logging.debug(f'Calculating derivative of order {derivative_order} with accurarcy order {accuracy_order} and spinup years {partial_derivative_spinup_years} and step size {step_size}.')
 
         # check tracers
         tracers = self.check_tracers(tracers)
@@ -895,12 +903,6 @@ class Model_With_F_And_DF(Model_With_F):
             partial_derivative_parameters_typical_values = np.concatenate([partial_derivative_parameters_typical_values, np.array([1])])
             partial_derivative_parameters_undisturbed = np.concatenate([partial_derivative_parameters_undisturbed, np.array([1])])
 
-        # get needed model options
-        MODEL_DERIVATIVE_SPINUP_YEARS = self.model_options.derivative_options.years
-        MODEL_DERIVATIVE_STEP_SIZE = self.model_options.derivative_options.step_size
-        partial_derivative_options = {'years': MODEL_DERIVATIVE_SPINUP_YEARS, 'tolerance': 0, 'combination': 'or'}
-        spinup_options = self.model_options.spinup_options
-
         # get derivative dir and spinup run dir (starts also spinup if not existing)
         derivative_dir = self.derivative_dir
         spinup_matching_run_dir = self.matching_run_dir(spinup_options)
@@ -919,7 +921,7 @@ class Model_With_F_And_DF(Model_With_F):
                 factor_ids = []
                 for parameter_index in changed_parameters_indices:
                     h = partial_derivative_parameters[parameter_index] - partial_derivative_parameters_undisturbed[parameter_index]
-                    h_typical = partial_derivative_parameters_typical_values[parameter_index] * MODEL_DERIVATIVE_STEP_SIZE
+                    h_typical = partial_derivative_parameters_typical_values[parameter_index] * step_size
                     h_factor = h / h_typical
                     PRECISION = simulation.model.constants.DATABASE_PARTIAL_DERIVATIVE_FACTOR_ID_FLOAT_PRECISION
                     h_factor = np.round(h_factor * 10**PRECISION) / 10**PRECISION
@@ -969,7 +971,7 @@ class Model_With_F_And_DF(Model_With_F):
                 start_run_parameters_dict = convert_partial_derivative_parameters_to_start_run_parameters(partial_derivative_parameters)
                 partial_derivative_model_parameters = start_run_parameters_dict['model_parameters']
                 total_concentration_factor = start_run_parameters_dict['total_concentration_factor']
-                self.start_run(partial_derivative_model_parameters, partial_derivative_dir, MODEL_DERIVATIVE_SPINUP_YEARS, tolerance=0, job_options=job_options, tracer_input_files=tracer_input_files, wait_until_finished=False, total_concentration_factor=total_concentration_factor)
+                self.start_run(partial_derivative_model_parameters, partial_derivative_dir, partial_derivative_spinup_years, tolerance=0, job_options=job_options, tracer_input_files=tracer_input_files, wait_until_finished=False, total_concentration_factor=total_concentration_factor)
 
             # save partial_derivative_dir
             partial_derivative_dirs[tuple(partial_derivative_parameters)] = partial_derivative_dir
@@ -1002,11 +1004,11 @@ class Model_With_F_And_DF(Model_With_F):
         # calculate deviation
         for function in (start_partial_derivative_run, get_partial_derivative_run_value):
             if derivative_order == 1:
-                df_concatenated = util.math.finite_differences.first_derivative(function, partial_derivative_parameters_undisturbed, f_x=None, typical_x=partial_derivative_parameters_typical_values, bounds=partial_derivative_parameters_bounds, eps=MODEL_DERIVATIVE_STEP_SIZE, use_always_typical_x=True, accuracy_order=accuracy_order)
+                df_concatenated = util.math.finite_differences.first_derivative(function, partial_derivative_parameters_undisturbed, f_x=None, typical_x=partial_derivative_parameters_typical_values, bounds=partial_derivative_parameters_bounds, eps=step_size, use_always_typical_x=True, accuracy_order=accuracy_order)
                 assert df_concatenated.shape[0] == parameters_len
                 df_concatenated = np.moveaxis(df_concatenated, 0, -1)
             else:
-                df_concatenated = util.math.finite_differences.second_derivative(function, partial_derivative_parameters_undisturbed, f_x=None, typical_x=partial_derivative_parameters_typical_values, bounds=partial_derivative_parameters_bounds, eps=MODEL_DERIVATIVE_STEP_SIZE, use_always_typical_x=True, accuracy_order=accuracy_order)
+                df_concatenated = util.math.finite_differences.second_derivative(function, partial_derivative_parameters_undisturbed, f_x=None, typical_x=partial_derivative_parameters_typical_values, bounds=partial_derivative_parameters_bounds, eps=step_size, use_always_typical_x=True, accuracy_order=accuracy_order)
                 assert df_concatenated.shape[:2] == (parameters_len, parameters_len)
                 df_concatenated = np.moveaxis(df_concatenated, 0, -1)
                 df_concatenated = np.moveaxis(df_concatenated, 0, -1)
