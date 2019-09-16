@@ -6,7 +6,6 @@ import scipy.stats
 
 import matrix
 
-import util.cache.memory
 import util.logging
 import util.parallel.with_multiprocessing
 
@@ -52,7 +51,6 @@ class Base(simulation.util.cache.Cache):
     def _model_parameter_information_matrix_calculate(self, **kwargs):
         raise NotImplementedError("Please implement this method")
 
-    @util.cache.memory.method_decorator()
     def model_parameter_information_matrix(self, **kwargs):
         if len(kwargs):
             M = self._model_parameter_information_matrix_calculate(**kwargs)
@@ -90,7 +88,6 @@ class Base(simulation.util.cache.Cache):
 
         return covariance_matrix
 
-    @util.cache.memory.method_decorator()
     def model_parameter_covariance_matrix(self, include_variance_factor=True,
                                           information_matrix=None):
         if information_matrix is not None:
@@ -114,7 +111,6 @@ class Base(simulation.util.cache.Cache):
         correlation_matrix = inverse_derivative_diagonal_marix @ covariance_matrix @ inverse_derivative_diagonal_marix
         return correlation_matrix
 
-    @util.cache.memory.method_decorator()
     def model_parameter_correlation_matrix(self,
                                            information_matrix=None):
         if information_matrix is not None:

@@ -2,7 +2,6 @@ import os.path
 
 import numpy as np
 
-import util.cache.memory
 import util.parallel.with_multiprocessing
 
 import measurements.universal.data
@@ -159,14 +158,12 @@ class Cache():
 
     # model and data values
 
-    @util.cache.memory.method_decorator()
     def model_f(self):
         f = self.model.f_measurements(*self.measurements)
         f = self.measurements.convert_measurements_dict_to_array(f)
         assert len(f) == self.measurements.number_of_measurements
         return f
 
-    @util.cache.memory.method_decorator()
     def model_f_all_boxes(self, time_dim, as_shared_array=False):
         f = self.model.f_all(time_dim, return_as_dict=False)
         assert f.shape[1] == time_dim
@@ -174,14 +171,12 @@ class Cache():
             f = util.parallel.with_multiprocessing.shared_array(f)
         return f
 
-    @util.cache.memory.method_decorator(maxsize=2)
     def model_df(self, derivative_order=1, accuracy_order=None):
         df = self.model.df_measurements(*self.measurements, include_total_concentration=self.include_initial_concentrations_factor_to_model_parameters, derivative_order=derivative_order, accuracy_order=accuracy_order)
         df = self.measurements.convert_measurements_dict_to_array(df)
         assert df.shape == (self.measurements.number_of_measurements,) + (self.model_parameters_len,) * derivative_order
         return df
 
-    @util.cache.memory.method_decorator(maxsize=2)
     def model_df_all_boxes(self, time_dim, derivative_order=1, accuracy_order=None, as_shared_array=False):
         df = self.model.df_all(time_dim, include_total_concentration=self.include_initial_concentrations_factor_to_model_parameters, derivative_order=derivative_order, accuracy_order=accuracy_order, return_as_dict=False)
         assert df.shape[1] == time_dim and df.shape[-1] == self.model_parameters_len
@@ -189,7 +184,6 @@ class Cache():
             df = util.parallel.with_multiprocessing.shared_array(df)
         return df
 
-    @util.cache.memory.method_decorator()
     def measurements_results(self):
         measurements_results = self.measurements.values
         assert len(measurements_results) == self.measurements.number_of_measurements
