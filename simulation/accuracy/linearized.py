@@ -31,8 +31,8 @@ class Base(simulation.util.cache.Cache):
                          include_initial_concentrations_factor_to_model_parameters=True)
         self.dtype = np.float128
 
-    def model_df(self):
-        df = super().model_df(derivative_order=1).astype(self.dtype)
+    def model_df(self, derivative_order=1, accuracy_order=None):
+        df = super().model_df(derivative_order=derivative_order, accuracy_order=accuracy_order).astype(self.dtype)
         return df
 
     # *** uncertainty model parameters *** #
