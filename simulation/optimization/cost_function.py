@@ -391,7 +391,7 @@ ALL_COST_FUNCTION_NAMES = [cost_function_class.__name__ for cost_function_class 
 # iterator
 
 def cost_functions_for_all_measurements(min_measurements_standard_deviations=None, min_measurements_correlations=None,
-                                        min_standard_deviations=None, correlation_decomposition_min_value_D=None,
+                                        min_standard_deviations=None, correlation_decomposition_min_value_D=None, correlation_decomposition_min_abs_value_L=None,
                                         max_box_distance_to_water=None, cost_function_classes=None, model_options=None):
     # default values
     if cost_function_classes is None:
@@ -413,6 +413,7 @@ def cost_functions_for_all_measurements(min_measurements_standard_deviations=Non
         min_measurements_correlation=min_measurements_correlations,
         min_standard_deviation=min_standard_deviations,
         correlation_decomposition_min_value_D=correlation_decomposition_min_value_D,
+        correlation_decomposition_min_abs_value_L=correlation_decomposition_min_abs_value_L,
         max_box_distance_to_water=max_box_distance_to_water)
 
     if len(cost_function_classes_without_standard_deviation) > 0:

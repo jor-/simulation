@@ -19,7 +19,7 @@ class CostFunctionJob(util.batch.universal.system.Job):
     def __init__(self, cf_kind, model_options,
                  output_dir=None, model_job_options=None,
                  min_measurements_standard_deviations=None, min_measurements_correlations=None,
-                 min_standard_deviations=None, correlation_decomposition_min_value_D=None,
+                 min_standard_deviations=None, correlation_decomposition_min_value_D=None, correlation_decomposition_min_abs_value_L=None,
                  max_box_distance_to_water=None, eval_f=True, eval_df=False, eval_d2f=False,
                  cost_function_job_options=None, include_initial_concentrations_factor_to_model_parameters=False,
                  remove_output_dir_on_close=False):
@@ -46,6 +46,7 @@ class CostFunctionJob(util.batch.universal.system.Job):
         self.options['/cf/min_measurements_correlations'] = min_measurements_correlations
         self.options['/cf/min_standard_deviations'] = min_standard_deviations
         self.options['/cf/correlation_decomposition_min_value_D'] = correlation_decomposition_min_value_D
+        self.options['/cf/correlation_decomposition_min_abs_value_L'] = correlation_decomposition_min_abs_value_L
         self.options['/cf/include_initial_concentrations_factor_to_model_parameters'] = include_initial_concentrations_factor_to_model_parameters
 
         # prepare job options
@@ -127,7 +128,7 @@ class CostFunctionJob(util.batch.universal.system.Job):
         commands += ['    import simulation.optimization.cost_function']
 
         commands += [f'    model_options = {model_options!r}']
-        commands += [f'    measurements_object = measurements.all.data.all_measurements(tracers=model_options.tracers, min_measurements_standard_deviation={min_measurements_standard_deviations}, min_measurements_correlation={min_measurements_correlations}, min_standard_deviation={min_standard_deviations}, correlation_decomposition_min_value_D={correlation_decomposition_min_value_D}, max_box_distance_to_water={max_box_distance_to_water}, water_lsm="TMM", sample_lsm="TMM")']
+        commands += [f'    measurements_object = measurements.all.data.all_measurements(tracers=model_options.tracers, min_measurements_standard_deviation={min_measurements_standard_deviations}, min_measurements_correlation={min_measurements_correlations}, min_standard_deviation={min_standard_deviations}, correlation_decomposition_min_value_D={correlation_decomposition_min_value_D}, correlation_decomposition_min_abs_value_L={correlation_decomposition_min_abs_value_L}, max_box_distance_to_water={max_box_distance_to_water}, water_lsm="TMM", sample_lsm="TMM")']
 
         if model_job_options is not None:
             commands += [f'    model_job_options = {model_job_options!r}']

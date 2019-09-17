@@ -83,7 +83,8 @@ def init_model_options(model_name, time_step=1, concentrations=None, concentrati
 
 
 def init_measurements(model_options,
-                      min_measurements_standard_deviation=None, min_standard_deviation=None, min_measurements_correlation=None, correlation_decomposition_min_value_D=None,
+                      min_measurements_standard_deviation=None, min_standard_deviation=None,
+                      min_measurements_correlation=None, correlation_decomposition_min_value_D=None, correlation_decomposition_min_abs_value_L=None,
                       max_box_distance_to_water=None):
     measurements_object = measurements.all.data.all_measurements(
         tracers=model_options.tracers,
@@ -91,6 +92,7 @@ def init_measurements(model_options,
         min_standard_deviation=min_standard_deviation,
         min_measurements_correlation=min_measurements_correlation,
         correlation_decomposition_min_value_D=correlation_decomposition_min_value_D,
+        correlation_decomposition_min_abs_value_L=correlation_decomposition_min_abs_value_L,
         max_box_distance_to_water=max_box_distance_to_water,
         water_lsm='TMM',
         sample_lsm='TMM')
@@ -128,7 +130,8 @@ def argparse_add_measurement_options(parser):
     parser.add_argument('--min_measurements_standard_deviations', nargs='+', type=int, default=None, help='The minimal number of measurements used to calculate standard deviations applied to each dataset.')
     parser.add_argument('--min_standard_deviations', nargs='+', type=float, default=None, help='The minimal standard deviations assumed for the measurement errors applied to each dataset.')
     parser.add_argument('--min_measurements_correlations', nargs='+', type=int, default=None, help='The minimal number of measurements used to calculate correlations applied to each dataset.')
-    parser.add_argument('--correlation_decomposition_min_value_D', type=float, default=None, help='The minimal value aplied to the diagonal of the decomposition of the correlation matrix applied to each dataset.')
+    parser.add_argument('--correlation_decomposition_min_value_D', type=float, default=None, help='The minimal value applied to the diagonal matrix of the decomposition of the correlation matrix applied to each dataset.')
+    parser.add_argument('--correlation_decomposition_min_abs_value_L', type=float, default=None, help='The minimal absolute value applied to the lower triangular matrix of the decomposition of the correlation matrix applied to each dataset.')
     parser.add_argument('--max_box_distance_to_water', type=int, default=float('inf'), help='The maximal distance to water boxes to accept measurements.')
     return parser
 
@@ -161,5 +164,6 @@ def parse_measurements_options(args, model_options):
         min_standard_deviation=args.min_standard_deviations,
         min_measurements_correlation=args.min_measurements_correlations,
         correlation_decomposition_min_value_D=args.correlation_decomposition_min_value_D,
+        correlation_decomposition_min_abs_value_L=args.correlation_decomposition_min_abs_value_L,
         max_box_distance_to_water=args.max_box_distance_to_water)
     return measurements_object

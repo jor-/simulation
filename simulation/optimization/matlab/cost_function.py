@@ -102,6 +102,7 @@ def _main():
                     min_measurements_correlations=args.min_measurements_correlations,
                     min_standard_deviations=args.min_standard_deviations,
                     correlation_decomposition_min_value_D=args.correlation_decomposition_min_value_D,
+                    correlation_decomposition_min_abs_value_L=args.correlation_decomposition_min_abs_value_L,
                     max_box_distance_to_water=args.max_box_distance_to_water,
                     eval_f=eval_function_value,
                     eval_df=eval_grad_value,
