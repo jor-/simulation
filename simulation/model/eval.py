@@ -744,18 +744,18 @@ class Model_With_F(Model_Database):
 
         # interpolate trajectory function
         def interpolate_trajectory(trajectory_path, tracer):
-
             # check if points for tracer are available
             try:
                 interpolation_points_for_tracer = interpolation_points_dict[tracer]
             except KeyError:
-                return np.empty([0, 1])
-
+                interpolated_values_for_tracer = np.empty([0])
             # interpolate if points for tracer are available
             else:
                 tracer_trajectory = simulation.model.data.load_trajectories_to_map_index_array(trajectory_path, tracers=tracer)
                 interpolated_values_for_tracer = self._interpolate(tracer_trajectory, interpolation_points_for_tracer)
-                return interpolated_values_for_tracer
+            # return
+            assert interpolated_values_for_tracer.ndim == 1
+            return interpolated_values_for_tracer
 
         return interpolate_trajectory
 
