@@ -90,13 +90,13 @@ class Base(simulation.util.cache.Cache):
         return self._value_in_file_cache(simulation.optimization.constants.COST_FUNCTION_F_FILENAME.format(normalized=True),
                                          derivative_used=False)
 
-    def df_calculate_unnormalized(self, derivative_order=1, accuracy_order=2):
+    def df_calculate_unnormalized(self, derivative_order=1, accuracy_order=None):
         raise NotImplementedError("Please implement this method.")
 
-    def df_calculate_normalized(self, derivative_order=1, accuracy_order=2):
+    def df_calculate_normalized(self, derivative_order=1, accuracy_order=None):
         return self.normalize(self.df_calculate_unnormalized(derivative_order=derivative_order, accuracy_order=accuracy_order))
 
-    def df(self, derivative_order=1, accuracy_order=2, normalized=True):
+    def df(self, derivative_order=1, accuracy_order=None, normalized=True):
         # calculate df
         if normalized:
             def calculation_method():
@@ -113,7 +113,7 @@ class Base(simulation.util.cache.Cache):
         assert np.all(np.isfinite(df))
         return df
 
-    def df_available(self, derivative_order=1, accuracy_order=2, normalized=True):
+    def df_available(self, derivative_order=1, accuracy_order=None, normalized=True):
         file = simulation.optimization.constants.COST_FUNCTION_DF_FILENAME.format(
             normalized=normalized, derivative_order=derivative_order,
             include_total_concentration=self.include_initial_concentrations_factor_to_model_parameters)
@@ -153,7 +153,7 @@ class OLS(Base):
         assert np.isfinite(f)
         return f
 
-    def df_calculate_unnormalized(self, derivative_order=1, accuracy_order=2):
+    def df_calculate_unnormalized(self, derivative_order=1, accuracy_order=None):
         if derivative_order in (1, 2):
             F = self.model_f()
             DF = self.model_df(derivative_order=1, accuracy_order=accuracy_order)
@@ -186,7 +186,7 @@ class WLS(BaseUsingStandardDeviation):
         assert np.isfinite(f)
         return f
 
-    def df_calculate_unnormalized(self, derivative_order=1, accuracy_order=2):
+    def df_calculate_unnormalized(self, derivative_order=1, accuracy_order=None):
         if derivative_order in (1, 2):
             F = self.model_f()
             DF = self.model_df(derivative_order=1, accuracy_order=accuracy_order)
@@ -222,7 +222,7 @@ class GLS(BaseUsingCorrelation):
         assert np.isfinite(f)
         return f
 
-    def df_calculate_unnormalized(self, derivative_order=1, accuracy_order=2):
+    def df_calculate_unnormalized(self, derivative_order=1, accuracy_order=None):
         if derivative_order in (1, 2):
             F = self.model_f()
             DF = self.model_df(derivative_order=1, accuracy_order=accuracy_order)
