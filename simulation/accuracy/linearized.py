@@ -29,11 +29,6 @@ class Base(simulation.util.cache.Cache):
 
         super().__init__(base_dir, measurements_object, model_options=model_options, model_job_options=model_job_options,
                          include_initial_concentrations_factor_to_model_parameters=True)
-        self.dtype = np.float64
-
-    def model_df(self, derivative_order=1, accuracy_order=None):
-        df = super().model_df(derivative_order=derivative_order, accuracy_order=accuracy_order).astype(self.dtype)
-        return df
 
     # *** uncertainty factors *** #
 
@@ -170,12 +165,14 @@ class Base(simulation.util.cache.Cache):
             return self._value_from_file_cache(filename, calculation_function)
 
     def average_parameter_confidence(self, alpha=0.99, relative=True,
-                                     matrix_type='F', include_variance_factor=True, covariance_matrix=None):
+                                     matrix_type='F', include_variance_factor=True, covariance_matrix=None, dtype=None):
         util.logging.debug(f'Calculating average model parameter confidence with confidence level {alpha} and relative {relative}.')
+        if dtype is None:
+            dtype = np.float64
         model_parameter_confidences = self.model_parameter_confidence(
             matrix_type=matrix_type, include_variance_factor=include_variance_factor, covariance_matrix=covariance_matrix,
             alpha=alpha, relative=relative)
-        return np.nanmean(model_parameter_confidences, dtype=self.dtype)
+        return np.nanmean(model_parameter_confidences, dtype=dtype)
 
     # *** model confidence *** #
 
@@ -193,8 +190,10 @@ class Base(simulation.util.cache.Cache):
             confidence = np.nan
         return confidence
 
-    def model_confidence_without_confidence_factor_using_covariance_matrix(self, covariance_matrix, time_dim_confidence=12, time_dim_model=None, parallel=True, df_all=None):
+    def model_confidence_without_confidence_factor_using_covariance_matrix(self, covariance_matrix, time_dim_confidence=12, time_dim_model=None, parallel=True, df_all=None, dtype=None):
         util.logging.debug(f'Calculating model confidence for given covariance matrix with confidence time dim {time_dim_confidence} and model time dim {time_dim_model} using parallel {parallel}.')
+        if dtype is None:
+            dtype = np.float64
 
         # calculate needed values
         if time_dim_model is None:
@@ -210,7 +209,7 @@ class Base(simulation.util.cache.Cache):
 
         # calculate model confidence for each index
         if parallel < 1:
-            model_confidence = np.empty(confidence_shape, dtype=self.dtype)
+            model_confidence = np.empty(confidence_shape, dtype=dtype)
             for confidence_index in np.ndindex(*confidence_shape):
                 model_confidence_at_index = self._model_confidence_calculate_for_index(
                     confidence_index, covariance_matrix, df_all, time_step_size)
@@ -248,8 +247,10 @@ class Base(simulation.util.cache.Cache):
 
     # *** average model confidence *** #
 
-    def average_model_confidence_using_model_confidence(self, model_confidence, per_tracer=False, relative=False, f_all=None):
+    def average_model_confidence_using_model_confidence(self, model_confidence, per_tracer=False, relative=False, f_all=None, dtype=None):
         util.logging.debug(f'Calculating average model confidence for given model confidence with per tracer {per_tracer} and relative {relative}.')
+        if dtype is None:
+            dtype = np.float128
 
         # averaging
         def fnanmean(a):
@@ -259,7 +260,7 @@ class Base(simulation.util.cache.Cache):
             return mean
 
         n = model_confidence.shape[0]
-        average_model_confidence = np.empty(n, dtype=self.dtype)
+        average_model_confidence = np.empty(n, dtype=dtype)
         for i in range(n):
             average_model_confidence[i] = fnanmean(model_confidence[i])
         if relative:
@@ -268,7 +269,7 @@ class Base(simulation.util.cache.Cache):
             for i in range(n):
                 average_model_confidence[i] /= fnanmean(f_all[i])
         if not per_tracer:
-            average_model_confidence = np.mean(average_model_confidence, dtype=self.dtype)
+            average_model_confidence = np.mean(average_model_confidence, dtype=dtype)
 
         # return
         assert not np.any(np.isnan(average_model_confidence))
@@ -309,10 +310,12 @@ class Base(simulation.util.cache.Cache):
         increase = self.information_matrix_type_F_additional_independent_increase(df_additional, standard_deviations_additional)
         return matrix + increase
 
-    def covariance_matrix_type_F_additional_independent_increase(self, covariance_matrix, df_additional, standard_deviations_additional, include_variance_factor=True):
-        C = np.asarray(covariance_matrix, dtype=self.dtype)
-        A = np.asarray(df_additional, dtype=self.dtype)
-        D = np.asarray(standard_deviations_additional, dtype=self.dtype)
+    def covariance_matrix_type_F_additional_independent_increase(self, covariance_matrix, df_additional, standard_deviations_additional, include_variance_factor=True, dtype=None):
+        if dtype is None:
+            dtype = np.float128
+        C = np.asarray(covariance_matrix, dtype=dtype)
+        A = np.asarray(df_additional, dtype=dtype)
+        D = np.asarray(standard_deviations_additional, dtype=dtype)
         if D.size > 1:
             D = np.diag(D)
             E = - C @ A.T @ np.linalg.inv(D + A @ C @ A.T) @ A @ C
@@ -323,7 +326,7 @@ class Base(simulation.util.cache.Cache):
             E *= self.variance_factor
         return E
 
-    def _average_model_confidence_increase_without_confidence_factor_calculate_for_index(self, confidence_index, f_all, df_all, covariance_matrix, number_of_measurements, relative, include_variance_factor, parallel):
+    def _average_model_confidence_increase_without_confidence_factor_calculate_for_index(self, confidence_index, f_all, df_all, covariance_matrix, number_of_measurements, relative, include_variance_factor, parallel, dtype):
         time_dim_model = df_all.shape[1]
         df_additional = df_all[confidence_index]
         if not np.all(np.isnan(df_additional)):
@@ -339,17 +342,19 @@ class Base(simulation.util.cache.Cache):
                 df_additional = np.tile(df_additional, number_of_measurements)
                 standard_deviations_additional = np.tile(standard_deviations_additional, number_of_measurements)
             # calculate confidence
-            covariance_matrix_increase = self.covariance_matrix_type_F_additional_independent_increase(covariance_matrix, df_additional, standard_deviations_additional, include_variance_factor=include_variance_factor)
+            covariance_matrix_increase = self.covariance_matrix_type_F_additional_independent_increase(covariance_matrix, df_additional, standard_deviations_additional, include_variance_factor=include_variance_factor, dtype=dtype)
             covariance_matrix += covariance_matrix_increase
-            model_confidence_without_confidence_factor = self.model_confidence_without_confidence_factor_using_covariance_matrix(covariance_matrix, time_dim_confidence=1, time_dim_model=time_dim_model, parallel=False, df_all=df_all)
-            average_model_confidence_increase_without_confidence_factor_at_index = self.average_model_confidence_using_model_confidence(model_confidence_without_confidence_factor, per_tracer=False, relative=relative, f_all=f_all)
+            model_confidence_without_confidence_factor = self.model_confidence_without_confidence_factor_using_covariance_matrix(covariance_matrix, time_dim_confidence=1, time_dim_model=time_dim_model, parallel=False, df_all=df_all, dtype=dtype)
+            average_model_confidence_increase_without_confidence_factor_at_index = self.average_model_confidence_using_model_confidence(model_confidence_without_confidence_factor, per_tracer=False, relative=relative, f_all=f_all, dtype=dtype)
             assert average_model_confidence_increase_without_confidence_factor_at_index is not None
         else:
             average_model_confidence_increase_without_confidence_factor_at_index = np.nan
         return average_model_confidence_increase_without_confidence_factor_at_index
 
-    def _average_model_confidence_increase_calculate(self, number_of_measurements=1, alpha=0.99, time_dim_confidence_increase=12, time_dim_model=None, relative=True, include_variance_factor=True, parallel=True):
+    def _average_model_confidence_increase_calculate(self, number_of_measurements=1, alpha=0.99, time_dim_confidence_increase=12, time_dim_model=None, relative=True, include_variance_factor=True, parallel=True, dtype=None):
         util.logging.debug(f'Calculating average model output confidence increase with confidence level {alpha}, relative {relative}, model time dim {time_dim_model}, condifence time dim {time_dim_confidence_increase} and number_of_measurements {number_of_measurements} with include_variance_factor {include_variance_factor}.')
+        if dtype is None:
+            dtype = np.float128
 
         # get needed values
         if relative:
@@ -369,10 +374,10 @@ class Base(simulation.util.cache.Cache):
 
         # calculate average_model_confidence increase for each index
         if not parallel:
-            average_model_confidence_increase = np.empty(average_model_confidence_increase_shape, dtype=self.dtype)
+            average_model_confidence_increase = np.empty(average_model_confidence_increase_shape, dtype=dtype)
             for confidence_index in np.ndindex(*average_model_confidence_increase_shape):
                 average_model_confidence_increase_without_confidence_factor_at_index = self._average_model_confidence_increase_without_confidence_factor_calculate_for_index(
-                    confidence_index, f_all, df_all, covariance_matrix, number_of_measurements, relative, False, parallel)
+                    confidence_index, f_all, df_all, covariance_matrix, number_of_measurements, relative, False, parallel, dtype)
                 average_model_confidence_increase[confidence_index] = average_model_confidence_increase_without_confidence_factor_at_index
         else:
             chunksize = np.sort(average_model_confidence_increase_shape)[-1]
@@ -383,7 +388,7 @@ class Base(simulation.util.cache.Cache):
             covariance_matrix = util.parallel.with_multiprocessing.shared_array(covariance_matrix)
             average_model_confidence_increase = util.parallel.with_multiprocessing.map_parallel_with_args(
                 self._average_model_confidence_increase_without_confidence_factor_calculate_for_index, np.ndindex(*average_model_confidence_increase_shape),
-                f_all, df_all, covariance_matrix, number_of_measurements, relative, False, parallel,
+                f_all, df_all, covariance_matrix, number_of_measurements, relative, False, parallel, dtype,
                 number_of_processes=None, chunksize=chunksize, share_args=True)
 
         # restore time dim in model lsm
@@ -436,13 +441,15 @@ class OLS(Base):
     def _cost_function_class(self):
         return simulation.optimization.cost_function.OLS
 
-    def _information_matrix_type_F_with_args(self, df):
+    def _information_matrix_type_F_with_args(self, df, dtype=None):
+        if dtype is None:
+            dtype = np.float64
         assert df is not None
         df = np.asarray(df)
         assert df.ndim == 2
         # calculate matrix
         util.logging.debug(f'Calculating information matrix of type F for {self.name} with df {df.shape}.')
-        average_standard_deviation = self.measurements.standard_deviations.mean(dtype=self.dtype)
+        average_standard_deviation = self.measurements.standard_deviations.mean(dtype=dtype)
         M = df.T @ df
         M *= (average_standard_deviation)**-2
         return M
@@ -509,17 +516,19 @@ class GLS(Base):
     def _cost_function_class(self):
         return simulation.optimization.cost_function.GLS
 
-    def _information_matrix_type_F_with_args(self, df, standard_deviations, correlation_matrix=None, correlation_matrix_decomposition=None):
+    def _information_matrix_type_F_with_args(self, df, standard_deviations, correlation_matrix=None, correlation_matrix_decomposition=None, dtype=None):
+        if dtype is None:
+            dtype = np.float64
         assert df is not None
         assert standard_deviations is not None
         assert correlation_matrix is not None or correlation_matrix_decomposition is not None
-        df = np.asarray(df, dtype=self.dtype)
-        standard_deviations = np.asarray(standard_deviations, dtype=self.dtype)
+        df = np.asarray(df, dtype=dtype)
+        standard_deviations = np.asarray(standard_deviations, dtype=dtype)
         assert df.ndim == 2
         assert standard_deviations.ndim == 1
         assert len(df) == len(standard_deviations)
         if correlation_matrix_decomposition is None:
-            correlation_matrix = np.asarray(correlation_matrix, dtype=self.dtype)
+            correlation_matrix = np.asarray(correlation_matrix, dtype=dtype)
             assert correlation_matrix.ndim == 2
             assert correlation_matrix.shape[0] == correlation_matrix.shape[1]
             assert correlation_matrix.shape[0] == standard_deviations.shape[0]
