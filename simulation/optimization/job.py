@@ -160,7 +160,7 @@ class CostFunctionJob(util.batch.universal.system.Job):
                 return ''
             else:
                 return 'export {env_name}={env_value}'.format(env_name=env_name, env_value=env_value)
-        env_names = [simulation.constants.BASE_DIR_ENV_NAME, simulation.constants.SIMULATION_OUTPUT_DIR_ENV_NAME, simulation.constants.METOS3D_DIR_ENV_NAME, measurements.constants.BASE_DIR_ENV_NAME, util.batch.universal.system.BATCH_SYSTEM_ENV_NAME, util.io.env.PYTHONPATH_ENV_NAME]
+        env_names = [simulation.constants.SIMULATION_OUTPUT_DIR_ENV_NAME, simulation.constants.METOS3D_DIR_ENV_NAME, measurements.constants.BASE_DIR_ENV_NAME, util.batch.universal.system.BATCH_SYSTEM_ENV_NAME, util.io.env.PYTHONPATH_ENV_NAME]
         pre_commands = [export_env_command(env_name) for env_name in env_names]
         pre_commands.append(batch_system.pre_command('python'))
 
