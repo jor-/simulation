@@ -94,14 +94,9 @@ def _main():
 
     args = parser.parse_args()
 
-    if args.concentrations is None and args.concentrations_index is None:
-        raise ValueError('"--concentrations" or "--concentrations_index" must be specified. Use "--help" for more infos.')
-    if args.parameters is None and args.parameters_index is None:
-        raise ValueError('"--concentrations" or "--concentrations_index" must be specified. Use "--help" for more infos.')
-
     # call function
     with util.logging.Logger():
-        model_options = simulation.util.args.parse_model_options(args)
+        model_options = simulation.util.args.parse_model_options(args, concentrations_must_be_set=True, parameters_must_be_set=True)
         measurements_object = simulation.util.args.parse_measurements_options(args, model_options)
         save(model_options, measurements_object,
              eval_function=args.eval_function,

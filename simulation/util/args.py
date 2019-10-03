@@ -6,11 +6,13 @@ import simulation.model.options
 import simulation.model.cache
 
 
-def init_model_options(model_name, time_step=1, concentrations=None, concentrations_index=None, parameters=None, parameters_index=None,
+def init_model_options(model_name, time_step=1,
+                       concentrations=None, concentrations_index=None, parameters=None, parameters_index=None,
                        spinup_years=None, spinup_tolerance=None, spinup_satisfy_years_and_tolerance=True,
                        derivative_years=None, derivative_step_size=None, derivative_accuracy_order=None,
                        parameters_relative_tolerance=None, parameters_absolute_tolerance=None,
-                       concentrations_relative_tolerance=None, concentrations_absolute_tolerance=None):
+                       concentrations_relative_tolerance=None, concentrations_absolute_tolerance=None,
+                       concentrations_must_be_set=False, parameters_must_be_set=False):
 
     # prepare model options
     model_options = simulation.model.options.ModelOptions()
@@ -70,6 +72,8 @@ def init_model_options(model_name, time_step=1, concentrations=None, concentrati
         c = model._constant_concentrations_db.get_value(concentrations_index)
     if concentrations is not None or concentrations_index is not None:
         model_options.initial_concentration_options.concentrations = c
+    elif concentrations_must_be_set:
+        raise ValueError('Concentrations or concentrations_index must be set.')
 
     # set model parameters
     if parameters is not None:
@@ -78,6 +82,8 @@ def init_model_options(model_name, time_step=1, concentrations=None, concentrati
         p = model._parameters_db.get_value(parameters_index)
     if parameters is not None or parameters_index is not None:
         model_options.parameters = p
+    elif parameters_must_be_set:
+        raise ValueError('Parameters or parameters_index must be set.')
 
     return model_options
 
@@ -136,7 +142,7 @@ def argparse_add_measurement_options(parser):
     return parser
 
 
-def parse_model_options(args):
+def parse_model_options(args, concentrations_must_be_set=False, parameters_must_be_set=False):
     model_options = init_model_options(
         args.model_name,
         time_step=args.time_step,
@@ -153,7 +159,9 @@ def parse_model_options(args):
         parameters_relative_tolerance=args.parameters_relative_tolerance,
         parameters_absolute_tolerance=args.parameters_absolute_tolerance,
         concentrations_relative_tolerance=args.concentrations_relative_tolerance,
-        concentrations_absolute_tolerance=args.concentrations_absolute_tolerance)
+        concentrations_absolute_tolerance=args.concentrations_absolute_tolerance,
+        concentrations_must_be_set=concentrations_must_be_set,
+        parameters_must_be_set=parameters_must_be_set)
     return model_options
 
 

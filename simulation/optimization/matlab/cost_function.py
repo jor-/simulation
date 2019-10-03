@@ -47,7 +47,7 @@ def _main():
 
     args = parser.parse_args()
 
-    model_options = simulation.util.args.parse_model_options(args)
+    model_options = simulation.util.args.parse_model_options(args, concentrations_must_be_set=True, parameters_must_be_set=False)
     measurements_object = simulation.util.args.parse_measurements_options(args, model_options)
 
     # set job setup
