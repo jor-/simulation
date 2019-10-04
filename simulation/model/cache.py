@@ -109,8 +109,8 @@ class Cache:
 
 class Model_With_F_File_and_MemoryCached(simulation.model.eval.Model_With_F_MemoryCached):
 
-    def __init__(self, *args, **kargs):
-        super().__init__(*args, **kargs)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self._cache = Cache(self)
 
     def _cached_values_for_boxes(self, time_dim, calculate_function_for_boxes, file_pattern, derivative_used, derivative_accuracy_order=None, tracers=None, return_as_dict=True):

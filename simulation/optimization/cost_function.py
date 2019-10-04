@@ -253,11 +253,11 @@ class GLS(BaseUsingCorrelation):
 
 class BaseLog(Base):
 
-    def __init__(self, *args, **kargs):
+    def __init__(self, *args, **kwargs):
         from .constants import CONCENTRATION_MIN_VALUE
         self.min_value = CONCENTRATION_MIN_VALUE
 
-        super().__init__(*args, **kargs)
+        super().__init__(*args, **kwargs)
 
     @property
     def name(self):
