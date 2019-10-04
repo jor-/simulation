@@ -465,15 +465,16 @@ class Metos3D_Job(util.batch.universal.system.Job):
 
     # check integrity
 
-    def check_integrity(self, force_to_be_started=False, force_to_be_readonly=False):
+    def check_integrity(self, force_to_be_submitted=False, force_to_be_readonly=False):
         # super check
-        super().check_integrity(force_to_be_started=force_to_be_started, force_to_be_readonly=force_to_be_readonly)
+        super().check_integrity(force_to_be_submitted=force_to_be_submitted, force_to_be_readonly=force_to_be_readonly)
+        is_finished = self.is_finished(check_exit_code=True)
 
         # check output
-        if self.is_started():
+        if self.is_submitted():
             self.time_step
 
-        if self.is_finished():
+        if is_finished:
             self.last_year
             self.last_tolerance
 
@@ -549,4 +550,4 @@ class Metos3D_Job(util.batch.universal.system.Job):
 
         # tracer output files
         tracer_output_files = tuple(map(lambda filename: os.path.join(options['/metos3d/tracer_output_dir'], filename), options['/metos3d/tracer_output_filenames']))
-        tuple(map(lambda file: check_if_file_exists(file, should_exists=not self.is_running(), should_be_in_output_dir=True), tracer_output_files))
+        tuple(map(lambda file: check_if_file_exists(file, should_exists=is_finished, should_be_in_output_dir=True), tracer_output_files))
