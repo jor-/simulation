@@ -386,8 +386,8 @@ class Base(simulation.util.cache.Cache):
                 f_all = util.parallel.with_multiprocessing.shared_array(f_all)
             df_all = util.parallel.with_multiprocessing.shared_array(df_all)
             covariance_matrix = util.parallel.with_multiprocessing.shared_array(covariance_matrix)
-            average_model_confidence_increase = util.parallel.with_multiprocessing.map_parallel_with_args(
-                self._average_model_confidence_increase_without_confidence_factor_calculate_for_index, np.ndindex(*average_model_confidence_increase_shape),
+            average_model_confidence_increase = util.parallel.with_multiprocessing.create_array_with_args(
+                average_model_confidence_increase_shape, self._average_model_confidence_increase_without_confidence_factor_calculate_for_index,
                 f_all, df_all, covariance_matrix, number_of_measurements, relative, False, parallel, dtype,
                 number_of_processes=None, chunksize=chunksize, share_args=True)
 
