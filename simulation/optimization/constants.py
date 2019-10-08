@@ -2,6 +2,8 @@ import util.batch.universal.system
 
 from simulation.model.constants import JOB_MEMORY_GB
 
+COST_FUNCTION_NAMES = ('OLS', 'WLS', 'GLS', 'LOLS', 'LWLS', 'LGLS')
+
 # cache file names
 
 COST_FUNCTION_DIRNAME = 'cost_function'

@@ -10,20 +10,16 @@ def _main():
 
     import simulation
     import simulation.model.constants
-    import simulation.model.options
     import simulation.optimization.cost_function
     import simulation.optimization.job
     import simulation.util.args
 
-    import measurements.all.data
-
-    import util.batch.universal.system
     import util.io.matlab
-    import util.io.fs
 
     import util.logging
 
-    from simulation.optimization.matlab.constants import MATLAB_PARAMETER_FILENAME, MATLAB_F_FILENAME, MATLAB_DF_FILENAME, NODES_MAX_FILENAME, COST_FUNCTION_NAMES
+    from simulation.optimization.matlab.constants import MATLAB_PARAMETER_FILENAME, MATLAB_F_FILENAME, MATLAB_DF_FILENAME, NODES_MAX_FILENAME
+    from simulation.optimization.constants import COST_FUNCTION_NAMES
 
     # parse arguments
     parser = argparse.ArgumentParser(description='Evaluating a cost function for matlab.')

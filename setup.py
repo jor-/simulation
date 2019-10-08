@@ -84,6 +84,7 @@ setuptools.setup(
             'simulation_model_remove = simulation.model.remove:_main',
             'simulation_model_update_job_options = simulation.model.update_job_options:_main',
             'simulation_optimization_save = simulation.optimization.save:_main',
+            'simulation_optimization_save_all = simulation.optimization.save_all:_main',
             'simulation_optimization_matlab_cost_function_eval = simulation.optimization.matlab.cost_function:_main',
             'simulation_optimization_min_values = simulation.optimization.min_values:_main',
             'simulation_optimization_values = simulation.optimization.values:_main',
