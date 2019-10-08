@@ -17,5 +17,5 @@ def output(model_options, time_dim, tracer=None, plot_type='all', v_max=None, ov
         tracers = (tracer,)
     for tracer in tracers:
         f_all = model.f_all(time_dim, tracers=(tracer,))[tracer]
-        base_file = simulation.plot.util.filename(model, 'model_output', tracer)
+        base_file = simulation.plot.util.filename(model, f'model_output_-_time_dim_{time_dim}', tracer)
         measurements.plot.data.plot(f_all, base_file, model_lsm, plot_type=plot_type, v_max=v_max, overwrite=overwrite, colorbar=colorbar, **kwargs)
