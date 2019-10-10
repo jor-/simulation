@@ -421,7 +421,7 @@ class Base(simulation.util.cache.Cache):
             number_of_measurements=number_of_measurements, alpha=alpha, relative=relative,
             time_dim_confidence_increase=time_dim_confidence_increase, time_dim_model=time_dim_model,
             include_variance_factor=include_variance_factor, parallel=parallel)
-        average_model_confidence_increase = self._value_from_file_cache(filename, calculation_function, save_as_txt=True, save_as_np=False)
+        average_model_confidence_increase = self._value_from_file_cache(filename, calculation_function, save_as_txt=False, save_as_np=True)
 
         assert not np.all(np.isnan(average_model_confidence_increase))
         return average_model_confidence_increase
