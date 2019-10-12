@@ -89,8 +89,9 @@ setuptools.setup(
             'simulation_optimization_min_values = simulation.optimization.min_values:_main',
             'simulation_optimization_values = simulation.optimization.values:_main',
             'simulation_optimization_database = simulation.optimization.database:_main',
-            'simulation_plot_model_output = simulation.plot.model_output:_main',
             'simulation_accuracy_save = simulation.accuracy.save:_main',
+            'simulation_plot_model_output = simulation.plot.model_output:_main',
+            'simulation_plot_parameters_confidences = simulation.plot.parameters_confidences:_main',
         ],
     }
 )

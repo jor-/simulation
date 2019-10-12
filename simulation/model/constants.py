@@ -107,8 +107,20 @@ assert len(MODEL_DEFAULT_INITIAL_CONCENTRATION['NPZD-DOP']) == len(MODEL_TRACER[
 
 
 # model parameter
+MODEL_PARAMETER_NAMES = {}
 MODEL_PARAMETER_BOUNDS = {}
 
+MODEL_PARAMETER_NAMES['MITgcm-PO4-DOP'] = [
+    '$\\kappa_{re}$',
+    '$\\alpha$',
+    '$f_{DOP}$',
+    '$\\kappa_{PO_{4}}$',
+    '$\\kappa_{I}$ ',
+    '$k$',
+    '$a_{re}$',
+    '$p$'
+]
+assert len(MODEL_PARAMETER_NAMES['MITgcm-PO4-DOP']) == 8
 MODEL_PARAMETER_BOUNDS['MITgcm-PO4-DOP'] = np.array([
     [0, METOS_T_DIM],       # lambdaDOPprime  = u(1)/360.d0   ! DOP reminalization rate   [1/y]
     [0, np.inf],            # muP             = u(2)          ! maximum groth rate P      [1/d]
