@@ -42,3 +42,13 @@ def parameters_confidences(accuracy_object, matrix_type='F_H', alpha=0.99, inclu
     parameters_names = simulation.model.constants.MODEL_PARAMETER_NAMES[model_name]
     tick_transform_y = lambda tick: f'$\\pm {tick:.0%}$'.replace('%', '\\%')
     util.plot.save.bar(file, data, x_labels=parameters_names, tick_transform_y=tick_transform_y, **kwargs)
+
+
+def parameters_correlations(accuracy_object, matrix_type='F_H', **kwargs):
+    plot_kind = 'parameters_correlations'
+    plot_name = f'parameters_correlations_-_matrix_type_{matrix_type}'
+    file = _filename_with_accuracy_object(accuracy_object, plot_kind, plot_name)
+    correlation_matrix = accuracy_object.correlation_matrix(matrix_type=matrix_type)
+    model_name = accuracy_object.model.model_options.model_name
+    parameters_names = simulation.model.constants.MODEL_PARAMETER_NAMES[model_name]
+    util.plot.save.dense_matrix_pattern(file, correlation_matrix, colorbar=True, x_tick_lables=parameters_names, y_tick_lables=parameters_names, **kwargs)
