@@ -92,6 +92,7 @@ setuptools.setup(
             'simulation_accuracy_save = simulation.accuracy.save:_main',
             'simulation_plot_model_output = simulation.plot.model_output:_main',
             'simulation_plot_parameters_confidences = simulation.plot.parameters_confidences:_main',
+            'simulation_plot_parameters_correlations = simulation.plot.parameters_correlations:_main',
         ],
     }
 )
