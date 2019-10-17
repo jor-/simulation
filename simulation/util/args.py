@@ -4,6 +4,8 @@ import measurements.all.data
 
 import simulation.model.options
 import simulation.model.cache
+import simulation.optimization.constants
+import simulation.accuracy.linearized
 
 
 def init_model_options(model_name, time_step=1,
@@ -142,6 +144,13 @@ def argparse_add_measurement_options(parser):
     return parser
 
 
+def argparse_add_accuracy_object_options(parser):
+    argparse_add_model_options(parser)
+    argparse_add_measurement_options(parser)
+    parser.add_argument('--cost_function_name', required=True, choices=simulation.optimization.constants.COST_FUNCTION_NAMES, help='The cost function which should be evaluated.')
+    return parser
+
+
 def parse_model_options(args, concentrations_must_be_set=False, parameters_must_be_set=False):
     model_options = init_model_options(
         args.model_name,
@@ -175,3 +184,15 @@ def parse_measurements_options(args, model_options):
         correlation_decomposition_min_abs_value_L=args.correlation_decomposition_min_abs_value_L,
         max_box_distance_to_water=args.max_box_distance_to_water)
     return measurements_object
+
+
+def parse_accuracy_object_options(args, concentrations_must_be_set=False, parameters_must_be_set=False):
+    model_options = parse_model_options(args, concentrations_must_be_set=concentrations_must_be_set, parameters_must_be_set=concentrations_must_be_set)
+    measurements_object = parse_measurements_options(args, model_options)
+    cost_function_name = args.cost_function_name
+    try:
+        accuracy_class = getattr(simulation.accuracy.linearized, cost_function_name)
+    except AttributeError:
+        raise ValueError('Unknown accuracy class {}.'.format(cost_function_name))
+    accuracy_object = accuracy_class(measurements_object=measurements_object, model_options=model_options)
+    return accuracy_object
