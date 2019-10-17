@@ -128,6 +128,9 @@ class Base(simulation.util.cache.Cache):
         inverse_standard_deviations = np.sqrt(covariance_matrix.diagonal())
         inverse_standard_deviations_diagonal_marix = np.diag(inverse_standard_deviations)
         correlation_matrix = inverse_standard_deviations_diagonal_marix @ covariance_matrix @ inverse_standard_deviations_diagonal_marix
+        assert np.allclose(correlation_matrix.diagonal(), 1)
+        for i in range(len(correlation_matrix)):
+            correlation_matrix[i, i] = 1
         return correlation_matrix
 
     def correlation_matrix(self, matrix_type='F'):
