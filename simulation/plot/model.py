@@ -52,3 +52,21 @@ def parameters_correlations(accuracy_object, matrix_type='F_H', **kwargs):
     model_name = accuracy_object.model.model_options.model_name
     parameters_names = simulation.model.constants.MODEL_PARAMETER_NAMES[model_name]
     util.plot.save.dense_matrix_pattern(file, correlation_matrix, colorbar=True, x_tick_lables=parameters_names, y_tick_lables=parameters_names, **kwargs)
+
+
+def confidences(accuracy_object, matrix_type='F_H', alpha=0.99, include_variance_factor=True, time_dim_model=12, time_dim_confidence=12,
+                tracer=None, plot_type='all', v_max=None, overwrite=False, colorbar=True, **kwargs):
+    tracers = accuracy_object.model.model_options.tracers
+    if tracer is not None and tracer not in tracers:
+        raise ValueError(f'Tracer {tracer} is unkown. Only the tracers {tracers} are in the model.')
+
+    model_lsm = accuracy_object.model.model_lsm
+    data = accuracy_object.model_confidence(matrix_type=matrix_type, alpha=alpha, include_variance_factor=include_variance_factor, time_dim_model=time_dim_model, time_dim_confidence=time_dim_confidence)
+    assert len(data) == len(tracers)
+
+    plot_kind = 'model_confidences'
+    for i, tracer_i in enumerate(tracers):
+        if tracer is None or tracer_i == tracer:
+            plot_name = f'model_confidences_-_{tracer_i}_-_matrix_type_{matrix_type}_-_include_variance_factor_{include_variance_factor}_-_alpha_{alpha}_-_time_dim_model_{time_dim_model}_-_time_dim_confidence_{time_dim_confidence}'
+            base_file = _filename_with_accuracy_object(accuracy_object, plot_kind, plot_name)
+            measurements.plot.data.plot(data[i], base_file, model_lsm, plot_type=plot_type, v_max=v_max, overwrite=overwrite, colorbar=colorbar, **kwargs)
