@@ -125,7 +125,7 @@ class Base(simulation.util.cache.Cache):
     def _correlation_matrix_calculate(self, matrix_type='F'):
         util.logging.debug(f'Calculating model parameter covariance matrix of type {matrix_type}.')
         covariance_matrix = self.covariance_matrix(matrix_type=matrix_type, include_variance_factor=False)
-        inverse_standard_deviations = np.sqrt(covariance_matrix.diagonal())
+        inverse_standard_deviations = 1 / np.sqrt(covariance_matrix.diagonal())
         inverse_standard_deviations_diagonal_marix = np.diag(inverse_standard_deviations)
         correlation_matrix = inverse_standard_deviations_diagonal_marix @ covariance_matrix @ inverse_standard_deviations_diagonal_marix
         assert np.allclose(correlation_matrix.diagonal(), 1)
