@@ -2,6 +2,7 @@ def _main():
 
     import argparse
 
+    import util.logging
     import simulation.util.args
     import simulation.plot.model
 
@@ -11,6 +12,7 @@ def _main():
     parser.add_argument('--matrix_type', default='F_H', choices=('F_H', 'F', 'H'), help='The covariance approximation.')
     parser.add_argument('--overwrite', action='store_true', help='Overwrite existing files.')
     parser.add_argument('--kwargs', nargs=argparse.REMAINDER, help='Additional keyword arguments for plots.')
+    parser.add_argument('--debug', action='store_true', help='Print debug infos.')
 
     # parse arguments
     args = parser.parse_args()
@@ -21,7 +23,8 @@ def _main():
         kwargs = {}
 
     # plot
-    simulation.plot.model.parameters_correlations(accuracy_object, matrix_type=args.matrix_type, overwrite=args.overwrite, **kwargs)
+    with util.logging.Logger(disp_stdout=args.debug):
+        simulation.plot.model.parameters_correlations(accuracy_object, matrix_type=args.matrix_type, overwrite=args.overwrite, **kwargs)
 
 
 if __name__ == "__main__":

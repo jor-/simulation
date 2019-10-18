@@ -2,6 +2,7 @@ def _main():
 
     import argparse
 
+    import util.logging
     import simulation.util.args
     import simulation.plot.model
 
@@ -21,6 +22,7 @@ def _main():
     parser.add_argument('--no_colorbar', action='store_true', help='Do not plot colorbar.')
     parser.add_argument('--overwrite', action='store_true', help='Overwrite existing files.')
     parser.add_argument('--kwargs', nargs=argparse.REMAINDER, help='Additional keyword arguments for plots.')
+    parser.add_argument('--debug', action='store_true', help='Print debug infos.')
 
     # parse arguments
     args = parser.parse_args()
@@ -39,9 +41,10 @@ def _main():
         kwargs = {}
 
     # plot
-    simulation.plot.model.confidences(accuracy_object, matrix_type=args.matrix_type, alpha=args.alpha, include_variance_factor=not args.not_include_variance_factor,
-                                      tracer=args.tracer, time_dim_model=args.time_dim_model, time_dim_confidence=args.time_dim_confidence,
-                                      plot_type=args.plot_type, v_max=v_max, colorbar=not args.no_colorbar, overwrite=args.overwrite, **kwargs)
+    with util.logging.Logger(disp_stdout=args.debug):
+        simulation.plot.model.confidences(accuracy_object, matrix_type=args.matrix_type, alpha=args.alpha, include_variance_factor=not args.not_include_variance_factor,
+                                          tracer=args.tracer, time_dim_model=args.time_dim_model, time_dim_confidence=args.time_dim_confidence,
+                                          plot_type=args.plot_type, v_max=v_max, colorbar=not args.no_colorbar, overwrite=args.overwrite, **kwargs)
 
 
 if __name__ == "__main__":
