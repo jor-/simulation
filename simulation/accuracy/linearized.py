@@ -320,12 +320,8 @@ class Base(simulation.util.cache.Cache):
         C = np.asarray(covariance_matrix, dtype=dtype)
         A = np.asarray(df_additional, dtype=dtype)
         D = np.asarray(standard_deviations_additional, dtype=dtype)
-        if D.size > 1:
-            D = np.diag(D)
-            E = - C @ A.T @ np.linalg.inv(D + A @ C @ A.T) @ A @ C
-        else:
-            v = C @ A
-            E = - np.outer(v, v) / (D + A @ C @ A)
+        U = A.T / D
+        E = - C @ U @ scipy.linalg.inv(np.eye(U.shape[1]) + U.T @ C @ U) @ U.T @ C
         if include_variance_factor:
             E *= self.variance_factor
         return E
@@ -342,9 +338,8 @@ class Base(simulation.util.cache.Cache):
             standard_deviations_additional = measurements_i.standard_deviations_for_sample_lsm()[tuple(index_measurements)]
             assert not np.any(np.isnan(standard_deviations_additional))
             # repeat several times if needed
-            if number_of_measurements > 1:
-                df_additional = np.tile(df_additional, number_of_measurements)
-                standard_deviations_additional = np.tile(standard_deviations_additional, number_of_measurements)
+            df_additional = np.tile(df_additional, (number_of_measurements, 1))
+            standard_deviations_additional = np.tile(standard_deviations_additional, number_of_measurements)
             # calculate confidence
             covariance_matrix_increase = self.covariance_matrix_type_F_additional_independent_increase(covariance_matrix, df_additional, standard_deviations_additional, include_variance_factor=include_variance_factor, dtype=dtype)
             covariance_matrix += covariance_matrix_increase
