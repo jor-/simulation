@@ -534,7 +534,6 @@ class GLS(Base):
         assert standard_deviations.ndim == 1
         assert len(df) == len(standard_deviations)
         if correlation_matrix_decomposition is None:
-            correlation_matrix = np.asarray(correlation_matrix, dtype=dtype)
             assert correlation_matrix.ndim == 2
             assert correlation_matrix.shape[0] == correlation_matrix.shape[1]
             assert correlation_matrix.shape[0] == standard_deviations.shape[0]
@@ -542,7 +541,7 @@ class GLS(Base):
         # calculate matrix
         util.logging.debug(f'Calculating information matrix of type F for {self.name} with df {df.shape}.')
         weighted_df = df * standard_deviations[:, np.newaxis]**-1
-        M = weighted_df.T @ weighted_df
+        M = correlation_matrix_decomposition.inverse_matrix_both_sides_multiplication(weighted_df)
         return M
 
     def information_matrix_type_F_with_additional_increase_only(self, **kwargs):
