@@ -310,7 +310,7 @@ class Base(simulation.util.cache.Cache):
         return model_parameter_information_matrix
 
     def information_matrix_type_F_additional_independent(self, df_additional, standard_deviations_additional):
-        matrix = self.model_parameter_information_matrix()
+        matrix = self.information_matrix(matrix_type='F')
         increase = self.information_matrix_type_F_additional_independent_increase(df_additional, standard_deviations_additional)
         return matrix + increase
 
