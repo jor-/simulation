@@ -207,7 +207,7 @@ class Base(simulation.util.cache.Cache):
             raise ValueError(f'The desired time dimension {time_dim_confidence} of the confidence can not be satisfied because the time dimension of the model {time_dim_model} is not divisible by {time_dim_confidence}.')
 
         if df_all is None:
-            df_all = self.model_df_all_boxes(time_dim_model, as_shared_array=parallel > 0)
+            df_all = self.model_df_all_boxes(time_dim_model)
         confidence_shape = (df_all.shape[0], time_dim_confidence) + df_all.shape[2:-1]
 
         # calculate model confidence for each index
@@ -219,6 +219,7 @@ class Base(simulation.util.cache.Cache):
                 model_confidence[confidence_index] = model_confidence_at_index
         else:
             chunksize = np.sort(confidence_shape)[-1]
+            df_all = util.parallel.with_multiprocessing.shared_array(df_all)
             model_confidence = util.parallel.with_multiprocessing.create_array_with_args(
                 confidence_shape, self._model_confidence_calculate_for_index,
                 covariance_matrix, df_all, time_step_size,
