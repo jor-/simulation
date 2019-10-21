@@ -62,11 +62,21 @@ class Base(simulation.util.cache.Cache):
 
     # *** uncertainty model parameters *** #
 
-    def information_matrix_type_F_with_additional(self, **kwargs):
-        raise NotImplementedError("Please implement this method")
-
     def information_matrix_type_F(self):
         raise NotImplementedError("Please implement this method")
+
+    def information_matrix_type_F_with_additional_increase_only(self, **kwargs):
+        raise NotImplementedError("Please implement this method")
+
+    def information_matrix_type_F_with_additional_independent_increase_only(self, df_additional, standard_deviations_additional):
+        correlation_matrix = scipy.sparse.eye(len(standard_deviations_additional))
+        model_parameter_information_matrix = self.information_matrix_type_F_with_additional_increase_only(df=df_additional, standard_deviations=standard_deviations_additional, correlation_matrix=correlation_matrix)
+        return model_parameter_information_matrix
+
+    def information_matrix_type_F_with_additional_independent(self, df_additional, standard_deviations_additional):
+        matrix = self.information_matrix(matrix_type='F')
+        increase = self.information_matrix_type_F_with_additional_independent_increase_only(df_additional, standard_deviations_additional)
+        return matrix + increase
 
     def information_matrix_type_H(self):
         cf = self._cost_function
@@ -89,10 +99,32 @@ class Base(simulation.util.cache.Cache):
         return M
 
     def covariance_matrix_type_F_with_additional(self, include_variance_factor=True, **kwargs):
-        information_matrix = self.information_matrix_type_F_with_additional(**kwargs)
+        information_matrix = self.information_matrix(matrix_type='F')
+        information_matrix_increase = self.information_matrix_type_F_with_additional_increase_only(**kwargs)
+        information_matrix += information_matrix_increase
         covariance_matrix = scipy.linalg.inv(information_matrix)
         if include_variance_factor:
             covariance_matrix *= self.variance_factor
+        return covariance_matrix
+
+    def covariance_matrix_type_F_with_additional_independent_increase_only(self, covariance_matrix, df_additional, standard_deviations_additional, include_variance_factor=True, dtype=None):
+        if dtype is None:
+            dtype = np.float128
+        C = np.asarray(covariance_matrix, dtype=dtype)
+        A = np.asarray(df_additional, dtype=dtype)
+        D = np.asarray(standard_deviations_additional, dtype=dtype)
+        U = A.T / D
+        E = - C @ U @ scipy.linalg.inv(np.eye(U.shape[1]) + U.T @ C @ U) @ U.T @ C
+        if include_variance_factor:
+            E *= self.variance_factor
+        return E
+
+    def covariance_matrix_type_F_with_additional_independent(self, covariance_matrix, df_additional, standard_deviations_additional, include_variance_factor=True, dtype=None):
+        if dtype is None:
+            dtype = np.float128
+        covariance_matrix = np.asarray(covariance_matrix, dtype=dtype)
+        increase = self.covariance_matrix_type_F_with_additional_independent_increase_only(covariance_matrix, df_additional, standard_deviations_additional, include_variance_factor=include_variance_factor, dtype=dtype)
+        covariance_matrix += increase
         return covariance_matrix
 
     def _covariance_matrix_calculate(self, matrix_type='F', include_variance_factor=True):
@@ -304,28 +336,6 @@ class Base(simulation.util.cache.Cache):
 
     # *** average model confidence increase *** #
 
-    def information_matrix_type_F_additional_independent_increase(self, df_additional, standard_deviations_additional):
-        correlation_matrix = scipy.sparse.eye(len(standard_deviations_additional))
-        model_parameter_information_matrix = self.information_matrix_type_F_with_additional(df=df_additional, standard_deviations=standard_deviations_additional, correlation_matrix=correlation_matrix)
-        return model_parameter_information_matrix
-
-    def information_matrix_type_F_additional_independent(self, df_additional, standard_deviations_additional):
-        matrix = self.information_matrix(matrix_type='F')
-        increase = self.information_matrix_type_F_additional_independent_increase(df_additional, standard_deviations_additional)
-        return matrix + increase
-
-    def covariance_matrix_type_F_additional_independent_increase(self, covariance_matrix, df_additional, standard_deviations_additional, include_variance_factor=True, dtype=None):
-        if dtype is None:
-            dtype = np.float128
-        C = np.asarray(covariance_matrix, dtype=dtype)
-        A = np.asarray(df_additional, dtype=dtype)
-        D = np.asarray(standard_deviations_additional, dtype=dtype)
-        U = A.T / D
-        E = - C @ U @ scipy.linalg.inv(np.eye(U.shape[1]) + U.T @ C @ U) @ U.T @ C
-        if include_variance_factor:
-            E *= self.variance_factor
-        return E
-
     def _average_model_confidence_increase_without_confidence_factor_calculate_for_index(self, confidence_index, f_all, df_all, covariance_matrix, number_of_measurements, relative, include_variance_factor, parallel, dtype):
         time_dim_model = df_all.shape[1]
         df_additional = df_all[confidence_index]
@@ -341,8 +351,7 @@ class Base(simulation.util.cache.Cache):
             df_additional = np.tile(df_additional, (number_of_measurements, 1))
             standard_deviations_additional = np.tile(standard_deviations_additional, number_of_measurements)
             # calculate confidence
-            covariance_matrix_increase = self.covariance_matrix_type_F_additional_independent_increase(covariance_matrix, df_additional, standard_deviations_additional, include_variance_factor=include_variance_factor, dtype=dtype)
-            covariance_matrix += covariance_matrix_increase
+            covariance_matrix = self.covariance_matrix_type_F_with_additional_independent(covariance_matrix, df_additional, standard_deviations_additional, include_variance_factor=include_variance_factor, dtype=dtype)
             model_confidence_without_confidence_factor = self.model_confidence_without_confidence_factor_using_covariance_matrix(covariance_matrix, time_dim_confidence=1, time_dim_model=time_dim_model, parallel=False, df_all=df_all, dtype=dtype)
             average_model_confidence_increase_without_confidence_factor_at_index = self.average_model_confidence_using_model_confidence(model_confidence_without_confidence_factor, per_tracer=False, relative=relative, f_all=f_all, dtype=dtype)
             assert average_model_confidence_increase_without_confidence_factor_at_index is not None
@@ -451,7 +460,7 @@ class OLS(Base):
         M *= (average_standard_deviation)**-2
         return M
 
-    def information_matrix_type_F_with_additional(self, **kwargs):
+    def information_matrix_type_F_with_additional_increase_only(self, **kwargs):
         df = kwargs['df']
         return self._information_matrix_type_F_with_args(df)
 
@@ -488,7 +497,7 @@ class WLS(Base):
         M = weighted_df.T @ weighted_df
         return M
 
-    def information_matrix_type_F_with_additional(self, **kwargs):
+    def information_matrix_type_F_with_additional_increase_only(self, **kwargs):
         df = kwargs['df']
         standard_deviations = kwargs['standard_deviations']
         return self._information_matrix_type_F_with_args(df, standard_deviations)
@@ -536,7 +545,7 @@ class GLS(Base):
         M = weighted_df.T @ weighted_df
         return M
 
-    def information_matrix_type_F_with_additional(self, **kwargs):
+    def information_matrix_type_F_with_additional_increase_only(self, **kwargs):
         df = kwargs['df']
         standard_deviations = kwargs['standard_deviations']
         correlation_matrix = kwargs['correlation_matrix']
