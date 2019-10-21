@@ -398,13 +398,11 @@ class Base(simulation.util.cache.Cache):
         # restore time dim in model lsm
         model_lsm.t_dim = old_time_dim_model
 
-        # apply confidence factor
-        gamma = self.confidence_factor(alpha, include_variance_factor=include_variance_factor)
-        average_model_confidence_increase *= gamma
-
-        # apply variance factor
+        # apply confidence factor and variance factor
+        factor = self.confidence_factor(alpha, include_variance_factor=include_variance_factor)
         if include_variance_factor:
-            average_model_confidence_increase *= self.variance_factor**0.5
+            factor *= self.variance_factor**0.5
+        average_model_confidence_increase *= factor
 
         # claculate increase of confidence
         average_model_confidence = self.average_model_confidence(per_tracer=False, relative=relative,
