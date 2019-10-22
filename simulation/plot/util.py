@@ -13,12 +13,11 @@ def filename(model_object, kind, plot_name):
         kind=kind,
         plot_name=plot_name)
     # check for bad chars
-    bad_char = '.'
-    replacement_char = '_'
-    if bad_char in file:
-        warnings.warn(f'A "{bad_char}" is in the filename {file} which should be avoided. Replacing "{bad_char}" by "{replacement_char}".')
-        file = file.replace(bad_char, replacement_char)
-    assert bad_char not in file
+    for bad_char, replacement_char in [('.', '_'), ('(', '['), (')', ']')]:
+        if bad_char in file:
+            warnings.warn(f'A "{bad_char}" is in the filename {file} which should be avoided. Replacing "{bad_char}" by "{replacement_char}".')
+            file = file.replace(bad_char, replacement_char)
+        assert bad_char not in file
     # append file extension
     file_extension = simulation.plot.constants.PLOT_DEFAULT_FILE_EXTENSION
     assert not file_extension.startswith('.')
