@@ -40,7 +40,7 @@ def parameters_confidences(accuracy_object, matrix_type='F_H', alpha=0.99, inclu
     data = accuracy_object.parameter_confidence(matrix_type=matrix_type, alpha=alpha, include_variance_factor=include_variance_factor, relative=relative)
     model_name = accuracy_object.model.model_options.model_name
     parameters_names = simulation.model.constants.MODEL_PARAMETER_NAMES[model_name]
-    tick_transform_y = lambda tick: f'$\\pm {tick:.0%}$'.replace('%', '\\%')
+    tick_transform_y = lambda tick: f'$\\pm {tick:.1%}$'.replace('%', '\\%')
     util.plot.save.bar(file, data, x_labels=parameters_names, tick_transform_y=tick_transform_y, **kwargs)
 
 
