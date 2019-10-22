@@ -42,9 +42,10 @@ def _main():
 
     # plot
     with util.logging.Logger(disp_stdout=args.debug):
-        simulation.plot.model.confidences(accuracy_object, matrix_type=args.matrix_type, alpha=args.alpha, include_variance_factor=not args.not_include_variance_factor,
-                                          tracer=args.tracer, time_dim_model=args.time_dim_model, time_dim_confidence=args.time_dim_confidence,
-                                          plot_type=args.plot_type, v_max=v_max, colorbar=not args.no_colorbar, overwrite=args.overwrite, **kwargs)
+        simulation.plot.model.model_confidences(
+            accuracy_object, matrix_type=args.matrix_type, alpha=args.alpha, include_variance_factor=not args.not_include_variance_factor,
+            tracer=args.tracer, time_dim_model=args.time_dim_model, time_dim_confidence=args.time_dim_confidence,
+            plot_type=args.plot_type, v_max=v_max, colorbar=not args.no_colorbar, overwrite=args.overwrite, **kwargs)
 
 
 if __name__ == "__main__":

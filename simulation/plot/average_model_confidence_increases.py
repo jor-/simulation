@@ -43,7 +43,7 @@ def _main():
 
     # plot
     with util.logging.Logger(disp_stdout=args.debug):
-        simulation.plot.model.confidence_increases(
+        simulation.plot.model.model_confidence_increases(
             accuracy_object, number_of_measurements=args.number_of_measurements, alpha=args.alpha,
             include_variance_factor=not args.not_include_variance_factor, relative=not args.not_relative,
             time_dim_model=args.time_dim_model, time_dim_confidence_increase=args.time_dim_confidence_increase,

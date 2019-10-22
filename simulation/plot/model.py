@@ -54,8 +54,8 @@ def parameters_correlations(accuracy_object, matrix_type='F_H', **kwargs):
     util.plot.save.dense_matrix_pattern(file, correlation_matrix, colorbar=True, x_tick_lables=parameters_names, y_tick_lables=parameters_names, **kwargs)
 
 
-def confidences(accuracy_object, matrix_type='F_H', alpha=0.99, include_variance_factor=True, time_dim_model=12, time_dim_confidence=12,
-                tracer=None, plot_type='all', v_max=None, overwrite=False, colorbar=True, **kwargs):
+def model_confidences(accuracy_object, matrix_type='F_H', alpha=0.99, include_variance_factor=True, time_dim_model=12, time_dim_confidence=12,
+                      tracer=None, plot_type='all', v_max=None, overwrite=False, colorbar=True, **kwargs):
     tracers = accuracy_object.model.model_options.tracers
     if tracer is not None and tracer not in tracers:
         raise ValueError(f'Tracer {tracer} is unkown. Only the tracers {tracers} are in the model.')
@@ -72,8 +72,8 @@ def confidences(accuracy_object, matrix_type='F_H', alpha=0.99, include_variance
             measurements.plot.data.plot(data[i], base_file, model_lsm, plot_type=plot_type, v_max=v_max, overwrite=overwrite, colorbar=colorbar, **kwargs)
 
 
-def confidence_increases(accuracy_object, number_of_measurements=1, alpha=0.99, include_variance_factor=True, relative=True, time_dim_model=12, time_dim_confidence_increase=12,
-                         tracer=None, plot_type='all', v_max=None, overwrite=False, colorbar=True, **kwargs):
+def model_confidence_increases(accuracy_object, number_of_measurements=1, alpha=0.99, include_variance_factor=True, relative=True, time_dim_model=12, time_dim_confidence_increase=12,
+                               tracer=None, plot_type='all', v_max=None, overwrite=False, colorbar=True, **kwargs):
     tracers = accuracy_object.model.model_options.tracers
     if tracer is not None and tracer not in tracers:
         raise ValueError(f'Tracer {tracer} is unkown. Only the tracers {tracers} are in the model.')
