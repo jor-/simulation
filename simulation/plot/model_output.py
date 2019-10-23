@@ -42,7 +42,7 @@ def _main():
 
     # plot
     with util.logging.Logger(disp_stdout=args.debug):
-        simulation.plot.model.output(
+        simulation.plot.model.model_output(
             model_options, args.time_dim,
             tracer=args.tracer, plot_type=args.plot_type, v_max=v_max, overwrite=args.overwrite, colorbar=colorbar,
             **kwargs)

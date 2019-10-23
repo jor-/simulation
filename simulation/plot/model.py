@@ -12,7 +12,7 @@ import simulation.model.constants
 import simulation.plot.util
 
 
-def output(model_options, time_dim, tracer=None, plot_type='all', v_max=None, overwrite=False, colorbar=True, **kwargs):
+def model_output(model_options, time_dim, tracer=None, plot_type='all', v_max=None, overwrite=False, colorbar=True, **kwargs):
     model = simulation.model.cache.Model(model_options=model_options)
     model_lsm = model.model_lsm
     if tracer is None:
