@@ -64,7 +64,7 @@ def model_confidences(accuracy_object, matrix_type='F_H', alpha=0.99, include_va
     data = accuracy_object.model_confidence(matrix_type=matrix_type, alpha=alpha, include_variance_factor=include_variance_factor, time_dim_model=time_dim_model, time_dim_confidence=time_dim_confidence)
     assert len(data) == len(tracers)
 
-    tick_transform = lambda tick: f'$\\pm {tick}$'
+    tick_transform = lambda tick: f'$\\pm {tick:.0e}$'
     if plot_type.startswith('depth'):
         tick_transform_dict = {'tick_transform_x': tick_transform}
     elif plot_type in ('time', 'histogram'):
