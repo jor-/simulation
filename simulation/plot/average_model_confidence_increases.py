@@ -13,7 +13,8 @@ def _main():
     parser.add_argument('--number_of_measurements', type=int, default=1, help='The number of additional measurements.')
     parser.add_argument('--alpha', type=float, default=0.99, help='The confidence niveau.')
     parser.add_argument('--not_include_variance_factor', action='store_true', help='Do not include varaiance factor.')
-    parser.add_argument('--not_relative', action='store_true', help='Do not use relative average model confidence but absolute average model confidence.')
+    parser.add_argument('--not_relative_average_model_confidence_for_increases', action='store_true', help='Do not use relative average model confidence but absolute average model confidence in increase calculation.')
+    parser.add_argument('--not_increases_relative_to_average_model_confidence', action='store_true', help='Do not use confidence increase relative to average model confidence.')
     parser.add_argument('--time_dim_model', type=int, default=12, help='The time dimension used for the model.')
     parser.add_argument('--time_dim_confidence_increase', type=int, default=12, help='The time dimension used for the model confidence increase.')
     parser.add_argument('--tracer', default=None, help='The tracer that should be ploted. If not passed, all tracers are plotted.')
@@ -44,8 +45,8 @@ def _main():
     # plot
     with util.logging.Logger(disp_stdout=args.debug):
         simulation.plot.model.model_confidence_increases(
-            accuracy_object, number_of_measurements=args.number_of_measurements, alpha=args.alpha,
-            include_variance_factor=not args.not_include_variance_factor, relative=not args.not_relative,
+            accuracy_object, number_of_measurements=args.number_of_measurements, alpha=args.alpha, include_variance_factor=not args.not_include_variance_factor,
+            relative_average_model_confidence_for_increases=not args.not_relative_average_model_confidence_for_increases, increases_relative_to_average_model_confidence=not args.not_increases_relative_to_average_model_confidence,
             time_dim_model=args.time_dim_model, time_dim_confidence_increase=args.time_dim_confidence_increase,
             tracer=args.tracer, plot_type=args.plot_type, v_max=v_max, colorbar=not args.no_colorbar, overwrite=args.overwrite, **kwargs)
 

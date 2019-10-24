@@ -359,13 +359,14 @@ class Base(simulation.util.cache.Cache):
             average_model_confidence_increase_without_confidence_factor_at_index = np.nan
         return average_model_confidence_increase_without_confidence_factor_at_index
 
-    def _average_model_confidence_increase_calculate(self, number_of_measurements=1, alpha=0.99, time_dim_confidence_increase=12, time_dim_model=None, relative=True, include_variance_factor=True, parallel=True, dtype=None):
-        util.logging.debug(f'Calculating average model output confidence increase with confidence level {alpha}, relative {relative}, model time dim {time_dim_model}, condifence time dim {time_dim_confidence_increase} and number_of_measurements {number_of_measurements} with include_variance_factor {include_variance_factor}.')
+    def _average_model_confidence_increase_calculate(self, number_of_measurements=1, alpha=0.99, time_dim_confidence_increase=12, time_dim_model=None,
+                                                     relative_average_model_confidence_for_increases=True, include_variance_factor=True, parallel=True, dtype=None):
+        util.logging.debug(f'Calculating average model output confidence increase with confidence level {alpha}, relative_average_model_confidence_for_increases {relative_average_model_confidence_for_increases}, model time dim {time_dim_model}, condifence time dim {time_dim_confidence_increase} and number_of_measurements {number_of_measurements} with include_variance_factor {include_variance_factor}.')
         if dtype is None:
             dtype = np.float128
 
         # get needed values
-        if relative:
+        if relative_average_model_confidence_for_increases:
             f_all = self.model_f_all_boxes(time_dim_model)
         else:
             f_all = None
@@ -385,7 +386,7 @@ class Base(simulation.util.cache.Cache):
             average_model_confidence_increase = np.empty(average_model_confidence_increase_shape, dtype=dtype)
             for confidence_index in np.ndindex(*average_model_confidence_increase_shape):
                 average_model_confidence_increase_without_confidence_factor_at_index = self._average_model_confidence_increase_without_confidence_factor_calculate_for_index(
-                    confidence_index, f_all, df_all, covariance_matrix, number_of_measurements, relative, False, parallel, dtype)
+                    confidence_index, f_all, df_all, covariance_matrix, number_of_measurements, relative_average_model_confidence_for_increases, False, parallel, dtype)
                 average_model_confidence_increase[confidence_index] = average_model_confidence_increase_without_confidence_factor_at_index
         else:
             chunksize = np.sort(average_model_confidence_increase_shape)[-1]
@@ -396,7 +397,7 @@ class Base(simulation.util.cache.Cache):
             covariance_matrix = util.parallel.with_multiprocessing.shared_array(covariance_matrix)
             average_model_confidence_increase = util.parallel.with_multiprocessing.create_array_with_args(
                 average_model_confidence_increase_shape, self._average_model_confidence_increase_without_confidence_factor_calculate_for_index,
-                f_all, df_all, covariance_matrix, number_of_measurements, relative, False, parallel, dtype,
+                f_all, df_all, covariance_matrix, number_of_measurements, relative_average_model_confidence_for_increases, False, parallel, dtype,
                 number_of_processes=None, chunksize=chunksize, share_args=True)
 
         # restore time dim in model lsm
@@ -409,25 +410,32 @@ class Base(simulation.util.cache.Cache):
         average_model_confidence_increase *= factor
 
         # claculate increase of confidence
-        average_model_confidence = self.average_model_confidence(per_tracer=False, relative=relative,
+        average_model_confidence = self.average_model_confidence(per_tracer=False, relative=relative_average_model_confidence_for_increases,
                                                                  alpha=alpha, time_dim_model=time_dim_model, parallel=parallel,
                                                                  matrix_type='F', include_variance_factor=include_variance_factor)
         average_model_confidence_increase = average_model_confidence - average_model_confidence_increase
         return average_model_confidence_increase
 
-    def average_model_confidence_increase(self, number_of_measurements=1, alpha=0.99, time_dim_confidence_increase=12, time_dim_model=None, relative=True, include_variance_factor=True, parallel=True):
+    def average_model_confidence_increase(self, number_of_measurements=1, alpha=0.99, time_dim_confidence_increase=12, time_dim_model=None,
+                                          relative_average_model_confidence_for_increases=True, increases_relative_to_average_model_confidence=True,
+                                          include_variance_factor=True, parallel=True):
         if time_dim_model is None:
             time_dim_model = self.model.model_lsm.t_dim
 
         filename = simulation.accuracy.constants.AVERAGE_MODEL_CONFIDENCE_INCREASE_FILENAME.format(
-            number_of_measurements=number_of_measurements, alpha=alpha, relative=relative,
-            time_dim_confidence_increase=time_dim_confidence_increase, time_dim_model=time_dim_model,
-            include_variance_factor=include_variance_factor)
+            number_of_measurements=number_of_measurements, alpha=alpha, relative_average_model_confidence_for_increases=relative_average_model_confidence_for_increases,
+            time_dim_confidence_increase=time_dim_confidence_increase, time_dim_model=time_dim_model, include_variance_factor=include_variance_factor)
         calculation_function = lambda: self._average_model_confidence_increase_calculate(
-            number_of_measurements=number_of_measurements, alpha=alpha, relative=relative,
-            time_dim_confidence_increase=time_dim_confidence_increase, time_dim_model=time_dim_model,
-            include_variance_factor=include_variance_factor, parallel=parallel)
+            number_of_measurements=number_of_measurements, alpha=alpha, relative_average_model_confidence_for_increases=relative_average_model_confidence_for_increases,
+            time_dim_confidence_increase=time_dim_confidence_increase, time_dim_model=time_dim_model, include_variance_factor=include_variance_factor,
+            parallel=parallel)
         average_model_confidence_increase = self._value_from_file_cache(filename, calculation_function, save_as_txt=False, save_as_np=True)
+
+        if increases_relative_to_average_model_confidence:
+            average_model_confidence = self.average_model_confidence(per_tracer=False, relative=relative_average_model_confidence_for_increases,
+                                                                     alpha=alpha, time_dim_model=time_dim_model, parallel=parallel,
+                                                                     matrix_type='F', include_variance_factor=include_variance_factor)
+            average_model_confidence_increase /= average_model_confidence
 
         assert not np.all(np.isnan(average_model_confidence_increase))
         return average_model_confidence_increase
