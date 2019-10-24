@@ -56,15 +56,34 @@ def parameters_correlations(accuracy_object, matrix_type='F_H', **kwargs):
 
 def model_confidences(accuracy_object, matrix_type='F_H', alpha=0.99, include_variance_factor=True, time_dim_model=12, time_dim_confidence=12,
                       tracer=None, plot_type='all', v_max=None, overwrite=False, colorbar=True, **kwargs):
+    # check tracer
     tracers = accuracy_object.model.model_options.tracers
     if tracer is not None and tracer not in tracers:
         raise ValueError(f'Tracer {tracer} is unkown. Only the tracers {tracers} are in the model.')
 
+    # get data
     model_lsm = accuracy_object.model.model_lsm
     data = accuracy_object.model_confidence(matrix_type=matrix_type, alpha=alpha, include_variance_factor=include_variance_factor, time_dim_model=time_dim_model, time_dim_confidence=time_dim_confidence)
     assert len(data) == len(tracers)
 
-    tick_transform = lambda tick: f'$\\pm {tick:.0e}$'
+    # transform ticks
+    if v_max is not None:
+        v_max_for_tick_factor = v_max
+    else:
+        v_max_for_tick_factor = util.plot.auxiliary.v_max(data)
+    tick_exponent = int(np.floor(np.log10(v_max_for_tick_factor)))
+    if tick_exponent >= 0:
+        tick_exponent_str = f'e\\!\\!{tick_exponent}$'
+    else:
+        tick_exponent_str = f'e\\!\\!-\\!\\!{-tick_exponent}$'
+    tick_factor = 10**tick_exponent
+
+    def tick_transform(tick):
+        tick /= tick_factor
+        tick = int(np.round(tick, decimals=0))
+        tick_label = f'$\\pm{tick}{tick_exponent_str}'
+        return tick_label
+
     if plot_type.startswith('depth'):
         tick_transform_dict = {'tick_transform_x': tick_transform}
     elif plot_type in ('time', 'histogram'):
@@ -72,6 +91,7 @@ def model_confidences(accuracy_object, matrix_type='F_H', alpha=0.99, include_va
     else:
         tick_transform_dict = {'colorbar_tick_transform': tick_transform}
 
+    # plot
     plot_kind = 'model_confidences'
     for i, tracer_i in enumerate(tracers):
         if tracer is None or tracer_i == tracer:
