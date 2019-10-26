@@ -3,6 +3,7 @@ import os.path
 
 import numpy as np
 
+import util.logging
 import util.plot.save
 
 import measurements.plot.data
@@ -41,6 +42,7 @@ def parameters_confidences(accuracy_object, matrix_type='F_H', alpha=0.99, inclu
     model_name = accuracy_object.model.model_options.model_name
     parameters_names = simulation.model.constants.MODEL_PARAMETER_NAMES[model_name]
     tick_transform_y = lambda tick: f'$\\pm {tick:.1%}$'.replace('%', '\\%')
+    util.logging.debug(f'Plotting parameter confidences at {file}')
     util.plot.save.bar(file, data, x_labels=parameters_names, tick_transform_y=tick_transform_y, **kwargs)
 
 
@@ -51,6 +53,7 @@ def parameters_correlations(accuracy_object, matrix_type='F_H', **kwargs):
     correlation_matrix = accuracy_object.correlation_matrix(matrix_type=matrix_type)
     model_name = accuracy_object.model.model_options.model_name
     parameters_names = simulation.model.constants.MODEL_PARAMETER_NAMES[model_name]
+    util.logging.debug(f'Plotting parameter correlations at {file}')
     util.plot.save.dense_matrix_pattern(file, correlation_matrix, colorbar=True, x_tick_lables=parameters_names, y_tick_lables=parameters_names, **kwargs)
 
 
@@ -87,7 +90,8 @@ def model_confidences(accuracy_object, matrix_type='F_H', alpha=0.99, include_va
         if tracer is None or tracer_i == tracer:
             plot_name = f'model_confidences_-_{tracer_i}_-_matrix_type_{matrix_type}_-_include_variance_factor_{include_variance_factor}_-_alpha_{alpha}_-_time_dim_model_{time_dim_model}_-_time_dim_confidence_{time_dim_confidence}'
             base_file = _filename_with_accuracy_object(accuracy_object, plot_kind, plot_name)
-            measurements.plot.data.plot(data[i], base_file, model_lsm, plot_type=plot_type, v_max=v_max, overwrite=overwrite, colorbar=colorbar, tick_power_limit_scientific=100, **tick_transform_dict, **kwargs)
+            util.logging.debug(f'Plotting model confidences at {base_file}')
+            measurements.plot.data.plot(data[i], base_file, model_lsm, plot_type=plot_type, v_max=v_max, overwrite=overwrite, colorbar=colorbar, **tick_transform_dict, **kwargs)
 
 
 def model_confidence_increases(accuracy_object, number_of_measurements=1, alpha=0.99, include_variance_factor=True,
@@ -123,4 +127,5 @@ def model_confidence_increases(accuracy_object, number_of_measurements=1, alpha=
         if tracer is None or tracer_i == tracer:
             plot_name = f'increases_-_{tracer_i}_-_measurements_{number_of_measurements}_-_relative_confidence_{relative_average_model_confidence_for_increases}_-_relative_increases_{increases_relative_to_average_model_confidence}_-_variance_factor_{include_variance_factor}_-_alpha_{alpha}_-_time_dim_model_{time_dim_model}_-_time_dim_increase_{time_dim_confidence_increase}'
             base_file = _filename_with_accuracy_object(accuracy_object, plot_kind, plot_name)
-            measurements.plot.data.plot(data[i], base_file, model_lsm, plot_type=plot_type, v_max=v_max, overwrite=overwrite, colorbar=colorbar, tick_power_limit_scientific=100, **tick_transform_dict, **kwargs)
+            util.logging.debug(f'Plotting model confidences increases at {base_file}')
+            measurements.plot.data.plot(data[i], base_file, model_lsm, plot_type=plot_type, v_max=v_max, overwrite=overwrite, colorbar=colorbar, **tick_transform_dict, **kwargs)
