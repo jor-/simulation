@@ -34,15 +34,20 @@ def _filename_with_accuracy_object(accuracy_object, plot_kind, plot_name):
     return file
 
 
-def parameters_confidences(accuracy_object, matrix_type='F_H', alpha=0.99, include_variance_factor=True, relative=True, **kwargs):
+def parameters_confidences(accuracy_object, matrix_type='F_H', alpha=0.99, include_variance_factor=True,
+                           use_interval_length=True, relative=True, **kwargs):
     plot_kind = 'parameters_confidences'
-    plot_name = f'parameters_confidences_-_matrix_type_{matrix_type}_-_include_variance_factor_{include_variance_factor}_-_alpha_{alpha}_-_relative_{relative}'
+    plot_name = f'parameters_confidences_-_interval_length_{use_interval_length}_-_matrix_type_{matrix_type}_-_include_variance_factor_{include_variance_factor}_-_alpha_{alpha}_-_relative_{relative}'
     file = _filename_with_accuracy_object(accuracy_object, plot_kind, plot_name)
     data = accuracy_object.parameter_confidence(matrix_type=matrix_type, alpha=alpha, include_variance_factor=include_variance_factor, relative=relative)
     model_name = accuracy_object.model.model_options.model_name
     parameters_names = simulation.model.constants.MODEL_PARAMETER_NAMES[model_name]
-    tick_transform_y = lambda tick: f'$\\pm {tick:.1%}$'.replace('%', '\\%')
     util.logging.debug(f'Plotting parameter confidences at {file}')
+    if use_interval_length:
+        data *= 2
+        tick_transform_y = lambda tick: f'${tick:.0%}$'.replace('%', '\\%')
+    else:
+        tick_transform_y = lambda tick: f'$\\pm {tick:.1%}$'.replace('%', '\\%')
     util.plot.save.bar(file, data, x_labels=parameters_names, tick_transform_y=tick_transform_y, **kwargs)
 
 
@@ -57,7 +62,8 @@ def parameters_correlations(accuracy_object, matrix_type='F_H', **kwargs):
     util.plot.save.dense_matrix_pattern(file, correlation_matrix, colorbar=True, x_tick_lables=parameters_names, y_tick_lables=parameters_names, **kwargs)
 
 
-def model_confidences(accuracy_object, matrix_type='F_H', alpha=0.99, include_variance_factor=True, time_dim_model=12, time_dim_confidence=12,
+def model_confidences(accuracy_object, matrix_type='F_H', alpha=0.99, include_variance_factor=True, use_interval_length=True,
+                      time_dim_model=12, time_dim_confidence=12,
                       tracer=None, plot_type='all', v_max=None, overwrite=False, colorbar=True, **kwargs):
     # check tracer
     tracers = accuracy_object.model.model_options.tracers
@@ -68,14 +74,19 @@ def model_confidences(accuracy_object, matrix_type='F_H', alpha=0.99, include_va
     model_lsm = accuracy_object.model.model_lsm
     data = accuracy_object.model_confidence(matrix_type=matrix_type, alpha=alpha, include_variance_factor=include_variance_factor, time_dim_model=time_dim_model, time_dim_confidence=time_dim_confidence)
     assert len(data) == len(tracers)
+    if use_interval_length:
+        data *= 2
 
     # transform ticks
     tick_transform_exponent = util.plot.auxiliary.tick_transform_function_exponent_notation(data, v_max=v_max)
 
-    def tick_transform(tick):
-        tick = tick_transform_exponent(tick)
-        tick = '$\\pm' + tick[1:]
-        return tick
+    if use_interval_length:
+        tick_transform = tick_transform_exponent
+    else:
+        def tick_transform(tick):
+            tick = tick_transform_exponent(tick)
+            tick = '$\\pm' + tick[1:]
+            return tick
 
     if plot_type.startswith('depth'):
         tick_transform_dict = {'tick_transform_x': tick_transform}
@@ -88,13 +99,13 @@ def model_confidences(accuracy_object, matrix_type='F_H', alpha=0.99, include_va
     plot_kind = 'model_confidences'
     for i, tracer_i in enumerate(tracers):
         if tracer is None or tracer_i == tracer:
-            plot_name = f'model_confidences_-_{tracer_i}_-_matrix_type_{matrix_type}_-_include_variance_factor_{include_variance_factor}_-_alpha_{alpha}_-_time_dim_model_{time_dim_model}_-_time_dim_confidence_{time_dim_confidence}'
+            plot_name = f'model_confidences_-_interval_length_{use_interval_length}_-_{tracer_i}_-_matrix_type_{matrix_type}_-_include_variance_factor_{include_variance_factor}_-_alpha_{alpha}_-_time_dim_model_{time_dim_model}_-_time_dim_confidence_{time_dim_confidence}'
             base_file = _filename_with_accuracy_object(accuracy_object, plot_kind, plot_name)
             util.logging.debug(f'Plotting model confidences at {base_file}')
             measurements.plot.data.plot(data[i], base_file, model_lsm, plot_type=plot_type, v_max=v_max, overwrite=overwrite, colorbar=colorbar, **tick_transform_dict, **kwargs)
 
 
-def model_confidence_increases(accuracy_object, number_of_measurements=1, alpha=0.99, include_variance_factor=True,
+def model_confidence_increases(accuracy_object, number_of_measurements=1, alpha=0.99, include_variance_factor=True, use_interval_length=True,
                                relative_average_model_confidence_for_increases=True, increases_relative_to_average_model_confidence=True,
                                time_dim_model=12, time_dim_confidence_increase=12,
                                tracer=None, plot_type='all', v_max=None, overwrite=False, colorbar=True, **kwargs):
@@ -111,6 +122,9 @@ def model_confidence_increases(accuracy_object, number_of_measurements=1, alpha=
         time_dim_model=time_dim_model, time_dim_confidence_increase=time_dim_confidence_increase)
     assert len(data) == len(tracers)
 
+    if use_interval_length:
+        data *= 2
+
     # transform ticks
     tick_transform = util.plot.auxiliary.tick_transform_function_exponent_notation(data, v_max=v_max)
 
@@ -125,7 +139,7 @@ def model_confidence_increases(accuracy_object, number_of_measurements=1, alpha=
     plot_kind = 'average_model_confidence_increases'
     for i, tracer_i in enumerate(tracers):
         if tracer is None or tracer_i == tracer:
-            plot_name = f'increases_-_{tracer_i}_-_measurements_{number_of_measurements}_-_relative_confidence_{relative_average_model_confidence_for_increases}_-_relative_increases_{increases_relative_to_average_model_confidence}_-_variance_factor_{include_variance_factor}_-_alpha_{alpha}_-_time_dim_model_{time_dim_model}_-_time_dim_increase_{time_dim_confidence_increase}'
+            plot_name = f'increases_-_interval_length_{use_interval_length}_-_{tracer_i}_-_measurements_{number_of_measurements}_-_relative_confidence_{relative_average_model_confidence_for_increases}_-_relative_increases_{increases_relative_to_average_model_confidence}_-_variance_factor_{include_variance_factor}_-_alpha_{alpha}_-_time_dim_model_{time_dim_model}_-_time_dim_increase_{time_dim_confidence_increase}'
             base_file = _filename_with_accuracy_object(accuracy_object, plot_kind, plot_name)
             util.logging.debug(f'Plotting model confidences increases at {base_file}')
             measurements.plot.data.plot(data[i], base_file, model_lsm, plot_type=plot_type, v_max=v_max, overwrite=overwrite, colorbar=colorbar, **tick_transform_dict, **kwargs)
