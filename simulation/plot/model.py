@@ -93,7 +93,8 @@ def model_confidences(accuracy_object, matrix_type='F_H', alpha=0.99, include_va
     elif plot_type in ('time', 'histogram'):
         tick_transform_dict = {'tick_transform_y': tick_transform}
     else:
-        tick_transform_dict = {'colorbar_tick_transform': tick_transform}
+        # tick_transform_dict = {'colorbar_tick_transform': tick_transform}
+        tick_transform_dict = {}
 
     # plot
     plot_kind = 'model_confidences'
