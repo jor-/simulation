@@ -139,7 +139,7 @@ def model_confidence_increases(accuracy_object, number_of_measurements=1, alpha=
     plot_kind = 'average_model_confidence_increases'
     for i, tracer_i in enumerate(tracers):
         if tracer is None or tracer_i == tracer:
-            plot_name = f'increases_-_interval_length_{use_interval_length}_-_{tracer_i}_-_measurements_{number_of_measurements}_-_relative_confidence_{relative_average_model_confidence_for_increases}_-_relative_increases_{increases_relative_to_average_model_confidence}_-_variance_factor_{include_variance_factor}_-_alpha_{alpha}_-_time_dim_model_{time_dim_model}_-_time_dim_increase_{time_dim_confidence_increase}'
+            plot_name = f'increases_-_length_{use_interval_length}_-_{tracer_i}_-_measurements_{number_of_measurements}_-_relative_confidence_{relative_average_model_confidence_for_increases}_-_relative_increases_{increases_relative_to_average_model_confidence}_-_variance_factor_{include_variance_factor}_-_alpha_{alpha}_-_dim_model_{time_dim_model}_-_dim_increase_{time_dim_confidence_increase}'
             base_file = _filename_with_accuracy_object(accuracy_object, plot_kind, plot_name)
             util.logging.debug(f'Plotting model confidences increases at {base_file}')
             measurements.plot.data.plot(data[i], base_file, model_lsm, plot_type=plot_type, v_max=v_max, overwrite=overwrite, colorbar=colorbar, **tick_transform_dict, **kwargs)
