@@ -18,7 +18,7 @@ def _main():
     parser.add_argument('--not_increases_calculation_relative', action='store_true', help='Do not use relative but absolute in increase calculation.')
     parser.add_argument('--not_confidence_increases_relative_to_confidence', action='store_true', help='Do not use confidence increase relative to usual confidence value.')
     parser.add_argument('--time_dim_model', type=int, default=12, help='The time dimension used for the model.')
-    parser.add_argument('--time_dim_confidence_increase', type=int, default=12, help='The time dimension used for the model confidence increase.')
+    parser.add_argument('--time_dim_confidence', type=int, default=12, help='The time dimension used for the model confidence increase.')
     parser.add_argument('--tracer', default=None, help='The tracer that should be ploted. If not passed, all tracers are plotted.')
 
     parser.add_argument('--plot_type', default='all', help='Desired plot type.')
@@ -50,7 +50,7 @@ def _main():
             accuracy_object, confidence_type=args.confidence_type, number_of_measurements=args.number_of_measurements, alpha=args.alpha,
             include_variance_factor=not args.not_include_variance_factor, use_interval_length=not args.not_use_interval_length,
             increases_calculation_relative=not args.not_increases_calculation_relative, confidence_increases_relative_to_confidence=not args.not_confidence_increases_relative_to_confidence,
-            time_dim_model=args.time_dim_model, time_dim_confidence_increase=args.time_dim_confidence_increase,
+            time_dim_model=args.time_dim_model, time_dim_confidence=args.time_dim_confidence,
             tracer=args.tracer, plot_type=args.plot_type, v_max=v_max, colorbar=not args.no_colorbar, overwrite=args.overwrite, **kwargs)
 
 

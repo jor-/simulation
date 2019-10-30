@@ -237,23 +237,24 @@ class Base(simulation.util.cache.Cache):
             confidence = np.nan
         return confidence
 
-    def model_confidence_without_confidence_factor_using_covariance_matrix(self, covariance_matrix, time_dim_confidence=12, time_dim_model=None, parallel=True, df_all=None, dtype=None):
+    def model_confidence_without_confidence_factor_using_covariance_matrix(self, covariance_matrix, time_dim_confidence=12, df_all=None, time_dim_model=None, parallel=True, dtype=None):
         util.logging.debug(f'Calculating model confidence for given covariance matrix with confidence time dim {time_dim_confidence} and model time dim {time_dim_model} using parallel {parallel}.')
+        # set dtype
         if dtype is None:
             dtype = np.float64
-
-        # calculate needed values
-        if time_dim_model is None:
-            time_dim_model = self.model.model_lsm.t_dim
-        if time_dim_model % time_dim_confidence == 0:
-            time_step_size = int(time_dim_model / time_dim_confidence)
+        # set time_dim_model and df_all
+        if df_all is not None:
+            time_dim_model = df_all.shape[1]
         else:
-            raise ValueError(f'The desired time dimension {time_dim_confidence} of the confidence can not be satisfied because the time dimension of the model {time_dim_model} is not divisible by {time_dim_confidence}.')
-
-        if df_all is None:
+            if time_dim_model is None:
+                time_dim_model = self.model.model_lsm.t_dim
+            elif time_dim_model % time_dim_confidence != 0:
+                raise ValueError(f'The desired time dimension {time_dim_confidence} of the confidence can not be satisfied because the time dimension of the model {time_dim_model} is not divisible by {time_dim_confidence}.')
             df_all = self.model_df_all_boxes(time_dim_model)
+        # calculate time_step_size
+        time_step_size = int(time_dim_model / time_dim_confidence)
+        # calculate confidence shape
         confidence_shape = (df_all.shape[0], time_dim_confidence) + df_all.shape[2:-1]
-
         # calculate model confidence for each index
         if parallel < 1:
             model_confidence = np.empty(confidence_shape, dtype=dtype)
@@ -263,6 +264,7 @@ class Base(simulation.util.cache.Cache):
                 model_confidence[confidence_index] = model_confidence_at_index
         else:
             chunksize = np.sort(confidence_shape)[-1]
+            covariance_matrix = util.parallel.with_multiprocessing.shared_array(covariance_matrix)
             df_all = util.parallel.with_multiprocessing.shared_array(df_all)
             model_confidence = util.parallel.with_multiprocessing.create_array_with_args(
                 confidence_shape, self._model_confidence_calculate_for_index,
@@ -343,42 +345,60 @@ class Base(simulation.util.cache.Cache):
 
     # *** average model confidence increase *** #
 
-    def _confidence_increase_without_confidence_factor_calculate_for_index(self, confidence_index, confidence_type, df_all, covariance_matrix, number_of_measurements, relative,
-                                                                           f_all_mean_per_tracer, include_variance_factor, parallel, dtype):
-        df_additional = df_all[confidence_index]
-        if not np.all(np.isnan(df_additional)):
+    def _confidence_increase_without_confidence_factor_calculate_for_index(self, confidence_index, time_step_size, confidence_type, df_all, covariance_matrix, number_of_measurements, relative,
+                                                                           f_all_mean_per_tracer, include_variance_factor, dtype):
+        if not np.all(np.isnan(df_all[confidence_index])):
             util.logging.debug(f'Calculating average model output confidence increase for index {confidence_index}.')
-            # get standard deviation
-            coordinate = self.model.model_lsm.map_index_to_coordinate(*confidence_index[1:])
             measurements_i = self.measurements.measurements_list[confidence_index[0]]
-            index_measurements = measurements_i.sample_lsm.coordinate_to_map_index(*coordinate, discard_year=True)
-            standard_deviations_additional = measurements_i.standard_deviations_for_sample_lsm()[tuple(index_measurements)]
-            assert not np.any(np.isnan(standard_deviations_additional))
-            # repeat several times if needed
-            df_additional = np.tile(df_additional, (number_of_measurements, 1))
-            standard_deviations_additional = np.tile(standard_deviations_additional, number_of_measurements)
-            # calculate confidence
-            covariance_matrix = self.covariance_matrix_type_F_with_additional_independent(covariance_matrix, df_additional, standard_deviations_additional, include_variance_factor=include_variance_factor, dtype=dtype)
-            if confidence_type == 'average_model_confidence':
-                model_confidence_without_confidence_factor = self.model_confidence_without_confidence_factor_using_covariance_matrix(covariance_matrix, time_dim_confidence=1, time_dim_model=df_all.shape[1], parallel=False, df_all=df_all, dtype=dtype)
-                confidence_increase_at_index = self.average_model_confidence_using_model_confidence(model_confidence_without_confidence_factor, per_tracer=False, relative=relative, f_all_mean_per_tracer=f_all_mean_per_tracer, dtype=dtype)
-                assert confidence_increase_at_index is not None
-            elif confidence_type == 'average_parameter_standard_deviation':
-                confidence_increase_at_index = self.average_parameter_standard_deviation(relative=relative, covariance_matrix=covariance_matrix, dtype=dtype)
-            else:
-                assert False
+            time_index_start = confidence_index[1] * time_step_size
+            confidence_increase_at_index = 0.0
+            for time_index_offset in range(time_step_size):
+                # get df
+                confidence_index_i = (confidence_index[0], time_index_start + time_index_offset) + tuple(confidence_index[2:])
+                df_i = df_all[confidence_index_i]
+                # get standard deviation
+                coordinate = self.model.model_lsm.map_index_to_coordinate(*confidence_index_i[1:])
+                index_measurements = measurements_i.sample_lsm.coordinate_to_map_index(*coordinate, discard_year=True)
+                standard_deviations_additional = measurements_i.standard_deviations_for_sample_lsm()[tuple(index_measurements)]
+                assert not np.any(np.isnan(standard_deviations_additional))
+                # repeat several times if needed
+                df_additional = np.tile(df_i, (number_of_measurements, 1))
+                standard_deviations_additional = np.tile(standard_deviations_additional, number_of_measurements)
+                # calculate confidence
+                covariance_matrix = self.covariance_matrix_type_F_with_additional_independent(covariance_matrix, df_additional, standard_deviations_additional, include_variance_factor=include_variance_factor, dtype=dtype)
+                if confidence_type == 'average_model_confidence':
+                    model_confidence_without_confidence_factor = self.model_confidence_without_confidence_factor_using_covariance_matrix(covariance_matrix, time_dim_confidence=1, df_all=df_all, parallel=False, dtype=dtype)
+                    confidence_increase_at_index_i = self.average_model_confidence_using_model_confidence(model_confidence_without_confidence_factor, per_tracer=False, relative=relative, f_all_mean_per_tracer=f_all_mean_per_tracer, dtype=dtype)
+                    assert confidence_increase_at_index is not None
+                elif confidence_type == 'average_parameter_standard_deviation':
+                    confidence_increase_at_index_i = self.average_parameter_standard_deviation(covariance_matrix=covariance_matrix, relative=relative, dtype=dtype)
+                else:
+                    assert False
+
+                confidence_increase_at_index += confidence_increase_at_index_i
+            # average
+            confidence_increase_at_index /= time_step_size
         else:
             confidence_increase_at_index = np.nan
         return confidence_increase_at_index
 
     def _confidence_increase_calculate(self, confidence_type='average_model_confidence', number_of_measurements=1, alpha=0.99,
-                                       relative=True, include_variance_factor=True, time_dim_confidence_increase=12, time_dim_model=None,
-                                       parallel=True, dtype=None):
-        util.logging.debug(f'Calculating confidence increase of type {confidence_type} with confidence level {alpha}, relative {relative}, model time dim {time_dim_model}, condifence time dim {time_dim_confidence_increase} and number_of_measurements {number_of_measurements} with include_variance_factor {include_variance_factor}.')
+                                       relative=True, include_variance_factor=True, time_dim_model=None, time_dim_confidence=12, parallel=True, dtype=None):
+        util.logging.debug(f'Calculating confidence increase of type {confidence_type} with confidence level {alpha}, relative {relative}, time dim model {time_dim_model}, time dim confidence {time_dim_confidence} and number_of_measurements {number_of_measurements} with include_variance_factor {include_variance_factor}.')
         if dtype is None:
             dtype = np.float128
 
         use_average_model_confidence = confidence_type == 'average_model_confidence'
+
+        # get time_dim_model
+        if time_dim_model is None:
+            time_dim_model = self.model.model_lsm.t_dim
+
+        # calculate time_step_size
+        if time_dim_model % time_dim_confidence == 0:
+            time_step_size = int(time_dim_model / time_dim_confidence)
+        else:
+            raise ValueError(f'The desired time dimension {time_dim_confidence} of the confidence can not be satisfied because the time dimension of the model {time_dim_model} is not divisible by {time_dim_confidence}.')
 
         # get needed values
         if use_average_model_confidence and relative:
@@ -390,7 +410,7 @@ class Base(simulation.util.cache.Cache):
         covariance_matrix = self.covariance_matrix(matrix_type='F', include_variance_factor=False)
 
         # make confidence_increase array
-        confidence_increase_shape = (df_all.shape[0], time_dim_confidence_increase) + df_all.shape[2:-1]
+        confidence_increase_shape = (df_all.shape[0], time_dim_confidence) + df_all.shape[2:-1]
 
         # change time dim in model lsm
         model_lsm = self.model.model_lsm
@@ -402,8 +422,8 @@ class Base(simulation.util.cache.Cache):
             confidence_increase = np.empty(confidence_increase_shape, dtype=dtype)
             for confidence_index in np.ndindex(*confidence_increase_shape):
                 confidence_increase_without_confidence_factor_at_index = self._confidence_increase_without_confidence_factor_calculate_for_index(
-                    confidence_index, confidence_type, df_all, covariance_matrix, number_of_measurements, relative,
-                    f_all_mean_per_tracer, False, parallel, dtype)
+                    confidence_index, time_step_size, confidence_type, df_all, covariance_matrix, number_of_measurements, relative,
+                    f_all_mean_per_tracer, False, dtype)
                 confidence_increase[confidence_index] = confidence_increase_without_confidence_factor_at_index
         else:
             chunksize = np.sort(confidence_increase_shape)[-1]
@@ -413,8 +433,8 @@ class Base(simulation.util.cache.Cache):
             covariance_matrix = util.parallel.with_multiprocessing.shared_array(covariance_matrix)
             confidence_increase = util.parallel.with_multiprocessing.create_array_with_args(
                 confidence_increase_shape, self._confidence_increase_without_confidence_factor_calculate_for_index,
-                confidence_type, df_all, covariance_matrix, number_of_measurements, relative,
-                f_all_mean_per_tracer, False, parallel, dtype,
+                time_step_size, confidence_type, df_all, covariance_matrix, number_of_measurements, relative,
+                f_all_mean_per_tracer, False, dtype,
                 number_of_processes=None, chunksize=chunksize, share_args=True)
 
         # restore time dim in model lsm
@@ -438,7 +458,8 @@ class Base(simulation.util.cache.Cache):
         confidence_increase = confidence - confidence_increase
         return confidence_increase
 
-    def confidence_increase(self, confidence_type='average_model_confidence', number_of_measurements=1, alpha=0.99, time_dim_confidence_increase=12, time_dim_model=None,
+    def confidence_increase(self, confidence_type='average_model_confidence', number_of_measurements=1, alpha=0.99,
+                            time_dim_model=None, time_dim_confidence=12,
                             increases_calculation_relative=True, confidence_increases_relative_to_confidence=True,
                             include_variance_factor=True, parallel=True):
         if confidence_type not in ('average_model_confidence', 'average_parameter_standard_deviation'):
@@ -448,10 +469,10 @@ class Base(simulation.util.cache.Cache):
 
         filename = simulation.accuracy.constants.CONFIDENCE_INCREASE_FILENAME.format(
             confidence_type=confidence_type, number_of_measurements=number_of_measurements, alpha=alpha, relative=increases_calculation_relative,
-            time_dim_confidence_increase=time_dim_confidence_increase, time_dim_model=time_dim_model, include_variance_factor=include_variance_factor)
+            time_dim_model=time_dim_model, time_dim_confidence=time_dim_confidence, include_variance_factor=include_variance_factor)
         calculation_function = lambda: self._confidence_increase_calculate(
             confidence_type=confidence_type, number_of_measurements=number_of_measurements, alpha=alpha, relative=increases_calculation_relative,
-            time_dim_confidence_increase=time_dim_confidence_increase, time_dim_model=time_dim_model, include_variance_factor=include_variance_factor,
+            time_dim_model=time_dim_model, time_dim_confidence=time_dim_confidence, include_variance_factor=include_variance_factor,
             parallel=parallel)
         confidence_increase = self._value_from_file_cache(filename, calculation_function, save_as_txt=False, save_as_np=True)
 
