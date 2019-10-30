@@ -94,7 +94,7 @@ setuptools.setup(
             'simulation_plot_parameters_correlations = simulation.plot.parameters_correlations:_main',
             'simulation_plot_model_output = simulation.plot.model_output:_main',
             'simulation_plot_model_confidences = simulation.plot.model_confidences:_main',
-            'simulation_plot_model_confidence_increases = simulation.plot.average_model_confidence_increases:_main',
+            'simulation_plot_confidence_increases = simulation.plot.confidence_increases:_main',
         ],
     }
 )

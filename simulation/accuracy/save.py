@@ -33,7 +33,7 @@ def save(model_options, measurements_object, cost_function_name,
                 for per_tracer in (True, False):
                     accuracy_object.average_model_confidence(matrix_type=matrix_type, include_variance_factor=include_variance_factor, alpha=alpha, time_dim_model=time_dim_model, per_tracer=per_tracer, relative=relative, parallel=parallel)
     for time_dim_confidence in (4, 1, 12):
-        accuracy_object.average_model_confidence_increase(alpha=alpha, time_dim_confidence_increase=time_dim_confidence, time_dim_model=time_dim_model, relative=True, include_variance_factor=True, parallel=parallel, number_of_measurements=1)
+        accuracy_object.confidence_increase(alpha=alpha, time_dim_confidence_increase=time_dim_confidence, time_dim_model=time_dim_model, increases_calculation_relative=True, include_variance_factor=True, parallel=parallel, number_of_measurements=1)
 
 
 # *** main function for script call *** #
