@@ -78,7 +78,11 @@ def model_confidences(accuracy_object, matrix_type='F_H', alpha=0.99, include_va
         data *= 2
 
     # transform ticks
-    tick_transform_exponent = util.plot.auxiliary.tick_transform_function_exponent_notation(data, v_max=v_max)
+    try:
+        v_max_tick = float(v_max)
+    except (ValueError, TypeError):
+        v_max_tick = None
+    tick_transform_exponent = util.plot.auxiliary.tick_transform_function_exponent_notation(data, v_max=v_max_tick)
 
     if use_interval_length:
         tick_transform = tick_transform_exponent
@@ -128,7 +132,11 @@ def confidence_increases(accuracy_object, confidence_type='average_model_confide
         data *= 2
 
     # transform ticks
-    tick_transform = util.plot.auxiliary.tick_transform_function_exponent_notation(data, v_max=v_max)
+    try:
+        v_max_tick = float(v_max)
+    except (ValueError, TypeError):
+        v_max_tick = None
+    tick_transform = util.plot.auxiliary.tick_transform_function_exponent_notation(data, v_max=v_max_tick)
 
     if plot_type.startswith('depth'):
         tick_transform_dict = {'tick_transform_x': tick_transform}
