@@ -2,7 +2,7 @@
 SIMULATION
 ==========
 
-This is a collection of Python modules containing functions to handel simulations.
+This is a collection of Python functions for simulating mathematical models, estimating model parameters, quantifying uncertainties and visualizing results. In particular, it is designed to simulate biogechemical models using METOS3D on high perfomance computers.
 
 
 Release info
@@ -78,7 +78,7 @@ https://github.com/jor-/simulation
 Copyright
 =========
 
-Copyright (C) 2011-2018  Joscha Reimer jor@informatik.uni-kiel.de
+Copyright (C) 2011-2019  Joscha Reimer jor@informatik.uni-kiel.de
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as
