@@ -1,6 +1,7 @@
 import pathlib
 import warnings
 
+import util.plot.auxiliary
 import simulation.plot.constants
 
 
@@ -12,12 +13,8 @@ def filename(model_object, kind, plot_name):
         parameters_index=model_object.parameter_set_dir_index,
         kind=kind,
         plot_name=plot_name)
-    # check for bad chars
-    for bad_char, replacement_char in [('.', '_'), ('(', '['), (')', ']')]:
-        if bad_char in file:
-            warnings.warn(f'A "{bad_char}" is in the filename {file} which should be avoided. Replacing "{bad_char}" by "{replacement_char}".')
-            file = file.replace(bad_char, replacement_char)
-        assert bad_char not in file
+    # replace bad chars
+    file = util.plot.auxiliary.replace_bad_characters(file)
     # append file extension
     file_extension = simulation.plot.constants.PLOT_DEFAULT_FILE_EXTENSION
     assert not file_extension.startswith('.')
