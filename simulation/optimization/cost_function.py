@@ -6,6 +6,7 @@ import scipy.sparse.linalg
 
 import matrix.approximation.positive_semidefinite
 import matrix.calculate
+import matrix.constants
 
 import simulation.model.constants
 import simulation.model.options
@@ -146,6 +147,12 @@ class BaseUsingCorrelation(Base):
 
 class OLS(Base):
 
+    def normalized_residuals(self):
+        F = self.model_f()
+        results = self.measurements_results()
+        diff = F - results
+        return diff
+
     def f_calculate_unnormalized(self):
         F = self.model_f()
         results = self.measurements_results()
@@ -176,6 +183,13 @@ class OLS(Base):
 
 
 class WLS(BaseUsingStandardDeviation):
+
+    def normalized_residuals(self):
+        F = self.model_f()
+        results = self.measurements_results()
+        standard_deviations = self.measurements.standard_deviations
+        diff = (F - results) / standard_deviations
+        return diff
 
     def f_calculate_unnormalized(self):
         F = self.model_f()
@@ -211,6 +225,16 @@ class WLS(BaseUsingStandardDeviation):
 
 
 class GLS(BaseUsingCorrelation):
+
+    def normalized_residuals(self):
+        F = self.model_f()
+        results = self.measurements_results()
+        standard_deviations = self.measurements.standard_deviations
+        diff = (F - results) / standard_deviations
+        correlation_matrix_decomposition = self.measurements.correlations_own_decomposition
+        correlation_matrix_decomposition = correlation_matrix_decomposition.as_type(matrix.constants.LL_DECOMPOSITION_TYPE)
+        diff = correlation_matrix_decomposition.inverse_L_right_side_multiplication(diff)
+        return diff
 
     def f_calculate_unnormalized(self):
         F = self.model_f()
